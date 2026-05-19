@@ -1,5 +1,6 @@
 import React from "react";
 import { useTranslation } from "../i18n/useTranslation";
+import { useSettingsStore } from "../store/settingsStore";
 
 interface MainMenuProps {
     onNewGame: () => void;
@@ -9,6 +10,7 @@ interface MainMenuProps {
 
 export function MainMenu({ onNewGame, onGrimoire, onSettings }: MainMenuProps) {
     const t = useTranslation();
+    const language = useSettingsStore((s) => s.language);
     return (
         <div style={s.root}>
             {/* Ambient particles overlay */}
@@ -19,20 +21,24 @@ export function MainMenu({ onNewGame, onGrimoire, onSettings }: MainMenuProps) {
                 {/* Title area — top-left */}
                 <div style={s.titleBlock}>
                     <div style={s.rune}>✦ ✦ ✦</div>
-                    <h1 style={s.title}>{t.menu.title}</h1>
+                    <img
+                        src={`/images/title/title-${language}.png`}
+                        alt={t.menu.title}
+                        style={s.titleImage}
+                    />
                     <p style={s.subtitle}>{t.menu.subtitle}</p>
                 </div>
 
                 {/* Menu buttons — left-aligned, vertical stack */}
                 <nav style={s.nav}>
-                    <MenuButton label={t.menu.newGame} icon="⬡" onClick={onNewGame} accent="#cc88ff" />
-                    <MenuButton label={t.menu.grimoire} icon="✦" onClick={onGrimoire} accent="#aa66ee" />
-                    <MenuButton label={t.menu.settings} icon="◈" onClick={onSettings} accent="#8855bb" />
+                    <MenuButton label={t.menu.newGame} icon="⬡" onClick={onNewGame} accent="#e8b84d" />
+                    <MenuButton label={t.menu.grimoire} icon="✦" onClick={onGrimoire} accent="#e8b84d" />
+                    <MenuButton label={t.menu.settings} icon="◈" onClick={onSettings} accent="#e8b84d" />
                 </nav>
 
                 {/* Footer */}
                 <div style={s.footer}>
-                    <span style={s.footerText}>v0.1.0 — Built in the shadows of Ashenveil</span>
+                    <span style={s.footerText}>v0.1.0 - Built in the shadows of Softcurse Systems</span>
                 </div>
             </div>
 
@@ -66,8 +72,8 @@ function MenuButton({
                 (e.currentTarget as HTMLButtonElement).style.paddingLeft = "36px";
             }}
             onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor = "#2a1a3a";
-                (e.currentTarget as HTMLButtonElement).style.color = "#9977bb";
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent";
+                (e.currentTarget as HTMLButtonElement).style.color = "#c9a86c"; // C.amber
                 (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
                 (e.currentTarget as HTMLButtonElement).style.paddingLeft = "28px";
             }}
@@ -106,7 +112,7 @@ const s: Record<string, React.CSSProperties> = {
     content: {
         display: "flex",
         flexDirection: "column",
-        justifyContent: "flex-start",
+        justifyContent: "center",
         padding: "clamp(48px, 8vh, 80px) clamp(40px, 6vw, 100px)",
         position: "relative",
         zIndex: 1,
@@ -114,11 +120,12 @@ const s: Record<string, React.CSSProperties> = {
         maxWidth: 700,
     },
     titleBlock: {
-        marginBottom: "clamp(48px, 10vh, 100px)",
+        marginTop: 0,
+        marginBottom: 250
     },
     rune: {
         color: "#4a1a7a",
-        fontSize: 14,
+        fontSize: 30,
         letterSpacing: 10,
         marginBottom: 16,
         opacity: 0.7,
@@ -134,6 +141,15 @@ const s: Record<string, React.CSSProperties> = {
         textShadow:
             "0 0 40px rgba(180, 80, 255, 0.3), 0 0 80px rgba(120, 40, 200, 0.1)",
     },
+    titleImage: {
+        width: "100%",
+        maxWidth: 850,
+        height: "auto",
+        objectFit: "contain",
+        display: "block",
+        margin: "12px 0",
+        filter: "drop-shadow(0 0 20px rgba(180, 80, 255, 0.3)) drop-shadow(0 0 40px rgba(120, 40, 200, 0.1))",
+    },
     titleOf: {
         color: "#664488",
         fontSize: "0.7em",
@@ -142,7 +158,7 @@ const s: Record<string, React.CSSProperties> = {
     subtitle: {
         fontFamily: "monospace",
         fontSize: 14,
-        color: "#443355",
+        color: "#c9a86c", // Gold/amber
         letterSpacing: 2,
         marginTop: 14,
     },
@@ -155,27 +171,27 @@ const s: Record<string, React.CSSProperties> = {
     menuBtn: {
         display: "flex",
         alignItems: "center",
-        gap: 14,
+        gap: 20,
         background: "transparent",
-        border: "1px solid #2a1a3a",
-        borderRadius: 8,
-        padding: "16px 28px",
-        color: "#9977bb",
+        border: "2px solid transparent",
+        borderRadius: 12,
+        padding: "24px 42px",
+        color: "#c9a86c", // Match settings text color
         fontFamily: "Georgia, 'Times New Roman', serif",
-        fontSize: 20,
-        letterSpacing: 1.5,
+        fontSize: 50,
+        letterSpacing: 2,
         cursor: "pointer",
         textAlign: "left",
         transition:
             "border-color 0.25s, color 0.25s, box-shadow 0.25s, padding-left 0.25s",
         width: "100%",
-        maxWidth: 320,
+        maxWidth: 550,
     },
     menuIcon: {
-        fontSize: 18,
+        fontSize: 32,
         opacity: 0.6,
         flexShrink: 0,
-        width: 20,
+        width: 40,
         textAlign: "center",
     },
     menuLabel: {
@@ -188,7 +204,7 @@ const s: Record<string, React.CSSProperties> = {
     footerText: {
         fontFamily: "monospace",
         fontSize: 12,
-        color: "#2a1a3a",
+        color: "#8a7656", // Bronze
         letterSpacing: 2,
     },
     glowOrb: {
