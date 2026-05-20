@@ -58,11 +58,11 @@ export const INGREDIENTS: Ingredient[] = [
         name: "Brimstone",
         latinName: "Sulphur Infernum",
         rarity: "Common",
-        values: [1, 2],
+        values: [1],
         description:
             "Crystallised volcanic essence harvested from the geothermal vents beneath Ashenveil. Brimstone radiates heat that can be felt through leather gloves.",
         effect:
-            "Safe ingredient — advances the spiral without adding to Voidshard pressure. No special effect. Higher value Brimstone chips push further along the track, earning more VP and coins.",
+            "Safe ingredient — advances the spiral by 1 without adding to Voidshard pressure. No special effect. It is the cheapest safe chip in the market.",
         lore:
             "\"The earth bleeds Brimstone so that we may brew without dying. Mostly.\" — Maren, Third-Rank Hexbrewer",
         warning: undefined,
@@ -75,11 +75,11 @@ export const INGREDIENTS: Ingredient[] = [
         name: "Deathweave",
         latinName: "Arachnium Mortis",
         rarity: "Common",
-        values: [1, 2],
+        values: [1, 2, 4],
         description:
             "Silk harvested from the poisonous Ashenveil cave spider, treated with moonwater until its toxins become inert. The resulting thread glows with a sickly green phosphorescence.",
         effect:
-            "End-of-round effect: If a Deathweave chip is placed on the last or second-to-last space of your crucible, you earn 1 ruby. Rubies can be spent between rounds to advance your droplet or refill your Cursed Vial.",
+            "End-of-round effect: Gain 1 ruby for each Deathweave chip that is one of the last two placed chips in your crucible.",
         lore:
             "\"I do not harvest the silk. I negotiate with the spider.\" — Ysolde the Pale",
         warning: undefined,
@@ -92,11 +92,11 @@ export const INGREDIENTS: Ingredient[] = [
         name: "Wraithbloom",
         latinName: "Phantasma Floris",
         rarity: "Uncommon",
-        values: [1, 2],
+        values: [1],
         description:
             "A spectral flower that blooms only in places where the veil between worlds is thin. Its petals dissolve upon contact with sunlight, making it one of the most prized night-harvested reagents.",
         effect:
-            "End-of-round effect: If your crucible survives (does not explode), gain +1 VP for every Wraithbloom chip placed in your crucible this round. Useless if you explode — only rewards survival.",
+            "End-of-round effect: Count Wraithbloom chips in your crucible. One gives +1 VP; two give +1 VP and +1 ruby; three or more give +2 VP and advance your droplet 1 space.",
         lore:
             "\"It smells like rain, old books, and something you cannot name. Like grief made botanical.\" — Field notes, unknown hexbrewer",
         warning: undefined,
@@ -109,11 +109,11 @@ export const INGREDIENTS: Ingredient[] = [
         name: "Frostbile",
         latinName: "Glacius Mordax",
         rarity: "Uncommon",
-        values: [1, 2],
+        values: [1, 2, 4],
         description:
             "Compressed ice-venom from the Frostbile serpents that inhabit the frozen Ashenveil undercity. Each chip is cold enough to blister bare skin and emits a faint blue corona.",
         effect:
-            "Immediate effect: When a Frostbile chip is drawn, draw additional chips from your bag equal to its value (1, 2, or 4 extra draws). Choose one to keep and place in the crucible. Return the rest to your bag. Powerful for bag manipulation.",
+            "Immediate effect: Draw additional chips from your bag equal to Frostbile's value. You may place one of those chips as your next chip, then return the rest to your bag. If the placed chip has an immediate effect, resolve it too.",
         lore:
             "\"The serpents do not give their venom freely. Neither should you.\" — Master Hexbrewer Caldric",
         warning: undefined,
@@ -126,11 +126,11 @@ export const INGREDIENTS: Ingredient[] = [
         name: "Bloodthorn",
         latinName: "Rubus Cruoris",
         rarity: "Rare",
-        values: [1],
+        values: [1, 2, 4],
         description:
             "Thorns extracted from the carnivorous Bloodthorn bramble that grows along the old execution walls. Each thorn is red-black and barbed, and hums faintly when near active magic.",
         effect:
-            "Immediate effect: When a Bloodthorn chip is drawn, it advances 1 extra space for every other Bloodthorn chip already placed in your crucible. The more Bloodthorns in your pot, the further each new one pushes. Combos stack aggressively.",
+            "Immediate effect: Bloodthorn advances extra spaces based on Brimstone already in your crucible. With 1-2 Brimstone chips it moves +1 space; with 3 or more it moves +2 spaces.",
         lore:
             "\"The bramble knows what you've done. It always does.\" — Ashenveil street warning",
         warning: undefined,
@@ -143,11 +143,11 @@ export const INGREDIENTS: Ingredient[] = [
         name: "Plaguedust",
         latinName: "Pestis Pulveris",
         rarity: "Uncommon",
-        values: [1, 2],
+        values: [1, 2, 4],
         description:
             "Fine golden powder scraped from the husks of plague-moths. Despite its origin, Plaguedust is non-infectious when crystallised, though hexbrewers still wear masks when handling it.",
         effect:
-            "Immediate effect: When a Plaguedust chip is placed, earn 1 ruby for every pair of Plaguedust chips already in your crucible this round. Stacking multiple yellows in a single brew gives escalating ruby income.",
+            "Immediate effect: If Plaguedust is placed directly after a Voidshard, you may return that Voidshard to your bag. The Plaguedust stays where it landed and the emptied space remains empty.",
         lore:
             "\"It smells terrible. It brews beautifully. Such is the nature of things.\" — Tavern hexbrewer, Ashenveil Lower Quarter",
         warning: undefined,
@@ -164,7 +164,7 @@ export const INGREDIENTS: Ingredient[] = [
         description:
             "A living darkness that grows in the deepest vaults beneath Ashenveil where no light has reached in centuries. Shadowmoss feeds on ambient magic and must be stored in obsidian containers.",
         effect:
-            "End-of-round effect: If your crucible survives and a Shadowmoss chip is in the pot, your droplet advances 1 space forward permanently — for free. This is the same benefit as spending 2 rubies, but costs nothing.",
+            "End-of-round effect in a two-player duel: compare Shadowmoss counts with your opponent. If tied, advance your droplet 1 space. If you have more, advance your droplet 1 space and gain 1 ruby.",
         lore:
             "\"I have brewed with Shadowmoss once. Once was enough to understand why the old hexbrewers locked it away.\" — Caldric, in his final journal",
         warning: "Handle with caution. Shadowmoss has been known to shift position in sealed containers.",
@@ -228,8 +228,8 @@ export const RULES: RuleEntry[] = [
         title: "The Crucible Spiral",
         content: [
             "Your crucible is a spiral track of 33 positions. Each token you draw advances your position by the token's value.",
-            "The further along the spiral you reach, the more VP and coins you earn at the end of the round.",
-            "Ruby spaces appear at positions 3, 8, 14, 20, and 27. Landing on one earns you 1 ruby.",
+            "Your scoring space is the empty space directly after your last placed token. That space determines VP, coins, and ruby reward.",
+            "Ruby rewards are checked on the scoring space, not on the token's own space.",
             "Your position resets to your droplet position at the start of each round — all tokens return to your bag.",
         ],
     },
@@ -266,7 +266,8 @@ export const RULES: RuleEntry[] = [
             "VP are earned based on the scoring track (your spiral position). Coins equal your space number.",
             "If your crucible survived: collect both VP and coins.",
             "If your crucible shattered: choose one — VP OR coins.",
-            "Rubies are earned from ruby spaces and chip effects. Spend 2 rubies to advance your droplet 1 space, or refill your Cursed Vial.",
+            "Evaluation order is bonus die, end-round chip effects, rubies, VP, buying, then ruby spending.",
+            "Rubies are earned from ruby spaces and chip effects. At the end of the round, spend 2 rubies to advance your droplet 1 space or refill your Cursed Vial.",
         ],
     },
     {
@@ -299,8 +300,9 @@ export const RULES: RuleEntry[] = [
         title: "Victory",
         content: [
             "The game lasts exactly 9 rounds. In round 6, an extra Voidshard (value 1) is added to every player's bag.",
+            "At the end of round 9, remaining 5 coins or 2 rubies may be converted into 1 VP as often as possible.",
             "After round 9, the player with the highest total VP wins.",
-            "Ties are broken by rubies remaining. Further ties are a shared victory.",
+            "Ties are broken by who reached the furthest scoring space in the final round. Further ties are shared.",
         ],
     },
 ];

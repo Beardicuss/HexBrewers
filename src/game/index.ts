@@ -3,7 +3,7 @@ export type { Token, TokenColor } from "./tokenTypes";
 export { COLOR_UNLOCK_ROUND } from "./tokenTypes";
 export type { Bag } from "./bagTypes";
 export type { Crucible, CrucibleSlot } from "./crucibleTypes";
-export { EXPLOSION_THRESHOLD, CRUCIBLE_SIZE, SPACE_VP, RUBY_SPACES, RAT_TAIL_AFTER_SPACES, getCoinsForSpace } from "./crucibleTypes";
+export { EXPLOSION_THRESHOLD, CRUCIBLE_SIZE, SPACE_VP, RUBY_SPACES, RAT_TAIL_AFTER_SPACES, getCoinsForSpace, getScoringSpace } from "./crucibleTypes";
 export type { Player, PlayerKind } from "./playerTypes";
 export type { OmenCard, OmenEffect } from "./omenTypes";
 export type { MarketItem, BuyPhaseState } from "./bazaarTypes";
@@ -32,7 +32,16 @@ export { createMarket } from "./bazaarFactory";
 export { OMEN_DECK, createShuffledOmenDeck, drawOmen } from "./omen";
 
 // Chip effects
-export { redBonusValue, drawBlueBonus, yellowRubyBonus, greenRubyBonus, purpleVPBonus, blackDropletBonus, applyEndOfRoundEffects } from "./chipEffects";
+export {
+  redBonusValue,
+  drawBlueBonus,
+  applyYellowSetOneBonus,
+  greenRubyBonus,
+  countPlacedColor,
+  applyPurpleSetOneBonus,
+  applyBlackSetOneBonus,
+  applyEndOfRoundEffects,
+} from "./chipEffects";
 
 // Rat tails
 export { countRatTails, calculateRatStoneOffsets, applyRatStones } from "./ratTail";

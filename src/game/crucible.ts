@@ -1,6 +1,6 @@
 import type { Crucible, CrucibleSlot } from "./crucibleTypes";
 import type { Token } from "./tokenTypes";
-import { EXPLOSION_THRESHOLD, CRUCIBLE_SIZE, RUBY_SPACES } from "./crucibleTypes";
+import { EXPLOSION_THRESHOLD, CRUCIBLE_SIZE, RUBY_SPACES, getScoringSpace } from "./crucibleTypes";
 
 export function createCrucible(): Crucible {
   const slots: CrucibleSlot[] = Array.from({ length: CRUCIBLE_SIZE + 1 }, (_, i) => ({
@@ -20,8 +20,8 @@ export function createCrucible(): Crucible {
 // Place a token on the crucible.
 // Token advances filledUpTo by token.value from current position.
 // Returns updated crucible (immutable).
-export function placeToken(crucible: Crucible, token: Token): Crucible {
-  const nextPosition = Math.min(crucible.filledUpTo + token.value, CRUCIBLE_SIZE);
+export function placeToken(crucible: Crucible, token: Token, movement = token.value): Crucible {
+  const nextPosition = Math.min(crucible.filledUpTo + movement, CRUCIBLE_SIZE);
 
   const updatedSlots = crucible.slots.map((slot) =>
     slot.position === nextPosition ? { ...slot, token } : slot
@@ -45,7 +45,7 @@ export function placeToken(crucible: Crucible, token: Token): Crucible {
 // Check if the crucible's scoring space awards a ruby.
 // Ruby is awarded for the scoring space = space directly after last chip.
 export function checkRubyEarned(crucible: Crucible): boolean {
-  return RUBY_SPACES.has(crucible.filledUpTo);
+  return RUBY_SPACES.has(getScoringSpace(crucible.filledUpTo));
 }
 
 export function hasExploded(crucible: Crucible): boolean {

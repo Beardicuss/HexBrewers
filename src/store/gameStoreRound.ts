@@ -6,6 +6,7 @@ import { refillBag } from "../game/bag";
 import { addRound6WhiteChip } from "../game/bagFactory";
 import { drawOmen } from "../game/omen";
 import { refreshMarketAvailability } from "../game/bazaar";
+import { calculateRoundScore } from "../game/scoring";
 import { updatePlayer } from "./gameStoreHelpers";
 
 // ─── Round advancement ────────────────────────────────────────────────────────
@@ -14,17 +15,21 @@ export function advanceToNextRound(state: GameState): GameState {
     const nextRound = state.currentRound + 1;
 
     if (nextRound > state.totalRounds) {
-        const winner = [...state.players].sort((a, b) => {
+        const finalPlayers = state.players.map((player) => ({
+            ...player,
+            score: player.score + Math.floor(player.coinsThisRound / 5) + Math.floor(player.rubies / 2),
+        }));
+        const winner = [...finalPlayers].sort((a, b) => {
             if (b.score !== a.score) return b.score - a.score;
-            return b.crucible.filledUpTo - a.crucible.filledUpTo;
+            return calculateRoundScore(b.crucible).space - calculateRoundScore(a.crucible).space;
         })[0];
-        const human = state.players.find(p => p.id === "human");
+        const human = finalPlayers.find(p => p.id === "human");
         if (human && winner.id === "human") {
             soundManager.play("game_win");
         } else {
             soundManager.play("game_lose");
         }
-        return { ...state, phase: "game_over", winner };
+        return { ...state, players: finalPlayers, phase: "game_over", winner };
     }
 
     // Reset all players for new round

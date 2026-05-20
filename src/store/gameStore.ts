@@ -6,20 +6,82 @@ import type { ExplodedChoice } from "../game/scoring";
 import type { BuyPhaseState } from "../game/bazaarTypes";
 import { soundManager } from "../SoundManager";
 
-import { placeToken, hasExploded, getPlacedTokens, checkRubyEarned } from "../game/crucible";
+import { placeToken } from "../game/crucible";
 import { drawToken } from "../game/bag";
-import { calculateRoundScore, applyFullReward, applyExplodedReward } from "../game/scoring";
-import { canUseFlask, useFlask, restoreFlask } from "../game/flask";
+import { calculateRoundScore } from "../game/scoring";
+import { canUseFlask, useFlask } from "../game/flask";
 import { purchaseItem } from "../game/bazaar";
-import { drawOmen } from "../game/omen";
 import { applyRatStones } from "../game/ratTail";
-import { drawBlueBonus, applyEndOfRoundEffects, yellowRubyBonus } from "../game/chipEffects";
+import { drawBlueBonus, applyEndOfRoundEffects, redBonusValue, applyYellowSetOneBonus } from "../game/chipEffects";
 import { rollBonusDie } from "../game/bonusDie";
 import { spendRubiesForDroplet, spendRubiesForFlask, canAdvanceDroplet, canRefillFlask } from "../game/rubyActions";
-import { getCoinsForSpace } from "../game/crucibleTypes";
+import { decideExplodedChoice, decideMarketTurn } from "../game/ai";
 
 import { updatePlayer, getPlayer, createInitialState } from "./gameStoreHelpers";
 import { advanceToNextRound } from "./gameStoreRound";
+
+function makeFreeOrangeToken(playerId: string): Token {
+  return {
+    id: `orange-1-bonus-${playerId}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    color: "orange",
+    value: 1,
+  };
+}
+
+function scoringMarketState(player: Player): BuyPhaseState {
+  return {
+    purchases: [],
+    coinsSpent: 0,
+    coinsAvailable: player.coinsThisRound,
+  };
+}
+
+function applyBonusDieReward(player: Player): { player: Player; result: ReturnType<typeof rollBonusDie> } {
+  const result = rollBonusDie();
+
+  if (result.type === "ruby") {
+    return { result, player: { ...player, rubies: player.rubies + result.amount } };
+  }
+
+  if (result.type === "vp") {
+    return { result, player: { ...player, score: player.score + result.amount } };
+  }
+
+  if (result.type === "droplet") {
+    return {
+      result,
+      player: {
+        ...player,
+        crucible: {
+          ...player.crucible,
+          dropletPosition: Math.min(player.crucible.dropletPosition + result.amount, 32),
+        },
+      },
+    };
+  }
+
+  return {
+    result,
+    player: {
+      ...player,
+      bag: { tokens: [...player.bag.tokens, makeFreeOrangeToken(player.id)] },
+    },
+  };
+}
+
+function spendAIRubies(player: Player): Player {
+  let current = player;
+  while (current.rubies >= 2) {
+    if (!current.flask && canRefillFlask(current)) {
+      current = spendRubiesForFlask(current);
+    } else if (canAdvanceDroplet(current)) {
+      current = spendRubiesForDroplet(current);
+    } else {
+      break;
+    }
+  }
+  return current;
+}
 
 // ─── Store interface ──────────────────────────────────────────────────────────
 
@@ -50,8 +112,8 @@ interface GameStore {
   humanBuyItem: (itemId: string) => void;
   humanEndMarket: () => void;
 
-  // AI full turn (run by AITurnAnimator, result committed here)
-  commitAITurn: (finalAI: Player) => void;
+  // AI brewing is animated externally, then both players are evaluated here
+  commitAIBrewAndResolve: (finalAI: Player) => void;
 
   // Ruby spend helpers
   canAdvanceDroplet: () => boolean;
@@ -107,7 +169,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       soundManager.play("token_draw");
 
-      const updatedCrucible = placeToken(human.crucible, drawn.token);
+      const previousToken = human.crucible.lastDrawnToken;
+      const movement = drawn.token.value +
+        (drawn.token.color === "red" ? redBonusValue(human.crucible) : 0);
+      const updatedCrucible = placeToken(human.crucible, drawn.token, movement);
 
       if (drawn.token.color === "white") {
         soundManager.play("token_place_white");
@@ -118,13 +183,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (updatedCrucible.exploded) {
         soundManager.play("explosion");
       }
-      const updatedHuman: Player = {
+      let updatedHuman: Player = {
         ...human,
         bag: drawn.bag,
         crucible: updatedCrucible,
       };
 
       result = { token: drawn.token, exploded: updatedCrucible.exploded };
+
+      if (drawn.token.color === "yellow") {
+        updatedHuman = applyYellowSetOneBonus(updatedHuman, previousToken);
+      }
 
       // Blue chip: trigger draw-N-keep-1 phase based on its value
       if (drawn.token.color === "blue" && !updatedCrucible.exploded) {
@@ -141,14 +210,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
         };
       }
 
-      // Yellow chip: immediately earn rubies
-      let finalHuman = updatedHuman;
-      if (drawn.token.color === "yellow") {
-        const bonus = yellowRubyBonus(updatedCrucible);
-        finalHuman = { ...updatedHuman, rubies: updatedHuman.rubies + bonus };
-      }
-
-      return { state: updatePlayer(state, "human", () => finalHuman) };
+      return {
+        state: {
+          ...updatePlayer(state, "human", () => updatedHuman),
+          phase: updatedHuman.crucible.exploded ? "end_of_round" as GamePhase : state.phase,
+        },
+      };
     });
 
     return result;
@@ -157,7 +224,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
   humanStop: () => {
     soundManager.play("brew_stop");
     set((s) => ({ state: { ...s.state, phase: "end_of_round" } }));
-    get()._resolveEndOfRound();
   },
 
   humanUseFlask: () => {
@@ -175,14 +241,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const state = s.state;
       const human = getPlayer(state, "human");
 
-      let updatedHuman = human;
+      let updatedHuman: Player = {
+        ...human,
+        bag: {
+          tokens: [
+            ...human.bag.tokens,
+            ...extraTokens.filter((t) => t.id !== keepTokenId),
+          ],
+        },
+      };
 
       if (keepTokenId) {
         const kept = extraTokens.find((t) => t.id === keepTokenId);
         if (kept) {
-          const newCrucible = placeToken(human.crucible, kept);
+          const previousToken = human.crucible.lastDrawnToken;
+          const movement = kept.value +
+            (kept.color === "red" ? redBonusValue(human.crucible) : 0);
+          const newCrucible = placeToken(human.crucible, kept, movement);
           updatedHuman = {
-            ...human,
+            ...updatedHuman,
             crucible: newCrucible,
           };
           if (kept.color === "white") {
@@ -193,18 +270,29 @@ export const useGameStore = create<GameStore>((set, get) => ({
           if (newCrucible.exploded) {
             soundManager.play("explosion");
           }
+
+          if (kept.color === "yellow") {
+            updatedHuman = applyYellowSetOneBonus(updatedHuman, previousToken);
+          }
+
+          if (kept.color === "blue" && !newCrucible.exploded) {
+            const blueBonusResult = drawBlueBonus(updatedHuman.bag, kept.value);
+            updatedHuman = { ...updatedHuman, bag: blueBonusResult.bag };
+            return {
+              state: {
+                ...updatePlayer(state, "human", () => updatedHuman),
+                phase: "blue_choice" as GamePhase,
+                pendingBlueTokens: blueBonusResult.drawn,
+              },
+            };
+          }
         }
       }
-
-      // Put unkept tokens back in bag
-      const unkept = extraTokens.filter((t) => t.id !== keepTokenId);
-      const newBagTokens = [...updatedHuman.bag.tokens, ...unkept];
-      updatedHuman = { ...updatedHuman, bag: { tokens: newBagTokens } };
 
       return {
         state: {
           ...updatePlayer(state, "human", () => updatedHuman),
-          phase: "brewing" as GamePhase,
+          phase: updatedHuman.crucible.exploded ? "end_of_round" as GamePhase : "brewing" as GamePhase,
           pendingBlueTokens: undefined,
         },
       };
@@ -216,19 +304,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const state = s.state;
       const human = getPlayer(state, "human");
       const result = calculateRoundScore(human.crucible);
-      const reward = applyExplodedReward(result, choice);
 
       const updatedHuman: Player = {
         ...human,
-        score: human.score + reward.vp,
-        coinsThisRound: reward.coins,
-        rubies: human.rubies + reward.rubies,
+        score: human.score + (choice === "vp" ? result.vp : 0),
+        coinsThisRound: choice === "coins" ? result.coins : 0,
       };
+
+      const nextPhase: GamePhase = choice === "coins" ? "market" : "ruby_spend";
 
       return {
         state: {
           ...updatePlayer(state, "human", () => updatedHuman),
-          phase: "ruby_spend" as GamePhase,
+          phase: nextPhase,
+          buyPhaseState: choice === "coins" ? scoringMarketState(updatedHuman) : null,
         },
       };
     });
@@ -251,22 +340,38 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   humanDoneRubySpend: () => {
-    soundManager.play("market_open");
     set((s) => {
-      const state = s.state;
-      const human = getPlayer(state, "human");
-      const buyState: BuyPhaseState = {
+      let state = s.state;
+      let ai = getPlayer(state, "ai");
+      let market = state.market;
+      const purchases = decideMarketTurn(ai, market, state);
+      let buyState: BuyPhaseState = {
         purchases: [],
         coinsSpent: 0,
-        coinsAvailable: human.coinsThisRound,
+        coinsAvailable: ai.coinsThisRound,
       };
-      return {
-        state: {
-          ...state,
-          phase: "market" as GamePhase,
-          buyPhaseState: buyState,
-        },
+
+      for (const itemId of purchases) {
+        try {
+          const result = purchaseItem(ai, market, buyState, itemId, state.currentRound);
+          ai = {
+            ...result.player,
+            coinsThisRound: Math.max(0, result.state.coinsAvailable - result.state.coinsSpent),
+          };
+          market = result.market;
+          buyState = result.state;
+        } catch {
+          break;
+        }
+      }
+
+      ai = spendAIRubies(ai);
+      state = {
+        ...updatePlayer(state, "ai", () => ai),
+        market,
       };
+
+      return { state: advanceToNextRound(state) };
     });
   },
 
@@ -305,14 +410,107 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   humanEndMarket: () => {
-    // Market done — AI turn is handled externally by AITurnAnimator
-    // After AI commits, we advance the round
+    set((s) => ({
+      state: {
+        ...updatePlayer(s.state, "human", (human) => {
+          const buyState = s.state.buyPhaseState;
+          if (!buyState) return human;
+          return {
+            ...human,
+            coinsThisRound: Math.max(0, buyState.coinsAvailable - buyState.coinsSpent),
+          };
+        }),
+        phase: "ruby_spend" as GamePhase,
+        buyPhaseState: null,
+      },
+    }));
   },
 
-  commitAITurn: (finalAI: Player) => {
+  commitAIBrewAndResolve: (finalAI: Player) => {
     set((s) => {
-      const state = { ...s.state, players: s.state.players.map((p) => p.kind === "ai" ? finalAI : p) };
-      return { state: advanceToNextRound(state) };
+      const stateWithAI = {
+        ...s.state,
+        players: s.state.players.map((p) => p.kind === "ai" ? finalAI : p),
+      };
+
+      const human = getPlayer(stateWithAI, "human");
+      const ai = getPlayer(stateWithAI, "ai");
+      const humanResult = calculateRoundScore(human.crucible);
+      const aiResult = calculateRoundScore(ai.crucible);
+
+      let humanAfterBonus = human;
+      let aiAfterBonus = ai;
+      let humanBonus = null as ReturnType<typeof rollBonusDie> | null;
+      let aiBonus = null as ReturnType<typeof rollBonusDie> | null;
+
+      const humanCanRoll = !humanResult.exploded;
+      const aiCanRoll = !aiResult.exploded;
+      const bestSpace = Math.max(
+        humanCanRoll ? humanResult.space : -1,
+        aiCanRoll ? aiResult.space : -1
+      );
+
+      if (humanCanRoll && humanResult.space === bestSpace) {
+        const bonus = applyBonusDieReward(humanAfterBonus);
+        humanAfterBonus = bonus.player;
+        humanBonus = bonus.result;
+      }
+
+      if (aiCanRoll && aiResult.space === bestSpace) {
+        const bonus = applyBonusDieReward(aiAfterBonus);
+        aiAfterBonus = bonus.player;
+        aiBonus = bonus.result;
+      }
+
+      let humanFinal = applyEndOfRoundEffects(humanAfterBonus, aiAfterBonus);
+      let aiFinal = applyEndOfRoundEffects(aiAfterBonus, humanAfterBonus);
+
+      humanFinal = {
+        ...humanFinal,
+        rubies: humanFinal.rubies + (humanResult.ruby ? 1 : 0),
+      };
+      aiFinal = {
+        ...aiFinal,
+        rubies: aiFinal.rubies + (aiResult.ruby ? 1 : 0),
+      };
+
+      if (aiResult.exploded) {
+        const choice = decideExplodedChoice(aiFinal, aiResult, stateWithAI);
+        aiFinal = {
+          ...aiFinal,
+          score: aiFinal.score + (choice === "vp" ? aiResult.vp : 0),
+          coinsThisRound: choice === "coins" ? aiResult.coins : 0,
+        };
+      } else {
+        aiFinal = {
+          ...aiFinal,
+          score: aiFinal.score + aiResult.vp,
+          coinsThisRound: aiResult.coins,
+        };
+      }
+
+      if (!humanResult.exploded) {
+        humanFinal = {
+          ...humanFinal,
+          score: humanFinal.score + humanResult.vp,
+          coinsThisRound: humanResult.coins,
+        };
+      }
+
+      const resolvedState = {
+        ...stateWithAI,
+        players: stateWithAI.players.map((p) => {
+          if (p.id === "human") return humanFinal;
+          if (p.id === "ai") return aiFinal;
+          return p;
+        }),
+        phase: humanResult.exploded ? "scoring" as GamePhase : "market" as GamePhase,
+        buyPhaseState: humanResult.exploded ? null : scoringMarketState(humanFinal),
+        bonusDieResult: humanBonus,
+        bonusDieWinner: humanBonus ? human.id : aiBonus ? ai.id : null,
+      };
+
+      return { state: resolvedState };
     });
   },
 
@@ -326,56 +524,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     return canRefillFlask(human);
   },
 
-  // Internal — called after human stops or explodes
+  // Internal — retained for older callers; evaluation now waits for AI brewing.
   _resolveEndOfRound: () => {
-    set((s) => {
-      const state = s.state;
-      const human = getPlayer(state, "human");
-      const result = calculateRoundScore(human.crucible);
-
-      if (result.exploded) {
-        // Human must choose — go to scoring phase for choice
-        return { state: { ...state, phase: "scoring" as GamePhase } };
-      }
-
-      // Survived: apply chip effects + full reward
-      const withEffects = applyEndOfRoundEffects(human);
-      const reward = applyFullReward(result);
-
-      // Bonus die: human earns it if they reached highest non-exploded space
-      const aiPlayer = getPlayer(state, "ai");
-      const humanWinsDie = !result.exploded &&
-        (aiPlayer.crucible.exploded || human.crucible.filledUpTo >= aiPlayer.crucible.filledUpTo);
-
-      let bonusDieResult = null;
-      let bonusDieWinner = null;
-      let humanAfterDie = withEffects;
-
-      if (humanWinsDie) {
-        bonusDieResult = rollBonusDie();
-        bonusDieWinner = human.id;
-        if (bonusDieResult.type === "ruby") {
-          humanAfterDie = { ...humanAfterDie, rubies: humanAfterDie.rubies + bonusDieResult.amount };
-        } else if (bonusDieResult.type === "coins") {
-          humanAfterDie = { ...humanAfterDie, coinsThisRound: humanAfterDie.coinsThisRound + bonusDieResult.amount };
-        }
-      }
-
-      const finalHuman: Player = {
-        ...humanAfterDie,
-        score: humanAfterDie.score + reward.vp,
-        coinsThisRound: (humanAfterDie.coinsThisRound || 0) + reward.coins,
-        rubies: humanAfterDie.rubies + reward.rubies,
-      };
-
-      return {
-        state: {
-          ...updatePlayer(state, "human", () => finalHuman),
-          phase: "ruby_spend" as GamePhase,
-          bonusDieResult,
-          bonusDieWinner,
-        },
-      };
-    });
+    set((s) => ({ state: { ...s.state, phase: "end_of_round" as GamePhase } }));
   },
 } as any));

@@ -1,5 +1,5 @@
 import type { Crucible } from "./crucibleTypes";
-import { SPACE_VP, getCoinsForSpace, RUBY_SPACES } from "./crucibleTypes";
+import { SPACE_VP, getCoinsForSpace, RUBY_SPACES, getScoringSpace } from "./crucibleTypes";
 
 export interface RoundScoreResult {
   space: number;       // the scoring space (filledUpTo)
@@ -14,7 +14,7 @@ export interface RoundScoreResult {
 // If exploded: player chooses VP or coins (not both).
 // If survived: player earns both VP and coins.
 export function calculateRoundScore(crucible: Crucible): RoundScoreResult {
-  const space = crucible.filledUpTo;
+  const space = getScoringSpace(crucible.filledUpTo);
   const vp = SPACE_VP[space] ?? 0;
   const coins = getCoinsForSpace(space);
   const ruby = RUBY_SPACES.has(space);

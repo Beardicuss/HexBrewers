@@ -53,6 +53,7 @@ class SoundManager {
   private sfxGain: GainNode | null = null;
   private muted: boolean = false;
   private loaded: boolean = false;
+  private rawBuffers: Map<SoundId, ArrayBuffer> = new Map(); // eagerly fetched
 
   // Call once on first user interaction (browsers require this)
   async init(): Promise<void> {
@@ -60,40 +61,75 @@ class SoundManager {
 
     this.context = new AudioContext();
     this.masterGain = this.context.createGain();
-    this.masterGain.gain.value = 1.0;
     this.masterGain.connect(this.context.destination);
 
     // Separate gain nodes for music vs SFX
     this.musicGain = this.context.createGain();
-    this.musicGain.gain.value = 0.6; // default 60%
     this.musicGain.connect(this.masterGain);
 
     this.sfxGain = this.context.createGain();
-    this.sfxGain.gain.value = 0.8; // default 80%
     this.sfxGain.connect(this.masterGain);
 
-    await this.preloadAll();
+    // Apply persisted volume settings from Zustand store
+    this.applyPersistedVolume();
+
+    await this.decodeAll();
     this.loaded = true;
   }
 
-  // Preload all sounds into memory
-  private async preloadAll(): Promise<void> {
-    const entries = Object.entries(SOUNDS) as [SoundId, SoundConfig][];
+  // Apply saved volume from localStorage/settingsStore
+  private applyPersistedVolume(): void {
+    try {
+      const raw = localStorage.getItem("hexbrewers-settings");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const state = parsed?.state;
+        if (state) {
+          if (this.masterGain && typeof state.masterVolume === "number") {
+            this.masterGain.gain.value = state.masterVolume / 100;
+          }
+          if (this.musicGain && typeof state.musicVolume === "number") {
+            this.musicGain.gain.value = state.musicVolume / 100;
+          }
+          if (this.sfxGain && typeof state.sfxVolume === "number") {
+            this.sfxGain.gain.value = state.sfxVolume / 100;
+          }
+          return; // successfully applied persisted values
+        }
+      }
+    } catch { /* fall through to defaults */ }
 
+    // Defaults if no persisted settings found
+    this.masterGain!.gain.value = 0.8;
+    this.musicGain!.gain.value = 0.6;
+    this.sfxGain!.gain.value = 0.8;
+  }
+
+  // Eagerly fetch raw audio files (can run before AudioContext exists)
+  async preloadRaw(): Promise<void> {
+    const entries = Object.entries(SOUNDS) as [SoundId, SoundConfig][];
     await Promise.allSettled(
       entries.map(async ([id, config]) => {
         try {
           const response = await fetch(config.path);
-          if (!response.ok) {
-            // File not found — silently skip (placeholder mode)
-            return;
-          }
-          const arrayBuffer = await response.arrayBuffer();
-          const audioBuffer = await this.context!.decodeAudioData(arrayBuffer);
+          if (!response.ok) return;
+          this.rawBuffers.set(id, await response.arrayBuffer());
+        } catch { /* missing file — skip */ }
+      })
+    );
+  }
+
+  // Decode pre-fetched raw buffers into AudioBuffers (requires AudioContext)
+  private async decodeAll(): Promise<void> {
+    if (!this.context) return;
+    const entries = Array.from(this.rawBuffers.entries());
+    await Promise.allSettled(
+      entries.map(async ([id, arrayBuffer]) => {
+        try {
+          // decodeAudioData consumes the buffer, so we clone it
+          const audioBuffer = await this.context!.decodeAudioData(arrayBuffer.slice(0));
           this.buffers.set(id, audioBuffer);
-        } catch {
-          // Missing or malformed file — skip without crashing
-        }
+        } catch { /* malformed — skip */ }
       })
     );
   }
@@ -205,7 +241,12 @@ export function useSoundManager() {
   const [muted, setMuted] = useState(false);
   const [ready, setReady] = useState(false);
 
-  // Init on first user interaction
+  // Eagerly fetch audio files as soon as component mounts (no user click needed)
+  useEffect(() => {
+    soundManager.preloadRaw();
+  }, []);
+
+  // Init AudioContext on first user interaction (browser requires this)
   const initOnInteraction = useCallback(async () => {
     if (initialised.current) return;
     initialised.current = true;

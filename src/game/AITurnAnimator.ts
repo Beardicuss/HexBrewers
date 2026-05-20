@@ -4,14 +4,9 @@ import type { Token } from "./tokenTypes";
 import type { ExplodedChoice } from "./scoring";
 import { drawToken } from "./bag";
 import { placeToken, hasExploded } from "./crucible";
-import { calculateRoundScore, applyFullReward, applyExplodedReward } from "./scoring";
-import { decideBrewingAction, decideFlaskUse, decideExplodedChoice } from "./ai";
+import { decideBrewingAction, decideFlaskUse } from "./ai";
 import { canUseFlask, useFlask } from "./flask";
-import { applyEndOfRoundEffects } from "./chipEffects";
-import { yellowRubyBonus } from "./chipEffects";
-import { purchaseItem, refreshMarketAvailability } from "./bazaar";
-import type { BuyPhaseState } from "./bazaarTypes";
-import { decideMarketTurn } from "./ai";
+import { redBonusValue, applyYellowSetOneBonus, drawBlueBonus } from "./chipEffects";
 
 export type AITurnEvent =
   | { type: "thinking"; message: string }
@@ -30,7 +25,6 @@ const TIMING = {
   thinkingPause: 350,
   afterExplosion: 1100,
   afterStop: 600,
-  afterScoring: 700,
 };
 
 const MSGS = {
@@ -44,6 +38,42 @@ const MSGS = {
 
 const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
 const wait = (ms: number) => new Promise<void>((res) => setTimeout(res, ms));
+
+function placeTokenWithSetOneEffects(player: Player, token: Token): Player {
+  const previousToken = player.crucible.lastDrawnToken;
+  const movement = token.value + (token.color === "red" ? redBonusValue(player.crucible) : 0);
+  let updated: Player = {
+    ...player,
+    crucible: placeToken(player.crucible, token, movement),
+  };
+
+  if (token.color === "yellow") {
+    updated = applyYellowSetOneBonus(updated, previousToken);
+  }
+
+  return updated;
+}
+
+function chooseAIBlueKeep(tokens: Token[], player: Player): Token | null {
+  const capacity = 7 - player.crucible.whiteSum;
+  const ranked = tokens
+    .map((token) => {
+      if (token.color === "white" && token.value > capacity) return { token, score: -100 };
+      const colorScore =
+        token.color === "white" ? -2 :
+          token.color === "orange" ? 1 :
+            token.color === "green" ? 2 :
+              token.color === "red" ? 2.5 :
+                token.color === "yellow" ? 2.25 :
+                  token.color === "purple" ? 3 :
+                    token.color === "black" ? 3 : 2;
+      return { token, score: token.value + colorScore };
+    })
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  return ranked[0]?.token ?? null;
+}
 
 export class AITurnAnimator {
   private listener: AIEventListener | null = null;
@@ -71,8 +101,8 @@ export class AITurnAnimator {
       if (!drawn) { this.emit({ type: "stop", player: current }); break; }
 
       drawCount++;
-      const updatedCrucible = placeToken(current.crucible, drawn.token);
-      current = { ...current, bag: drawn.bag, crucible: updatedCrucible };
+      current = placeTokenWithSetOneEffects({ ...current, bag: drawn.bag }, drawn.token);
+      const updatedCrucible = current.crucible;
 
       // Flask check (must check canUseFlask AFTER placing — official rule)
       if (drawn.token.color === "white" && !updatedCrucible.exploded && canUseFlask(current)) {
@@ -85,12 +115,6 @@ export class AITurnAnimator {
         }
       }
 
-      // Yellow: immediate ruby bonus
-      if (drawn.token.color === "yellow") {
-        const bonus = yellowRubyBonus(updatedCrucible);
-        current = { ...current, rubies: current.rubies + bonus };
-      }
-
       const isRisky = current.crucible.whiteSum >= 4;
       const msg = isRisky ? pick(MSGS.risky) : drawCount > 1 ? pick(MSGS.drawing) : "";
       if (msg) this.emit({ type: "thinking", message: msg });
@@ -98,7 +122,24 @@ export class AITurnAnimator {
       this.emit({ type: "draw", token: drawn.token, player: current });
       await wait(TIMING.betweenDraws);
 
-      if (hasExploded(updatedCrucible)) {
+      let blueSource = drawn.token.color === "blue" && !current.crucible.exploded ? drawn.token : null;
+      while (blueSource && !current.crucible.exploded) {
+        const bonus = drawBlueBonus(current.bag, blueSource.value);
+        const kept = chooseAIBlueKeep(bonus.drawn, current);
+        const returned = bonus.drawn.filter((token) => token.id !== kept?.id);
+        current = { ...current, bag: { tokens: [...bonus.bag.tokens, ...returned] } };
+
+        if (!kept) break;
+
+        current = placeTokenWithSetOneEffects(current, kept);
+        this.emit({ type: "draw", token: kept, player: current });
+        await wait(TIMING.betweenDraws);
+
+        if (hasExploded(current.crucible)) break;
+        blueSource = kept.color === "blue" ? kept : null;
+      }
+
+      if (hasExploded(current.crucible)) {
         this.emit({ type: "thinking", message: pick(MSGS.exploded) });
         await wait(TIMING.thinkingPause);
         this.emit({ type: "exploded", player: current });
@@ -107,61 +148,10 @@ export class AITurnAnimator {
       }
     }
 
-    // End-of-round chip effects
     if (!current.crucible.exploded) {
-      current = applyEndOfRoundEffects(current);
-    }
-
-    // Scoring
-    const result = calculateRoundScore(current.crucible);
-
-    if (result.exploded) {
-      const choice = decideExplodedChoice(current, result, state);
-      const reward = applyExplodedReward(result, choice);
-      current = {
-        ...current,
-        score: current.score + reward.vp,
-        coinsThisRound: reward.coins,
-        rubies: current.rubies + reward.rubies,
-      };
-      this.emit({ type: "scored", vp: reward.vp, coins: reward.coins, choice });
-    } else {
-      const reward = applyFullReward(result);
-      current = {
-        ...current,
-        score: current.score + reward.vp,
-        coinsThisRound: reward.coins,
-        rubies: current.rubies + reward.rubies,
-      };
       this.emit({ type: "thinking", message: pick(MSGS.surviving) });
       await wait(TIMING.thinkingPause);
-      this.emit({ type: "scored", vp: reward.vp, coins: reward.coins });
     }
-
-    await wait(TIMING.afterScoring);
-
-    // Market — AI buys up to 2 chips of different colors
-    const purchases = decideMarketTurn(current, state.market, state);
-    let marketState = state.market;
-
-    const buyState: BuyPhaseState = {
-      purchases: [],
-      coinsSpent: 0,
-      coinsAvailable: current.coinsThisRound,
-    };
-
-    let bState = buyState;
-    for (const itemId of purchases) {
-      try {
-        const { player, market, state: newBuyState } = purchaseItem(
-          current, marketState, bState, itemId, state.currentRound
-        );
-        current = player;
-        marketState = market;
-        bState = newBuyState;
-      } catch { break; }
-    }
-
     this.emit({ type: "done", player: current });
     return current;
   }

@@ -1,5 +1,6 @@
 import type { MarketItem, BuyPhaseState } from "./bazaarTypes";
 import type { Player } from "./playerTypes";
+import type { Token } from "./tokenTypes";
 
 // Check if a player can buy a specific item given current buy phase state
 export function canAfford(
@@ -46,9 +47,14 @@ export function purchaseItem(
       : i
   );
 
+  const purchasedToken: Token = {
+    ...item.token,
+    id: `${item.token.color}-${item.token.value}-${player.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  };
+
   const updatedPlayer: Player = {
     ...player,
-    bag: { tokens: [...player.bag.tokens, item.token] },
+    bag: { tokens: [...player.bag.tokens, purchasedToken] },
   };
 
   const updatedState: BuyPhaseState = {

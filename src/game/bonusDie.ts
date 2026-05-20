@@ -3,19 +3,18 @@
 
 export type BonusDieResult =
   | { type: "ruby"; amount: 1 }
-  | { type: "coins"; amount: number }
-  | { type: "chip_white_1" }
-  | { type: "chip_orange_1" }
-  | { type: "nothing" };
+  | { type: "vp"; amount: 1 | 2 }
+  | { type: "droplet"; amount: 1 }
+  | { type: "chip_orange_1" };
 
 // Official die has 6 faces
 const DIE_FACES: BonusDieResult[] = [
   { type: "ruby", amount: 1 },
-  { type: "ruby", amount: 1 },
-  { type: "coins", amount: 2 },
-  { type: "coins", amount: 4 },
+  { type: "vp", amount: 1 },
+  { type: "vp", amount: 2 },
+  { type: "droplet", amount: 1 },
   { type: "chip_orange_1" },
-  { type: "nothing" },
+  { type: "chip_orange_1" },
 ];
 
 export function rollBonusDie(): BonusDieResult {
@@ -26,9 +25,8 @@ export function rollBonusDie(): BonusDieResult {
 export function describeDieResult(result: BonusDieResult): string {
   switch (result.type) {
     case "ruby": return `+${result.amount} Ruby`;
-    case "coins": return `+${result.amount} Coins`;
-    case "chip_white_1": return "Free Voidshard (value 1) added to bag";
+    case "vp": return `+${result.amount} Prestige`;
+    case "droplet": return "Droplet advances 1 space";
     case "chip_orange_1": return "Free Brimstone (value 1) added to bag";
-    case "nothing": return "No bonus";
   }
 }

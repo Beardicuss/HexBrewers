@@ -35,14 +35,20 @@ export function BlackMarket({ market, player, buyPhaseState, round, onBuy, onDon
 
         {/* Item grid */}
         <div style={styles.grid}>
-          {market.map((item) => (
-            <MarketItemCard
-              key={item.id}
-              item={item}
-              canBuy={buyPhaseState ? canAfford(item, buyPhaseState, round) : false}
-              onBuy={() => onBuy(item.id)}
-            />
-          ))}
+          {market.map((item) => {
+            const alreadyBoughtColor =
+              buyPhaseState?.purchases.length === 1
+                ? market.find((i) => i.id === buyPhaseState.purchases[0])?.token.color
+                : undefined;
+            return (
+              <MarketItemCard
+                key={item.id}
+                item={item}
+                canBuy={buyPhaseState ? canAfford(item, buyPhaseState, round, alreadyBoughtColor) : false}
+                onBuy={() => onBuy(item.id)}
+              />
+            );
+          })}
         </div>
 
         <div style={styles.divider} />

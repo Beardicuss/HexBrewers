@@ -17,25 +17,33 @@ export interface Crucible {
 export const EXPLOSION_THRESHOLD = 7;
 export const CRUCIBLE_SIZE = 33;
 
-// VP earned per scoring space — from official scoring track
+// VP earned per official scoring space. The scoring space is the empty field
+// directly after the last placed chip, not the chip's own field.
 export const SPACE_VP: Record<number, number> = {
   0: 0,
-  1: 0, 2: 0, 3: 0, 4: 1, 5: 1,
-  6: 2, 7: 2, 8: 2, 9: 3, 10: 3,
-  11: 4, 12: 4, 13: 4, 14: 5, 15: 5,
-  16: 6, 17: 6, 18: 6, 19: 7, 20: 7,
-  21: 8, 22: 8, 23: 9, 24: 9, 25: 10,
-  26: 11, 27: 11, 28: 12, 29: 13, 30: 14,
-  31: 15, 32: 16, 33: 17,
+  1: 0, 2: 0, 3: 0, 4: 0,
+  5: 1, 6: 1, 7: 1, 8: 1, 9: 1,
+  10: 2, 11: 2, 12: 2, 13: 2,
+  14: 3, 15: 3, 16: 3,
+  17: 4, 18: 4,
+  19: 5, 20: 5,
+  21: 6, 22: 6,
+  23: 7, 24: 7,
+  25: 8, 26: 9, 27: 10, 28: 11,
+  29: 11, 30: 12, 31: 13, 32: 14, 33: 15,
 };
 
-// Coins earned = scoring space number (official rule)
-export function getCoinsForSpace(space: number): number {
-  return Math.min(space, 33);
+export function getScoringSpace(lastFilledSpace: number): number {
+  return Math.min(lastFilledSpace + 1, CRUCIBLE_SIZE);
 }
 
-// Ruby spaces — landing on or passing these grants 1 ruby
-export const RUBY_SPACES = new Set([3, 8, 14, 20, 27]);
+// Coins earned = scoring space number, except the spoon at the end of the pot.
+export function getCoinsForSpace(space: number): number {
+  return space >= CRUCIBLE_SIZE ? 35 : Math.min(space, CRUCIBLE_SIZE);
+}
+
+// Ruby is checked on the scoring space.
+export const RUBY_SPACES = new Set([4, 9, 15, 21, 28]);
 
 // Rat tail icons appear after these spaces on the scoring track
 export const RAT_TAIL_AFTER_SPACES = [4, 9, 14, 19, 24, 29];

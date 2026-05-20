@@ -6,6 +6,7 @@ interface BrewingControlsProps {
   canUseFlask: boolean;
   onDraw: () => void;
   onStop: () => void;
+  onUseFlask: () => void;
   whiteSum: number;
   bagCount: number;
 }
@@ -15,6 +16,7 @@ export function BrewingControls({
   canUseFlask,
   onDraw,
   onStop,
+  onUseFlask,
   whiteSum,
   bagCount,
 }: BrewingControlsProps) {
@@ -78,9 +80,9 @@ export function BrewingControls({
 
       {/* Flask hint */}
       {canUseFlask && (
-        <div style={styles.flaskHint}>
+        <button style={styles.flaskButton} onClick={onUseFlask}>
           {t.brewing.flaskHint}
-        </div>
+        </button>
       )}
     </div>
   );
@@ -163,7 +165,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderColor: "#3a1a5a",
     color: "#c9a86c",
   },
-  flaskHint: {
+  flaskButton: {
     fontFamily: "monospace",
     fontSize: 10,
     color: "#44aa66",
@@ -174,5 +176,6 @@ const styles: Record<string, React.CSSProperties> = {
     background: "rgba(20, 60, 30, 0.2)",
     border: "1px solid #224433",
     borderRadius: 5,
+    cursor: "pointer",
   },
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "../i18n/useTranslation";
 import { useGameStore } from "../store/gameStore";
 import {
@@ -11,6 +11,7 @@ import {
   useMarket,
   useWinner,
   useCanHumanDraw,
+  useCanHumanUseFlask,
   useBuyPhaseState,
 } from "../store/selectors";
 import { usePixiCanvas } from "./usePixiCanvas";
@@ -40,6 +41,7 @@ export function GameBoard() {
   const market = useMarket();
   const winner = useWinner();
   const canDraw = useCanHumanDraw();
+  const canUseFlask = useCanHumanUseFlask();
   const buyPhaseState = useBuyPhaseState();
 
   const {
@@ -52,6 +54,7 @@ export function GameBoard() {
   } = usePixiCanvas({});
 
   const { running: aiRunning, events: aiEvents, aiWhiteSum, aiSpiral, runAITurn } = useAITurn();
+  const resolvingAI = useRef(false);
 
   // Sync crucible visuals whenever human player state changes
   useEffect(() => {
@@ -73,6 +76,26 @@ export function GameBoard() {
     }
   }, [phase, round, resetRound]);
 
+  useEffect(() => {
+    if (phase !== "end_of_round" || resolvingAI.current) return;
+
+    resolvingAI.current = true;
+    (async () => {
+      try {
+        const aiPlayer = useGameStore.getState().state.players.find((p) => p.kind === "ai")!;
+        const state = useGameStore.getState().state;
+        const finalAI = await runAITurn(aiPlayer, state);
+        store.commitAIBrewAndResolve(finalAI);
+      } catch (err) {
+        console.error("AI brewing failed, resolving with current AI:", err);
+        const aiPlayer = useGameStore.getState().state.players.find((p) => p.kind === "ai")!;
+        store.commitAIBrewAndResolve(aiPlayer);
+      } finally {
+        resolvingAI.current = false;
+      }
+    })();
+  }, [phase, runAITurn, store]);
+
   // Handle draw — animate then update store
   const handleDraw = useCallback(async () => {
     // Optimistically get the top draw to animate, then commit
@@ -84,11 +107,8 @@ export function GameBoard() {
   }, [store]);
 
   const handleOmenDismiss = useCallback(() => {
-    // Advance phase from omen → brewing
-    useGameStore.setState((s) => ({
-      state: { ...s.state, phase: "brewing" },
-    }));
-  }, []);
+    store.dismissOmen();
+  }, [store]);
 
   const handleExplodedChoice = useCallback(
     (choice: "vp" | "coins") => {
@@ -105,22 +125,12 @@ export function GameBoard() {
   );
 
   const handleEndMarket = useCallback(async () => {
-    // Immediately close the market overlay by switching phase
-    useGameStore.setState((s) => ({
-      state: { ...s.state, phase: "brewing" as any },
-    }));
+    store.humanEndMarket();
+  }, [store]);
 
-    try {
-      const aiPlayer = useGameStore.getState().state.players.find((p) => p.kind === "ai")!;
-      const state = useGameStore.getState().state;
-      const finalAI = await runAITurn(aiPlayer, state);
-      store.commitAITurn(finalAI);
-    } catch (err) {
-      console.error("AI turn failed, advancing round anyway:", err);
-      const aiPlayer = useGameStore.getState().state.players.find((p) => p.kind === "ai")!;
-      store.commitAITurn(aiPlayer);
-    }
-  }, [store, runAITurn]);
+  const handleRubyDone = useCallback(async () => {
+    store.humanDoneRubySpend();
+  }, [store]);
 
   const handleRestart = useCallback(() => {
     store.initGame();
@@ -146,9 +156,10 @@ export function GameBoard() {
           {phase === "brewing" && (
             <BrewingControls
               canDraw={canDraw}
-              canUseFlask={human.flask}
+              canUseFlask={canUseFlask}
               onDraw={handleDraw}
               onStop={handleStop}
+              onUseFlask={() => store.humanUseFlask()}
               whiteSum={human.crucible.whiteSum}
               bagCount={human.bag.tokens.length}
             />
@@ -176,7 +187,7 @@ export function GameBoard() {
               canFlask={store.canRefillFlask()}
               onDroplet={() => store.humanSpendRubyDroplet()}
               onFlask={() => store.humanSpendRubyFlask()}
-              onDone={() => store.humanDoneRubySpend()}
+              onDone={handleRubyDone}
             />
           )}
         </div>

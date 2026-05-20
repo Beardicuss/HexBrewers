@@ -6,7 +6,6 @@ import type { Crucible } from "./crucibleTypes";
 import type { Player } from "./playerTypes";
 import type { Bag } from "./bagTypes";
 import { drawToken } from "./bag";
-import { placeToken } from "./crucible";
 
 export interface EffectResult {
   player: Player;
@@ -17,14 +16,15 @@ export interface EffectResult {
 
 // ── IMMEDIATE EFFECTS (triggered when chip is drawn) ─────────────────────────
 
-// Red (Bloodthorn): move forward 1 extra space per red chip already in pot
-// Applied by increasing the effective value of the draw
+// Red (Bloodthorn): official Set 1 behavior. It moves extra spaces based on
+// how many orange chips are already in the pot.
 export function redBonusValue(crucible: Crucible): number {
-  const redCount = crucible.slots.filter(
-    (s) => s.token?.color === "red"
+  const orangeCount = crucible.slots.filter(
+    (s) => s.token?.color === "orange"
   ).length;
-  // +1 per red chip already placed (not counting the current one)
-  return Math.max(0, redCount - 1);
+  if (orangeCount >= 3) return 2;
+  if (orangeCount >= 1) return 1;
+  return 0;
 }
 
 // Blue (Frostbile): draw extra chips equal to blue chip's value, place 1 (or 0) back into pot
@@ -47,60 +47,93 @@ export function drawBlueBonus(bag: Bag, chipValue: number): {
   return { bag: currentBag, drawn: tokens };
 }
 
-// Yellow (Plaguedust): earn 1 ruby for every pair of yellow chips in pot
-export function yellowRubyBonus(crucible: Crucible): number {
-  const yellowCount = crucible.slots.filter(
-    (s) => s.token?.color === "yellow"
-  ).length;
-  return Math.floor(yellowCount / 2);
+// Yellow (Plaguedust): official Set 1 behavior. If placed directly after a
+// white chip, that white chip may be returned to the bag; the yellow stays put.
+export function applyYellowSetOneBonus(player: Player, previousToken: Token | null): Player {
+  if (!previousToken || previousToken.color !== "white") return player;
+
+  return {
+    ...player,
+    bag: { tokens: [...player.bag.tokens, previousToken] },
+    crucible: {
+      ...player.crucible,
+      whiteSum: Math.max(0, player.crucible.whiteSum - previousToken.value),
+      slots: player.crucible.slots.map((slot) =>
+        slot.token?.id === previousToken.id ? { ...slot, token: null } : slot
+      ),
+    },
+  };
 }
 
 // ── END-OF-ROUND EFFECTS ─────────────────────────────────────────────────────
 
 // Green (Deathweave): earn 1 ruby if green chip is on the last or second-to-last space
 export function greenRubyBonus(crucible: Crucible): number {
-  const lastPos = crucible.filledUpTo;
-  const greenOnEdge = crucible.slots.some(
-    (s) =>
-      s.token?.color === "green" &&
-      (s.position === lastPos || s.position === lastPos - 1)
-  );
-  return greenOnEdge ? 1 : 0;
+  const placed = crucible.slots.filter((s) => s.token !== null);
+  const lastTwo = placed.slice(-2);
+  return lastTwo.filter((s) => s.token?.color === "green").length;
 }
 
-// Purple (Wraithbloom): earn 1 VP per purple chip in pot (end of round, if not exploded)
-export function purpleVPBonus(crucible: Crucible, exploded: boolean): number {
-  if (exploded) return 0;
-  return crucible.slots.filter((s) => s.token?.color === "purple").length;
+export function countPlacedColor(crucible: Crucible, color: Token["color"]): number {
+  return crucible.slots.filter((s) => s.token?.color === color).length;
 }
 
-// Black (Shadowmoss): if pot didn't explode and black chip is in pot,
-// move droplet forward 1 space for free
-export function blackDropletBonus(crucible: Crucible, exploded: boolean): boolean {
-  if (exploded) return false;
-  return crucible.slots.some((s) => s.token?.color === "black");
-}
+export function applyPurpleSetOneBonus(player: Player): Player {
+  const purpleCount = countPlacedColor(player.crucible, "purple");
+  if (purpleCount <= 0) return player;
 
-// Apply all end-of-round chip effects to a player
-export function applyEndOfRoundEffects(player: Player): Player {
-  const { crucible } = player;
-  const exploded = crucible.exploded;
+  if (purpleCount === 1) {
+    return { ...player, score: player.score + 1 };
+  }
 
-  let rubies = player.rubies;
-  let score = player.score;
-  let dropletPosition = crucible.dropletPosition;
-
-  rubies += greenRubyBonus(crucible);
-  score += purpleVPBonus(crucible, exploded);
-
-  if (blackDropletBonus(crucible, exploded)) {
-    dropletPosition = Math.min(dropletPosition + 1, 32);
+  if (purpleCount === 2) {
+    return { ...player, score: player.score + 1, rubies: player.rubies + 1 };
   }
 
   return {
     ...player,
-    rubies,
-    score,
-    crucible: { ...crucible, dropletPosition },
+    score: player.score + 2,
+    crucible: {
+      ...player.crucible,
+      dropletPosition: Math.min(player.crucible.dropletPosition + 1, 32),
+    },
   };
+}
+
+export function applyBlackSetOneBonus(player: Player, opponent: Player): Player {
+  const blackCount = countPlacedColor(player.crucible, "black");
+  if (blackCount <= 0) return player;
+
+  const opponentBlackCount = countPlacedColor(opponent.crucible, "black");
+  if (blackCount < opponentBlackCount) return player;
+
+  const moved = {
+    ...player,
+    crucible: {
+      ...player.crucible,
+      dropletPosition: Math.min(player.crucible.dropletPosition + 1, 32),
+    },
+  };
+
+  return blackCount > opponentBlackCount
+    ? { ...moved, rubies: moved.rubies + 1 }
+    : moved;
+}
+
+// Apply all end-of-round chip effects to a player.
+export function applyEndOfRoundEffects(player: Player, opponent?: Player): Player {
+  const { crucible } = player;
+
+  let updated = {
+    ...player,
+    rubies: player.rubies + greenRubyBonus(crucible),
+  };
+
+  updated = applyPurpleSetOneBonus(updated);
+
+  if (opponent) {
+    updated = applyBlackSetOneBonus(updated, opponent);
+  }
+
+  return updated;
 }
