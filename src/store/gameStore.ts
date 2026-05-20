@@ -6,70 +6,20 @@ import type { ExplodedChoice } from "../game/scoring";
 import type { BuyPhaseState } from "../game/bazaarTypes";
 import { soundManager } from "../SoundManager";
 
-import { createStartingBag, addRound6WhiteChip } from "../game/bagFactory";
-import { createCrucible, placeToken, hasExploded, getPlacedTokens, resetCrucible, checkRubyEarned } from "../game/crucible";
-import { drawToken, refillBag } from "../game/bag";
+import { placeToken, hasExploded, getPlacedTokens, checkRubyEarned } from "../game/crucible";
+import { drawToken } from "../game/bag";
 import { calculateRoundScore, applyFullReward, applyExplodedReward } from "../game/scoring";
 import { canUseFlask, useFlask, restoreFlask } from "../game/flask";
-import { createMarket, } from "../game/bazaarFactory";
-import { purchaseItem, refreshMarketAvailability } from "../game/bazaar";
-import { createShuffledOmenDeck, drawOmen } from "../game/omen";
+import { purchaseItem } from "../game/bazaar";
+import { drawOmen } from "../game/omen";
 import { applyRatStones } from "../game/ratTail";
 import { drawBlueBonus, applyEndOfRoundEffects, yellowRubyBonus } from "../game/chipEffects";
 import { rollBonusDie } from "../game/bonusDie";
 import { spendRubiesForDroplet, spendRubiesForFlask, canAdvanceDroplet, canRefillFlask } from "../game/rubyActions";
 import { getCoinsForSpace } from "../game/crucibleTypes";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function updatePlayer(state: GameState, playerId: string, updater: (p: Player) => Player): GameState {
-  return {
-    ...state,
-    players: state.players.map((p) => p.id === playerId ? updater(p) : p),
-  };
-}
-
-function getPlayer(state: GameState, id: string): Player {
-  const p = state.players.find((p) => p.id === id);
-  if (!p) throw new Error(`Player not found: ${id}`);
-  return p;
-}
-
-function createPlayer(id: string, name: string, kind: "human" | "ai"): Player {
-  return {
-    id, name, kind,
-    bag: createStartingBag(),
-    crucible: createCrucible(),
-    rubies: 0,
-    coinsThisRound: 0,
-    score: 0,
-    flask: true,
-    ratStoneOffset: 0,
-  };
-}
-
-function createInitialState(): GameState {
-  const omenDeck = createShuffledOmenDeck();
-  const firstOmen = drawOmen(omenDeck);
-
-  return {
-    players: [
-      createPlayer("human", "Hexbrewer", "human"),
-      createPlayer("ai", "The Shade", "ai"),
-    ],
-    currentRound: 1,
-    totalRounds: 9,
-    phase: "omen",
-    activePlayerIndex: 0,
-    currentOmen: firstOmen?.card ?? null,
-    omenDeck: firstOmen?.remaining ?? [],
-    market: createMarket(),
-    buyPhaseState: null,
-    bonusDieResult: null,
-    bonusDieWinner: null,
-    winner: null,
-  };
-}
+import { updatePlayer, getPlayer, createInitialState } from "./gameStoreHelpers";
+import { advanceToNextRound } from "./gameStoreRound";
 
 // ─── Store interface ──────────────────────────────────────────────────────────
 
@@ -429,64 +379,3 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 } as any));
-
-// ─── Round advancement ────────────────────────────────────────────────────────
-
-function advanceToNextRound(state: GameState): GameState {
-  const nextRound = state.currentRound + 1;
-
-  if (nextRound > state.totalRounds) {
-    const winner = [...state.players].sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return b.crucible.filledUpTo - a.crucible.filledUpTo; // tiebreak: pot position in last round
-    })[0];
-    const human = state.players.find(p => p.id === "human");
-    if (human && winner.id === "human") {
-      soundManager.play("game_win");
-    } else {
-      soundManager.play("game_lose");
-    }
-    return { ...state, phase: "game_over", winner };
-  }
-
-  // Reset all players for new round
-  let newState = state;
-  for (const player of state.players) {
-    const drawnTokens = getPlacedTokens(player.crucible);
-    const refilled = refillBag(player.bag, drawnTokens);
-
-    let freshCrucible = resetCrucible(player.crucible);
-    let updatedPlayer: Player = {
-      ...player,
-      bag: refilled,
-      crucible: freshCrucible,
-      coinsThisRound: 0,
-      ratStoneOffset: 0,
-    };
-
-    // Round 6: add extra white 1-chip to every bag
-    if (nextRound === 6) {
-      updatedPlayer = { ...updatedPlayer, bag: addRound6WhiteChip(updatedPlayer.bag, player.id) };
-    }
-
-    // Flask resets each round (not refilled via rubies — that's a separate action)
-    // Flask is already restored: it was set during ruby spend phase
-    newState = updatePlayer(newState, player.id, () => updatedPlayer);
-  }
-
-  // Draw next omen card
-  const omenResult = drawOmen(newState.omenDeck);
-  soundManager.play("omen_reveal");
-
-  return {
-    ...newState,
-    currentRound: nextRound,
-    phase: "omen",
-    currentOmen: omenResult?.card ?? null,
-    omenDeck: omenResult?.remaining ?? [],
-    market: refreshMarketAvailability(newState.market, nextRound),
-    buyPhaseState: null,
-    bonusDieResult: null,
-    bonusDieWinner: null,
-  };
-}

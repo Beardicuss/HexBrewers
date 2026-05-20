@@ -23,6 +23,8 @@ import { BlackMarket } from "./BlackMarket";
 import { GameOver } from "./GameOver";
 import { BlueChoicePanel } from "./BlueChoicePanel";
 import { RubySpendPanel } from "./RubySpendPanel";
+import { ExplodedChoicePanel } from "./ExplodedChoicePanel";
+import { AIStatusPanel } from "./AIStatusPanel";
 
 // GameBoard rendering
 
@@ -227,57 +229,12 @@ export function GameBoard() {
   );
 }
 
-// ── Exploded choice panel ──────────────────────────────────────────────────────
-
-function ExplodedChoicePanel({
-  onChoose,
-}: {
-  onChoose: (c: "vp" | "coins") => void;
-}) {
-  const t = useTranslation();
-  return (
-    <div style={choiceStyles.panel}>
-      <div style={choiceStyles.label}>{t.exploded.title}</div>
-      <div style={choiceStyles.buttons}>
-        <button style={choiceStyles.btn} onClick={() => onChoose("vp")}>
-          {t.exploded.oneVP}
-        </button>
-        <button style={choiceStyles.btn} onClick={() => onChoose("coins")}>
-          {t.exploded.lastIngredient}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── AI status panel ───────────────────────────────────────────────────────────
-
-function AIStatusPanel({ phase }: { phase: string }) {
-  const t = useTranslation();
-  const messages: Record<string, string> = {
-    omen: "...",
-    brewing: t.game.shadeBrewing,
-    scoring: "...",
-    market: "...",
-    setup: "",
-    game_over: "",
-  };
-
-  const msg = messages[phase] ?? "";
-  if (!msg) return null;
-
-  return (
-    <div style={aiStyles.panel}>
-      <span style={aiStyles.dot}>◈</span>
-      <span style={aiStyles.text}>{msg}</span>
-    </div>
-  );
-}
+// ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles: Record<string, React.CSSProperties> = {
   root: {
     height: "100vh",
-    position: "relative", // Needed so the absolute canvasWrapper aligns properly
+    position: "relative",
     overflow: "hidden",
     backgroundImage: "url('/images/cauldron_bg.jpg')",
     backgroundSize: "cover",
@@ -325,7 +282,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 0,
     padding: "40px 60px",
     alignItems: "flex-start",
-    justifyContent: "space-between", // Spread left and right panels completely to the edges
+    justifyContent: "space-between",
   },
   leftCol: {
     display: "flex",
@@ -333,13 +290,13 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 14,
     width: 220,
     flexShrink: 0,
-    zIndex: 10, // Float above absolute webGL canvas
+    zIndex: 10,
   },
   canvasWrapper: {
     position: "absolute",
-    inset: 0, // Fill screen
-    zIndex: 0, // Behind UI layers
-    pointerEvents: "none", // Let user click UI completely transparently
+    inset: 0,
+    zIndex: 0,
+    pointerEvents: "none",
   },
   canvas: {
     width: "100%",
@@ -352,62 +309,5 @@ const styles: Record<string, React.CSSProperties> = {
     width: 220,
     flexShrink: 0,
     zIndex: 10,
-  },
-};
-
-const choiceStyles: Record<string, React.CSSProperties> = {
-  panel: {
-    background: "rgba(30, 10, 50, 0.6)",
-    border: "1px solid #5a1a8a",
-    borderRadius: 8,
-    padding: "14px 16px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-  },
-  label: {
-    fontFamily: "serif",
-    fontSize: 12,
-    color: "#e8b84d",
-    textAlign: "center",
-    fontStyle: "italic",
-  },
-  buttons: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-  },
-  btn: {
-    background: "transparent",
-    border: "1px solid #5a1a8a",
-    borderRadius: 6,
-    padding: "9px",
-    color: "#e8d5b5",
-    fontFamily: "serif",
-    fontSize: 13,
-    letterSpacing: 1,
-    cursor: "pointer",
-  },
-};
-
-const aiStyles: Record<string, React.CSSProperties> = {
-  panel: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "10px 14px",
-    background: "rgba(10, 4, 20, 0.5)",
-    border: "1px solid #1a0a2e",
-    borderRadius: 7,
-  },
-  dot: {
-    color: "#553377",
-    fontSize: 12,
-  },
-  text: {
-    fontFamily: "monospace",
-    fontSize: 11,
-    color: "#8a7656",
-    fontStyle: "italic",
   },
 };
