@@ -73,5 +73,5 @@ export function decideMarketTurn(
     coinsSpent: 0,
     coinsAvailable: player.coinsThisRound,
   };
-  return decideMarketPurchases(player, market, mode, buyState, state.currentRound);
+  return decideMarketPurchases(player, market, mode, buyState, state.currentRound, state);
 }

@@ -1,30 +1,37 @@
 import { create } from "zustand";
 import type { GameState, GamePhase } from "../game/gameState";
 import type { Player } from "../game/playerTypes";
-import type { Token } from "../game/tokenTypes";
+import type { Token, TokenColor } from "../game/tokenTypes";
 import type { ExplodedChoice } from "../game/scoring";
 import type { BuyPhaseState } from "../game/bazaarTypes";
 import { soundManager } from "../SoundManager";
 
-import { placeToken } from "../game/crucible";
+import { getExplosionThreshold, placeToken } from "../game/crucible";
 import { drawToken } from "../game/bag";
 import { calculateRoundScore } from "../game/scoring";
 import { canUseFlask, useFlask } from "../game/flask";
 import { purchaseItem } from "../game/bazaar";
 import { applyRatStones } from "../game/ratTail";
-import { drawBlueBonus, applyEndOfRoundEffects, redBonusValue, applyYellowSetOneBonus } from "../game/chipEffects";
+import { drawBlueBonus, applyBlueImmediate, applyEndOfRoundEffects, redBonusValue, applyYellowImmediate, countPlacedColor } from "../game/chipEffects";
 import { rollBonusDie } from "../game/bonusDie";
 import { spendRubiesForDroplet, spendRubiesForFlask, canAdvanceDroplet, canRefillFlask } from "../game/rubyActions";
 import { decideExplodedChoice, decideMarketTurn } from "../game/ai";
+import type { OmenCard } from "../game/omenTypes";
+import { getRecipeSetForColor } from "../game/recipeBooks";
 
 import { updatePlayer, getPlayer, createInitialState } from "./gameStoreHelpers";
 import { advanceToNextRound } from "./gameStoreRound";
+import type { RecipeMode } from "../game/recipeBooks";
 
 function makeFreeOrangeToken(playerId: string): Token {
+  return makeFreeToken(playerId, "orange", 1, "bonus");
+}
+
+function makeFreeToken(playerId: string, color: TokenColor, value: number, source: string): Token {
   return {
-    id: `orange-1-bonus-${playerId}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    color: "orange",
-    value: 1,
+    id: `${color}-${value}-${source}-${playerId}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    color,
+    value,
   };
 }
 
@@ -83,11 +90,152 @@ function spendAIRubies(player: Player): Player {
   return current;
 }
 
+function applyOmenStartEffect(player: Player, omen: OmenCard | null): Player {
+  if (!omen) return player;
+
+  switch (omen.effect.type) {
+    case "gain_rubies":
+      return { ...player, rubies: player.rubies + omen.effect.amount };
+    case "gain_vp":
+      return { ...player, score: player.score + omen.effect.amount };
+    case "advance_droplet":
+      return {
+        ...player,
+        crucible: {
+          ...player.crucible,
+          dropletPosition: Math.min(player.crucible.dropletPosition + omen.effect.amount, 32),
+          filledUpTo: Math.min(player.crucible.filledUpTo + omen.effect.amount, 33),
+        },
+      };
+    case "gain_chip":
+      return {
+        ...player,
+        bag: {
+          tokens: [
+            ...player.bag.tokens,
+            makeFreeToken(player.id, omen.effect.color, omen.effect.value, omen.id),
+          ],
+        },
+      };
+    case "roll_bonus_die": {
+      return applyBonusDieReward(player).player;
+    }
+    default:
+      return player;
+  }
+}
+
+function applyOmenScoringEffect(player: Player, omen: OmenCard | null, result: ReturnType<typeof calculateRoundScore>): Player {
+  if (!omen) return player;
+
+  switch (omen.effect.type) {
+    case "bonus_if_survived":
+      if (result.exploded) return player;
+      return {
+        ...player,
+        score: player.score + (omen.effect.vp ?? 0),
+        rubies: player.rubies + (omen.effect.rubies ?? 0),
+      };
+    case "bonus_if_exploded":
+      if (!result.exploded) return player;
+      return {
+        ...player,
+        score: player.score + (omen.effect.vp ?? 0),
+        rubies: player.rubies + (omen.effect.rubies ?? 0),
+      };
+    case "bonus_for_color": {
+      const count = countPlacedColor(player.crucible, omen.effect.color);
+      return {
+        ...player,
+        score: player.score + count * (omen.effect.vpPerChip ?? 0),
+        rubies: player.rubies + count * (omen.effect.rubiesPerChip ?? 0),
+      };
+    }
+    case "bonus_for_white_limit":
+      if (result.exploded || player.crucible.whiteSum > omen.effect.maxWhiteSum) return player;
+      return { ...player, score: player.score + omen.effect.vp };
+    default:
+      return player;
+  }
+}
+
+function rubyRewardForResult(omen: OmenCard | null, result: ReturnType<typeof calculateRoundScore>): number {
+  if (!result.ruby) return 0;
+  return omen?.effect.type === "double_ruby_space" ? 2 : 1;
+}
+
+function hasPlacedColor(player: Player, color: TokenColor): boolean {
+  return player.crucible.slots.some((slot) => slot.token?.color === color);
+}
+
+function movementForToken(player: Player, token: Token, state: GameState): number {
+  let movement = token.value;
+
+  if (token.color === "red") {
+    movement += redBonusValue(player.crucible, state.recipeBooks);
+  }
+
+  if (
+    token.color === "white" &&
+    token.value === 1 &&
+    getRecipeSetForColor(state.recipeBooks, "red") === 4 &&
+    hasPlacedColor(player, "red")
+  ) {
+    movement += 1;
+  }
+
+  if (player.yellowDoubleNext) {
+    movement *= 2;
+  }
+
+  if (token.color === "yellow" && getRecipeSetForColor(state.recipeBooks, "yellow") === 4) {
+    movement += countPlacedColor(player.crucible, "yellow") + 1;
+  }
+
+  return movement;
+}
+
+function placeTokenForActiveBooks(player: Player, token: Token, bagTokens: Token[], state: GameState): Player {
+  const previousToken = player.crucible.lastDrawnToken;
+  const movement = movementForToken(player, token, state);
+  const explosionThreshold =
+    getRecipeSetForColor(state.recipeBooks, "yellow") === 3
+      ? getExplosionThreshold(player.crucible)
+      : 7;
+
+  let updated: Player = {
+    ...player,
+    bag: { tokens: bagTokens },
+    yellowDoubleNext: player.yellowDoubleNext ? false : player.yellowDoubleNext,
+    crucible: placeToken(player.crucible, token, movement, explosionThreshold),
+  };
+
+  if (updated.crucible.exploded && (updated.blueProtectionDraws ?? 0) > 0) {
+    updated = {
+      ...updated,
+      blueProtectionDraws: 0,
+      crucible: { ...updated.crucible, exploded: false },
+    };
+  } else if ((updated.blueProtectionDraws ?? 0) > 0) {
+    updated = { ...updated, blueProtectionDraws: Math.max(0, (updated.blueProtectionDraws ?? 0) - 1) };
+  }
+
+  if (token.color === "yellow") {
+    updated = applyYellowImmediate(updated, previousToken, state.recipeBooks);
+  }
+
+  if (token.color === "blue") {
+    updated = applyBlueImmediate(updated, token, state.recipeBooks);
+  }
+
+  return updated;
+}
+
 // ─── Store interface ──────────────────────────────────────────────────────────
 
 interface GameStore {
   state: GameState;
-  initGame: () => void;
+  initGame: (recipeMode?: RecipeMode) => void;
 
   // Phase transitions
   dismissOmen: () => void;
@@ -128,9 +276,9 @@ interface GameStore {
 export const useGameStore = create<GameStore>((set, get) => ({
   state: createInitialState(),
 
-  initGame: () => {
+  initGame: (recipeMode: RecipeMode = 1) => {
     soundManager.play("omen_reveal");
-    set({ state: createInitialState() });
+    set({ state: createInitialState(recipeMode) });
   },
 
   dismissOmen: () => {
@@ -144,15 +292,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
         // Apply rat stone offsets to crucibles
         const playersWithRats = withRats.map((p) => ({
           ...p,
+          ratStoneOffset: p.ratStoneOffset +
+            (state.currentOmen?.effect.type === "extra_rat_stone" && p.ratStoneOffset > 0
+              ? state.currentOmen.effect.amount
+              : 0),
           crucible: {
             ...p.crucible,
-            filledUpTo: p.crucible.dropletPosition + p.ratStoneOffset,
+            filledUpTo: p.crucible.dropletPosition + p.ratStoneOffset +
+              (state.currentOmen?.effect.type === "extra_rat_stone" && p.ratStoneOffset > 0
+                ? state.currentOmen.effect.amount
+                : 0),
           },
         }));
         state = { ...state, players: playersWithRats };
       }
 
-      return { state: { ...state, phase: "brewing" } };
+      const playersWithOmen = state.players.map((player) =>
+        applyOmenStartEffect(player, state.currentOmen)
+      );
+
+      return { state: { ...state, players: playersWithOmen, phase: "brewing" } };
     });
   },
 
@@ -169,10 +328,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       soundManager.play("token_draw");
 
-      const previousToken = human.crucible.lastDrawnToken;
-      const movement = drawn.token.value +
-        (drawn.token.color === "red" ? redBonusValue(human.crucible) : 0);
-      const updatedCrucible = placeToken(human.crucible, drawn.token, movement);
+      let updatedHuman = placeTokenForActiveBooks(human, drawn.token, drawn.bag.tokens, state);
+      const updatedCrucible = updatedHuman.crucible;
 
       if (drawn.token.color === "white") {
         soundManager.play("token_place_white");
@@ -183,20 +340,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (updatedCrucible.exploded) {
         soundManager.play("explosion");
       }
-      let updatedHuman: Player = {
-        ...human,
-        bag: drawn.bag,
-        crucible: updatedCrucible,
-      };
-
       result = { token: drawn.token, exploded: updatedCrucible.exploded };
 
-      if (drawn.token.color === "yellow") {
-        updatedHuman = applyYellowSetOneBonus(updatedHuman, previousToken);
-      }
-
       // Blue chip: trigger draw-N-keep-1 phase based on its value
-      if (drawn.token.color === "blue" && !updatedCrucible.exploded) {
+      if (drawn.token.color === "blue" && getRecipeSetForColor(state.recipeBooks, "blue") === 1 && !updatedCrucible.exploded) {
         // Perform the bonus draw immediately
         const blueBonusResult = drawBlueBonus(updatedHuman.bag, drawn.token.value);
         updatedHuman.bag = blueBonusResult.bag; // deduct them from bag temporarily
@@ -254,14 +401,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (keepTokenId) {
         const kept = extraTokens.find((t) => t.id === keepTokenId);
         if (kept) {
-          const previousToken = human.crucible.lastDrawnToken;
-          const movement = kept.value +
-            (kept.color === "red" ? redBonusValue(human.crucible) : 0);
-          const newCrucible = placeToken(human.crucible, kept, movement);
-          updatedHuman = {
-            ...updatedHuman,
-            crucible: newCrucible,
-          };
+          updatedHuman = placeTokenForActiveBooks(updatedHuman, kept, updatedHuman.bag.tokens, state);
+          const newCrucible = updatedHuman.crucible;
           if (kept.color === "white") {
             soundManager.play("token_place_white");
           } else {
@@ -271,11 +412,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             soundManager.play("explosion");
           }
 
-          if (kept.color === "yellow") {
-            updatedHuman = applyYellowSetOneBonus(updatedHuman, previousToken);
-          }
-
-          if (kept.color === "blue" && !newCrucible.exploded) {
+          if (kept.color === "blue" && getRecipeSetForColor(state.recipeBooks, "blue") === 1 && !newCrucible.exploded) {
             const blueBonusResult = drawBlueBonus(updatedHuman.bag, kept.value);
             updatedHuman = { ...updatedHuman, bag: blueBonusResult.bag };
             return {
@@ -462,16 +599,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
         aiBonus = bonus.result;
       }
 
-      let humanFinal = applyEndOfRoundEffects(humanAfterBonus, aiAfterBonus);
-      let aiFinal = applyEndOfRoundEffects(aiAfterBonus, humanAfterBonus);
+      let humanFinal = applyEndOfRoundEffects(humanAfterBonus, aiAfterBonus, stateWithAI.recipeBooks);
+      let aiFinal = applyEndOfRoundEffects(aiAfterBonus, humanAfterBonus, stateWithAI.recipeBooks);
+
+      humanFinal = applyOmenScoringEffect(humanFinal, stateWithAI.currentOmen, humanResult);
+      aiFinal = applyOmenScoringEffect(aiFinal, stateWithAI.currentOmen, aiResult);
 
       humanFinal = {
         ...humanFinal,
-        rubies: humanFinal.rubies + (humanResult.ruby ? 1 : 0),
+        rubies: humanFinal.rubies + rubyRewardForResult(stateWithAI.currentOmen, humanResult),
       };
       aiFinal = {
         ...aiFinal,
-        rubies: aiFinal.rubies + (aiResult.ruby ? 1 : 0),
+        rubies: aiFinal.rubies + rubyRewardForResult(stateWithAI.currentOmen, aiResult),
       };
 
       if (aiResult.exploded) {

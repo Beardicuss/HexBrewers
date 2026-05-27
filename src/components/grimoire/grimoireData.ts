@@ -175,48 +175,75 @@ export const INGREDIENTS: Ingredient[] = [
 
 export const OMENS: OmenEntry[] = [
     {
-        id: "double_soulstones",
-        title: "Double Soulstones",
-        effect: "Earn ×2 Soulstones from your spiral position this round",
-        description: "The Void Hungers / Shadowtide",
+        id: "start_boosts",
+        title: "Opening Portents",
+        effect: "Some omens grant rubies, prestige, droplet movement, a safe chip, or a bonus die roll before brewing.",
+        description: "Ember in the Ash / Cinder Toll / Borrowed Spark / Crawling Moon / Bones of Chance",
         strategy:
-            "Push aggressively. The deeper you go on the spiral, the more scoring slots you hit — and this round they each pay double. Accept higher Voidshard risk than usual. Even a mid-range position becomes very lucrative.",
+            "These cards change your baseline before risk begins. A free Brimstone or droplet step makes pushing safer; early prestige or rubies may let you play more conservatively.",
         icon: "⬡",
     },
     {
-        id: "extra_draw",
-        title: "Extra Draw",
-        effect: "Draw one additional token before deciding to stop",
-        description: "Whispers of the Deep / The Final Convergence",
+        id: "survival_rewards",
+        title: "Survival Rewards",
+        effect: "If your crucible survives, gain extra prestige or rubies.",
+        description: "Quiet Hands / Ruby Rain",
         strategy:
-            "Use the extra draw late — after you've already committed to stopping. It gives one free look at fate. If your Voidshard pressure is low, use it early. If you're near the threshold, use it as a last gamble.",
+            "These reward discipline. Stop earlier than usual when your Voidshard pressure gets uncomfortable, because the survival bonus can outweigh one risky draw.",
         icon: "◈",
     },
     {
-        id: "poison",
-        title: "Explosion Penalty",
-        effect: "If your crucible shatters, lose 2–3 Soulstones",
-        description: "Curse of the Ashenveil / Harbinger's Mark",
+        id: "shatter_consolation",
+        title: "Shatter Consolation",
+        effect: "If your crucible shatters, gain a small ruby or prestige reward.",
+        description: "Mercy in Smoke / The Last Laugh",
         strategy:
-            "Play conservatively. The penalty compounds a bad result — not only do you lose the dual reward for surviving, but you also bleed Soulstones you need for the market. Stop early, protect your resources.",
+            "These soften failure but do not make explosion good. They are best treated as permission to push slightly harder when your bag is already strong.",
         icon: "⚠",
     },
     {
-        id: "bonus_score",
-        title: "Survival Bonus",
-        effect: "If your crucible survives, gain 3–5 bonus prestige points",
-        description: "Blood Pact / Veil of Fortune",
+        id: "ingredient_omens",
+        title: "Ingredient Omens",
+        effect: "Specific ingredient colors in your pot pay extra prestige or rubies.",
+        description: "Thread of Death / Cold Ledger / Thorn Harvest / Golden Rot / Wraith Choir / Moss Beneath Doors / Brimstone Chorus",
         strategy:
-            "Do not explode. This is a round to play it safe — stop the moment your Voidshard pressure becomes uncomfortable. The bonus points reward discipline far more than a risky extra draw would.",
+            "Let your bag composition guide the round. If the named ingredient is common in your bag, push to find it; if not, play normally and do not chase a low-probability bonus.",
         icon: "✦",
     },
     {
-        id: "no_effect",
-        title: "No Effect",
-        effect: "No special rule this round",
-        description: "Eclipse of the Wraith Moon",
+        id: "void_control",
+        title: "Void Control",
+        effect: "Low Voidshard pressure can pay bonus prestige.",
+        description: "Measured Breath / Steady Pulse",
         strategy:
-            "Pure brewing. No bonus to chase, no penalty to fear. Use this round to evaluate your bag composition and plan your market purchases carefully. A calm round is a good round to test your limits.",
+            "These cards strongly reward stopping before the bag turns sour. Count remaining whites carefully and treat the bonus as part of your scoring space.",
+        icon: "◯",
+    },
+    {
+        id: "ruby_spaces",
+        title: "Ruby Space Omens",
+        effect: "Ruby scoring spaces can pay double.",
+        description: "Twin Rubies",
+        strategy:
+            "Ruby spaces become more valuable than usual. If you are one or two spaces away from a ruby scoring field, a controlled extra draw may be worth it.",
+        icon: "◆",
+    },
+    {
+        id: "catchup_omens",
+        title: "Catchup Omens",
+        effect: "Trailing brewers can receive stronger rat-stone help.",
+        description: "Ashen Charity",
+        strategy:
+            "If you are behind, this is your chance to convert catchup distance into market money. If you are ahead, expect The Shade to start closer to danger and rewards.",
+        icon: "↥",
+    },
+    {
+        id: "still_night",
+        title: "Still Night",
+        effect: "No special rule.",
+        description: "Still Night",
+        strategy:
+            "Pure brewing. No bonus to chase, no penalty to fear. Use the round to test your bag and buy for the next omen.",
         icon: "◯",
     },
 ];
@@ -291,8 +318,8 @@ export const RULES: RuleEntry[] = [
         title: "Omen Cards",
         content: [
             "At the start of each round, an Omen Card is revealed. Its effect applies to all players this round.",
-            "9 cards are shuffled at the start of the game — one per round, no repeats.",
-            "Some cards reward survival, others punish explosion, some grant extra draws.",
+            "24 cards are shuffled at the start of the game — one per round, no repeats.",
+            "Some cards grant start bonuses, some reward survival or specific ingredients, and some change ruby or catchup value.",
             "Adjust your risk tolerance based on the active Omen every single round.",
         ],
     },

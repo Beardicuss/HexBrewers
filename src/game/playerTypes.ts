@@ -22,4 +22,9 @@ export interface Player {
   score: number;      // total VP accumulated on scoring track
   flask: boolean;     // true = flask available this round
   ratStoneOffset: number; // spaces ahead of droplet the rat stone sits (catchup)
+
+  // Recipe-book temporary effects. They reset between rounds.
+  blueProtectionDraws?: number;
+  yellowDoubleNext?: boolean;
+  redReserve?: import("./tokenTypes").Token[];
 }

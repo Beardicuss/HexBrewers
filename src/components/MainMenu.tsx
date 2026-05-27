@@ -1,9 +1,10 @@
 import React from "react";
 import { useTranslation } from "../i18n/useTranslation";
 import { useSettingsStore } from "../store/settingsStore";
+import type { RecipeMode } from "../game/recipeBooks";
 
 interface MainMenuProps {
-    onNewGame: () => void;
+    onNewGame: (recipeMode?: RecipeMode) => void;
     onGrimoire: () => void;
     onSettings: () => void;
 }
@@ -11,6 +12,7 @@ interface MainMenuProps {
 export function MainMenu({ onNewGame, onGrimoire, onSettings }: MainMenuProps) {
     const t = useTranslation();
     const language = useSettingsStore((s) => s.language);
+    const [recipeMode, setRecipeMode] = React.useState<RecipeMode>(1);
     return (
         <div style={s.root}>
             {/* Ambient particles overlay */}
@@ -31,7 +33,24 @@ export function MainMenu({ onNewGame, onGrimoire, onSettings }: MainMenuProps) {
 
                 {/* Menu buttons — left-aligned, vertical stack */}
                 <nav style={s.nav}>
-                    <MenuButton label={t.menu.newGame} icon="⬡" onClick={onNewGame} accent="#e8b84d" />
+                    <div style={s.recipePanel}>
+                        <div style={s.recipeLabel}>Recipe Book</div>
+                        <div style={s.recipeButtons}>
+                            {([1, 2, 3, 4, "random"] as RecipeMode[]).map((mode) => (
+                                <button
+                                    key={mode}
+                                    style={{
+                                        ...s.recipeBtn,
+                                        ...(recipeMode === mode ? s.recipeBtnActive : {}),
+                                    }}
+                                    onClick={() => setRecipeMode(mode)}
+                                >
+                                    {mode === "random" ? "Random" : `Set ${mode}`}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <MenuButton label={t.menu.newGame} icon="⬡" onClick={() => onNewGame(recipeMode)} accent="#e8b84d" />
                     <MenuButton label={t.menu.grimoire} icon="✦" onClick={onGrimoire} accent="#e8b84d" />
                     <MenuButton label={t.menu.settings} icon="◈" onClick={onSettings} accent="#e8b84d" />
                 </nav>
@@ -206,6 +225,42 @@ const s: Record<string, React.CSSProperties> = {
         fontSize: 12,
         color: "#8a7656", // Bronze
         letterSpacing: 2,
+    },
+    recipePanel: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        maxWidth: 550,
+        padding: "12px 18px",
+        border: "1px solid rgba(232,184,77,0.25)",
+        background: "rgba(6,2,14,0.45)",
+        borderRadius: 8,
+    },
+    recipeLabel: {
+        fontFamily: "monospace",
+        fontSize: 13,
+        color: "#c9a86c",
+        letterSpacing: 2,
+        textTransform: "uppercase",
+    },
+    recipeButtons: {
+        display: "flex",
+        gap: 8,
+        flexWrap: "wrap",
+    },
+    recipeBtn: {
+        background: "transparent",
+        border: "1px solid #3a1a5a",
+        borderRadius: 5,
+        color: "#c9a86c",
+        padding: "7px 12px",
+        fontFamily: "monospace",
+        cursor: "pointer",
+    },
+    recipeBtnActive: {
+        borderColor: "#e8b84d",
+        color: "#e8b84d",
+        background: "rgba(232,184,77,0.12)",
     },
     glowOrb: {
         position: "fixed",

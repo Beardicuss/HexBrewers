@@ -4,6 +4,8 @@ import { createStartingBag } from "../game/bagFactory";
 import { createCrucible } from "../game/crucible";
 import { createMarket } from "../game/bazaarFactory";
 import { createShuffledOmenDeck, drawOmen } from "../game/omen";
+import type { RecipeMode } from "../game/recipeBooks";
+import { createRecipeBooks } from "../game/recipeBooks";
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
@@ -30,12 +32,16 @@ export function createPlayer(id: string, name: string, kind: "human" | "ai"): Pl
         score: 0,
         flask: true,
         ratStoneOffset: 0,
+        blueProtectionDraws: 0,
+        yellowDoubleNext: false,
+        redReserve: [],
     };
 }
 
-export function createInitialState(): GameState {
+export function createInitialState(recipeMode: RecipeMode = 1): GameState {
     const omenDeck = createShuffledOmenDeck();
     const firstOmen = drawOmen(omenDeck);
+    const recipeBooks = createRecipeBooks(recipeMode);
 
     return {
         players: [
@@ -48,7 +54,8 @@ export function createInitialState(): GameState {
         activePlayerIndex: 0,
         currentOmen: firstOmen?.card ?? null,
         omenDeck: firstOmen?.remaining ?? [],
-        market: createMarket(),
+        market: createMarket(recipeBooks),
+        recipeBooks,
         buyPhaseState: null,
         bonusDieResult: null,
         bonusDieWinner: null,

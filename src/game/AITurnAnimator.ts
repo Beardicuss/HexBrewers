@@ -3,10 +3,11 @@ import type { GameState } from "./gameState";
 import type { Token } from "./tokenTypes";
 import type { ExplodedChoice } from "./scoring";
 import { drawToken } from "./bag";
-import { placeToken, hasExploded } from "./crucible";
+import { getExplosionThreshold, placeToken, hasExploded } from "./crucible";
 import { decideBrewingAction, decideFlaskUse } from "./ai";
 import { canUseFlask, useFlask } from "./flask";
-import { redBonusValue, applyYellowSetOneBonus, drawBlueBonus } from "./chipEffects";
+import { redBonusValue, applyYellowImmediate, applyBlueImmediate, countPlacedColor, drawBlueBonus } from "./chipEffects";
+import { getRecipeSetForColor } from "./recipeBooks";
 
 export type AITurnEvent =
   | { type: "thinking"; message: string }
@@ -39,16 +40,55 @@ const MSGS = {
 const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
 const wait = (ms: number) => new Promise<void>((res) => setTimeout(res, ms));
 
-function placeTokenWithSetOneEffects(player: Player, token: Token): Player {
+function hasPlacedColor(player: Player, color: Token["color"]): boolean {
+  return player.crucible.slots.some((slot) => slot.token?.color === color);
+}
+
+function movementForToken(player: Player, token: Token, state: GameState): number {
+  let movement = token.value;
+  if (token.color === "red") movement += redBonusValue(player.crucible, state.recipeBooks);
+  if (
+    token.color === "white" &&
+    token.value === 1 &&
+    getRecipeSetForColor(state.recipeBooks, "red") === 4 &&
+    hasPlacedColor(player, "red")
+  ) {
+    movement += 1;
+  }
+  if (player.yellowDoubleNext) movement *= 2;
+  if (token.color === "yellow" && getRecipeSetForColor(state.recipeBooks, "yellow") === 4) {
+    movement += countPlacedColor(player.crucible, "yellow") + 1;
+  }
+  return movement;
+}
+
+function placeTokenWithActiveBooks(player: Player, token: Token, state: GameState): Player {
   const previousToken = player.crucible.lastDrawnToken;
-  const movement = token.value + (token.color === "red" ? redBonusValue(player.crucible) : 0);
+  const threshold = getRecipeSetForColor(state.recipeBooks, "yellow") === 3
+    ? getExplosionThreshold(player.crucible)
+    : 7;
   let updated: Player = {
     ...player,
-    crucible: placeToken(player.crucible, token, movement),
+    yellowDoubleNext: player.yellowDoubleNext ? false : player.yellowDoubleNext,
+    crucible: placeToken(player.crucible, token, movementForToken(player, token, state), threshold),
   };
 
+  if (updated.crucible.exploded && (updated.blueProtectionDraws ?? 0) > 0) {
+    updated = {
+      ...updated,
+      blueProtectionDraws: 0,
+      crucible: { ...updated.crucible, exploded: false },
+    };
+  } else if ((updated.blueProtectionDraws ?? 0) > 0) {
+    updated = { ...updated, blueProtectionDraws: Math.max(0, (updated.blueProtectionDraws ?? 0) - 1) };
+  }
+
   if (token.color === "yellow") {
-    updated = applyYellowSetOneBonus(updated, previousToken);
+    updated = applyYellowImmediate(updated, previousToken, state.recipeBooks);
+  }
+
+  if (token.color === "blue") {
+    updated = applyBlueImmediate(updated, token, state.recipeBooks);
   }
 
   return updated;
@@ -101,7 +141,7 @@ export class AITurnAnimator {
       if (!drawn) { this.emit({ type: "stop", player: current }); break; }
 
       drawCount++;
-      current = placeTokenWithSetOneEffects({ ...current, bag: drawn.bag }, drawn.token);
+      current = placeTokenWithActiveBooks({ ...current, bag: drawn.bag }, drawn.token, state);
       const updatedCrucible = current.crucible;
 
       // Flask check (must check canUseFlask AFTER placing — official rule)
@@ -122,7 +162,7 @@ export class AITurnAnimator {
       this.emit({ type: "draw", token: drawn.token, player: current });
       await wait(TIMING.betweenDraws);
 
-      let blueSource = drawn.token.color === "blue" && !current.crucible.exploded ? drawn.token : null;
+      let blueSource = drawn.token.color === "blue" && getRecipeSetForColor(state.recipeBooks, "blue") === 1 && !current.crucible.exploded ? drawn.token : null;
       while (blueSource && !current.crucible.exploded) {
         const bonus = drawBlueBonus(current.bag, blueSource.value);
         const kept = chooseAIBlueKeep(bonus.drawn, current);
@@ -131,12 +171,12 @@ export class AITurnAnimator {
 
         if (!kept) break;
 
-        current = placeTokenWithSetOneEffects(current, kept);
+        current = placeTokenWithActiveBooks(current, kept, state);
         this.emit({ type: "draw", token: kept, player: current });
         await wait(TIMING.betweenDraws);
 
         if (hasExploded(current.crucible)) break;
-        blueSource = kept.color === "blue" ? kept : null;
+        blueSource = kept.color === "blue" && getRecipeSetForColor(state.recipeBooks, "blue") === 1 ? kept : null;
       }
 
       if (hasExploded(current.crucible)) {

@@ -34,12 +34,11 @@ export function OmenCardDisplay({ card, visible, onDismiss }: OmenCardProps) {
 }
 
 function getEffectLabel(card: OmenCard, t: Translations): string {
+  if (card.summary) return card.summary;
+
   switch (card.effect.type) {
-    case "double_soulstones": return t.omen.doubleSoulstones;
-    case "extra_draw": return t.omen.extraWhite;
-    case "poison": return t.omen.poison.replace("{penalty}", card.effect.penalty.toString());
-    case "bonus_score": return t.omen.bonusScore.replace("{points}", card.effect.points.toString());
     case "no_effect": return t.omen.noEffect;
+    default: return t.omen.noEffect;
   }
 }
 

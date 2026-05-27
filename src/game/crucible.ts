@@ -20,7 +20,14 @@ export function createCrucible(): Crucible {
 // Place a token on the crucible.
 // Token advances filledUpTo by token.value from current position.
 // Returns updated crucible (immutable).
-export function placeToken(crucible: Crucible, token: Token, movement = token.value): Crucible {
+export function getExplosionThreshold(crucible: Crucible): number {
+  const yellowCount = crucible.slots.filter((slot) => slot.token?.color === "yellow").length;
+  if (yellowCount >= 3) return EXPLOSION_THRESHOLD + 2;
+  if (yellowCount >= 1) return EXPLOSION_THRESHOLD + 1;
+  return EXPLOSION_THRESHOLD;
+}
+
+export function placeToken(crucible: Crucible, token: Token, movement = token.value, explosionThreshold = EXPLOSION_THRESHOLD): Crucible {
   const nextPosition = Math.min(crucible.filledUpTo + movement, CRUCIBLE_SIZE);
 
   const updatedSlots = crucible.slots.map((slot) =>
@@ -30,7 +37,7 @@ export function placeToken(crucible: Crucible, token: Token, movement = token.va
   const newWhiteSum =
     token.color === "white" ? crucible.whiteSum + token.value : crucible.whiteSum;
 
-  const exploded = newWhiteSum > EXPLOSION_THRESHOLD;
+  const exploded = newWhiteSum > explosionThreshold;
 
   return {
     ...crucible,

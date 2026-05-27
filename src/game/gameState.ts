@@ -3,6 +3,7 @@ import type { OmenCard } from "./omenTypes";
 import type { Token } from "./tokenTypes";
 import type { MarketItem, BuyPhaseState } from "./bazaarTypes";
 import type { BonusDieResult } from "./bonusDie";
+import type { RecipeBooks } from "./recipeBooks";
 
 export type GamePhase =
   | "setup"
@@ -28,6 +29,7 @@ export interface GameState {
 
   market: MarketItem[];
   buyPhaseState: BuyPhaseState | null; // tracks purchases this round
+  recipeBooks: RecipeBooks;
 
   bonusDieResult: BonusDieResult | null; // result of this round's die roll
   bonusDieWinner: string | null;         // player id who rolled

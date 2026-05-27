@@ -4,6 +4,8 @@ import { useSoundManager, soundManager } from "./SoundManager";
 import { GameBoard } from "./components/GameBoard";
 import { Grimoire } from "./components/Grimoire";
 import { SettingsScreen } from "./components/settings/SettingsScreen";
+import type { RecipeMode } from "./game/recipeBooks";
+import { useGameStore } from "./store/gameStore";
 
 // Global dark fantasy styles injected once
 const globalStyle = `
@@ -65,7 +67,10 @@ export default function App() {
 
       {screen === "menu" && (
         <MainMenu
-          onNewGame={() => setScreen("game")}
+          onNewGame={(recipeMode?: RecipeMode) => {
+            useGameStore.getState().initGame(recipeMode);
+            setScreen("game");
+          }}
           onGrimoire={() => setScreen("grimoire")}
           onSettings={() => setScreen("settings")}
         />

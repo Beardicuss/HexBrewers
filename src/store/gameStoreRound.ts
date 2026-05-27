@@ -45,6 +45,9 @@ export function advanceToNextRound(state: GameState): GameState {
             crucible: freshCrucible,
             coinsThisRound: 0,
             ratStoneOffset: 0,
+            blueProtectionDraws: 0,
+            yellowDoubleNext: false,
+            redReserve: [],
         };
 
         // Round 6: add extra white 1-chip to every bag
