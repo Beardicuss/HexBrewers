@@ -50,7 +50,7 @@ export const ka: Translations = {
 
     rubySpend: {
         title: "✦ რაუნდი დასრულდა ✦",
-        vpEarned: "მიღებული ქულები:",
+        vpEarned: "ქულების ჯამი:",
         coinsEarned: "მიღებული მონეტები:",
         bonusDie: "🎲 ბონუს კამათელი:",
         rubiesLabel: "ლალი",

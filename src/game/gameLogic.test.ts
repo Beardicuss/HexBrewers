@@ -7,7 +7,7 @@ import { calculateRoundScore } from "./scoring";
 import { canUseFlask, useFlask } from "./flask";
 import { createMarket } from "./bazaarFactory";
 import { purchaseItem } from "./bazaar";
-import { applyBlueImmediate, applyEndOfRoundEffects, applyYellowImmediate, applyYellowSetOneBonus, redBonusValue } from "./chipEffects";
+import { applyBlueImmediate, applyEndOfRoundEffects, applyGreenSetFourSpend, applyPurpleChoice, applyYellowImmediate, applyYellowSetOneBonus, greenSetFourSpendMax, greenSetTwoRewards, purpleChoices, redBonusValue } from "./chipEffects";
 import { rollBonusDie } from "./bonusDie";
 import { advanceToNextRound } from "../store/gameStoreRound";
 import { createInitialState } from "../store/gameStoreHelpers";
@@ -29,6 +29,8 @@ function player(id: string): Player {
     score: 0,
     flask: true,
     ratStoneOffset: 0,
+    blueProtectionDraws: 0,
+    blueBonusExplosion: false,
   };
 }
 
@@ -95,6 +97,21 @@ describe("official renamed rules", () => {
     const updated = applyYellowSetOneBonus(p, white);
     expect(updated.crucible.whiteSum).toBe(0);
     expect(updated.bag.tokens.some((t) => t.id === white.id)).toBe(true);
+  });
+
+  it("yellow can rescue a burst pot by returning the previous Voidshard", () => {
+    const previousWhite = token("w3", "white", 3);
+    let p = player("human");
+    p = { ...p, crucible: placeToken(p.crucible, token("w5", "white", 5)) };
+    p = { ...p, crucible: placeToken(p.crucible, previousWhite) };
+    p = { ...p, crucible: placeToken(p.crucible, token("y1", "yellow", 1)) };
+
+    expect(p.crucible.whiteSum).toBe(8);
+    expect(p.crucible.exploded).toBe(true);
+
+    const updated = applyYellowSetOneBonus(p, previousWhite);
+    expect(updated.crucible.whiteSum).toBe(5);
+    expect(updated.crucible.exploded).toBe(false);
   });
 
   it("green, purple, and black end-round effects resolve from final pots", () => {
@@ -176,5 +193,118 @@ describe("official renamed rules", () => {
     yellowPlayer = { ...yellowPlayer, crucible: placeToken(yellowPlayer.crucible, yellow) };
     yellowPlayer = applyYellowImmediate(yellowPlayer, null, books4);
     expect(redBonusValue(yellowPlayer.crucible, books4)).toBe(0);
+  });
+
+  it("blue set two keeps a burst pot shattered but marks both-reward protection", () => {
+    const books2 = createRecipeBooks(2);
+    const blue = token("b1", "blue", 1);
+    const white = token("w3", "white", 3);
+
+    let p = player("human");
+    p = { ...p, crucible: placeToken(p.crucible, token("w5", "white", 5)) };
+    p = applyBlueImmediate({ ...p, crucible: placeToken(p.crucible, blue) }, blue, books2);
+    p = { ...p, crucible: placeToken(p.crucible, white) };
+
+    if (p.crucible.exploded && (p.blueProtectionDraws ?? 0) > 0) {
+      p = { ...p, blueProtectionDraws: 0, blueBonusExplosion: true };
+    }
+
+    expect(p.crucible.exploded).toBe(true);
+    expect(p.blueBonusExplosion).toBe(true);
+  });
+
+  it("green set four ruby spend is optional and bounded", () => {
+    const books4 = createRecipeBooks(4);
+    let p = player("human");
+    p = { ...p, rubies: 2, crucible: placeToken(p.crucible, token("g1", "green", 1)) };
+    p = { ...p, crucible: placeToken(p.crucible, token("g2", "green", 1)) };
+
+    expect(greenSetFourSpendMax(p, books4)).toBe(2);
+
+    const updated = applyGreenSetFourSpend(p, 1);
+    expect(updated.rubies).toBe(1);
+    expect(updated.crucible.dropletPosition).toBe(1);
+  });
+
+  it("green set two rewards depend on qualifying chip values", () => {
+    const books2 = createRecipeBooks(2);
+    let p = player("human");
+    p = { ...p, crucible: placeToken(p.crucible, token("g2", "green", 2)) };
+    p = { ...p, crucible: placeToken(p.crucible, token("g4", "green", 4)) };
+
+    const rewards = greenSetTwoRewards(p, books2);
+
+    expect(rewards).toHaveLength(2);
+    expect(rewards[0].options).toEqual([
+      { color: "blue", value: 1 },
+      { color: "red", value: 1 },
+    ]);
+    expect(rewards[1].options).toEqual([
+      { color: "yellow", value: 1 },
+      { color: "purple", value: 1 },
+    ]);
+  });
+
+  it("red set two reserve can persist beside the pot into later rounds", () => {
+    let state = createInitialState(2);
+    const reserved = token("r1", "red", 1);
+    state = {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === "human" ? { ...p, redReserve: [reserved] } : p
+      ),
+    };
+
+    const next = advanceToNextRound(state);
+    const human = next.players.find((p) => p.id === "human")!;
+
+    expect(human.redReserve?.map((t) => t.id)).toEqual([reserved.id]);
+  });
+
+  it("purple set one can take lower rewards", () => {
+    let p = player("human");
+    p = { ...p, crucible: placeToken(p.crucible, token("p1", "purple", 1)) };
+    p = { ...p, crucible: placeToken(p.crucible, token("p2", "purple", 1)) };
+    p = { ...p, crucible: placeToken(p.crucible, token("p3", "purple", 1)) };
+
+    const choices = purpleChoices(p, createRecipeBooks(1));
+    const lower = choices.find((choice) => choice.kind === "set1" && choice.level === 2)!;
+    const updated = applyPurpleChoice(p, lower);
+
+    expect(updated.score).toBe(1);
+    expect(updated.rubies).toBe(1);
+    expect(updated.crucible.dropletPosition).toBe(0);
+  });
+
+  it("purple set two trades drawn purple chips for rewards", () => {
+    let p = player("human");
+    p = { ...p, crucible: placeToken(p.crucible, token("p1", "purple", 1)) };
+    p = { ...p, crucible: placeToken(p.crucible, token("p2", "purple", 1)) };
+
+    const choices = purpleChoices(p, createRecipeBooks(2));
+    const trade = choices.find((choice) => choice.kind === "set2" && choice.tradeCount === 2)!;
+    const updated = applyPurpleChoice(p, trade);
+
+    expect(updated.score).toBe(3);
+    expect(updated.crucible.dropletPosition).toBe(1);
+    expect(updated.bag.tokens.some((t) => t.color === "green" && t.value === 1)).toBe(true);
+    expect(updated.bag.tokens.some((t) => t.color === "blue" && t.value === 2)).toBe(true);
+    expect(updated.crucible.slots.some((slot) => slot.token?.color === "purple")).toBe(false);
+  });
+
+  it("purple set four upgrades an eligible placed chip into the bag", () => {
+    let p = player("human");
+    const orange = token("o1", "orange", 1);
+    p = { ...p, crucible: placeToken(p.crucible, orange) };
+    p = { ...p, crucible: placeToken(p.crucible, token("p1", "purple", 1)) };
+    p = { ...p, crucible: placeToken(p.crucible, token("p2", "purple", 1)) };
+    p = { ...p, crucible: placeToken(p.crucible, token("p3", "purple", 1)) };
+
+    const choices = purpleChoices(p, createRecipeBooks(4));
+    const upgrade = choices.find((choice) => choice.kind === "set4" && choice.toValue === 4)!;
+    const updated = applyPurpleChoice(p, upgrade);
+
+    expect(updated.crucible.slots.some((slot) => slot.token?.id === orange.id)).toBe(false);
+    expect(updated.bag.tokens.some((t) => t.color === "orange" && t.value === 4)).toBe(true);
   });
 });

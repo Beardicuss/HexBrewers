@@ -26,6 +26,12 @@ import { BlueChoicePanel } from "./BlueChoicePanel";
 import { RubySpendPanel } from "./RubySpendPanel";
 import { ExplodedChoicePanel } from "./ExplodedChoicePanel";
 import { AIStatusPanel } from "./AIStatusPanel";
+import { YellowChoicePanel } from "./YellowChoicePanel";
+import { GreenSpendChoicePanel } from "./GreenSpendChoicePanel";
+import { RoundSummaryPanel } from "./RoundSummaryPanel";
+import { RedReserveChoicePanel } from "./RedReserveChoicePanel";
+import { GreenRewardChoicePanel } from "./GreenRewardChoicePanel";
+import { PurpleChoicePanel } from "./PurpleChoicePanel";
 
 // GameBoard rendering
 
@@ -176,6 +182,47 @@ export function GameBoard() {
               tokens={store.state.pendingBlueTokens}
               onChoose={(keepId: string | null) => store.humanResolveBlue(keepId, store.state.pendingBlueTokens!)}
             />
+          )}
+
+          {phase === "yellow_choice" && store.state.pendingYellowPreviousToken && (
+            <YellowChoicePanel
+              token={store.state.pendingYellowPreviousToken}
+              onChoose={(returnPrevious) => store.humanResolveYellow(returnPrevious)}
+            />
+          )}
+
+          {phase === "red_choice" && store.state.pendingRedTokens?.[0] && (
+            <RedReserveChoicePanel
+              token={store.state.pendingRedTokens[0]}
+              remaining={store.state.pendingRedTokens.length}
+              onChoose={(action) => store.humanResolveRed(action)}
+            />
+          )}
+
+          {phase === "green_choice" && store.state.pendingGreenSpendMax !== undefined && (
+            <GreenSpendChoicePanel
+              maxSteps={store.state.pendingGreenSpendMax}
+              onChoose={(steps) => store.humanResolveGreenSpend(steps)}
+            />
+          )}
+
+          {phase === "green_reward_choice" && store.state.pendingGreenRewards?.[0] && (
+            <GreenRewardChoicePanel
+              reward={store.state.pendingGreenRewards[0]}
+              remaining={store.state.pendingGreenRewards.length}
+              onChoose={(color, value) => store.humanResolveGreenReward(color, value)}
+            />
+          )}
+
+          {phase === "purple_choice" && store.state.pendingPurpleChoices && (
+            <PurpleChoicePanel
+              choices={store.state.pendingPurpleChoices}
+              onChoose={(choiceId) => store.humanResolvePurple(choiceId)}
+            />
+          )}
+
+          {store.state.roundSummary && ["scoring", "green_choice", "market", "ruby_spend"].includes(phase) && (
+            <RoundSummaryPanel summary={store.state.roundSummary} />
           )}
 
           {/* Ruby spend phase */}

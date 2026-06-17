@@ -25,6 +25,7 @@ export interface Player {
 
   // Recipe-book temporary effects. They reset between rounds.
   blueProtectionDraws?: number;
+  blueBonusExplosion?: boolean;
   yellowDoubleNext?: boolean;
   redReserve?: import("./tokenTypes").Token[];
 }

@@ -46,8 +46,8 @@ export function advanceToNextRound(state: GameState): GameState {
             coinsThisRound: 0,
             ratStoneOffset: 0,
             blueProtectionDraws: 0,
+            blueBonusExplosion: false,
             yellowDoubleNext: false,
-            redReserve: [],
         };
 
         // Round 6: add extra white 1-chip to every bag
@@ -72,5 +72,6 @@ export function advanceToNextRound(state: GameState): GameState {
         buyPhaseState: null,
         bonusDieResult: null,
         bonusDieWinner: null,
+        roundSummary: null,
     };
 }

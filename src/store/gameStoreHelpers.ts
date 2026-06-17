@@ -33,6 +33,7 @@ export function createPlayer(id: string, name: string, kind: "human" | "ai"): Pl
         flask: true,
         ratStoneOffset: 0,
         blueProtectionDraws: 0,
+        blueBonusExplosion: false,
         yellowDoubleNext: false,
         redReserve: [],
     };
@@ -59,6 +60,7 @@ export function createInitialState(recipeMode: RecipeMode = 1): GameState {
         buyPhaseState: null,
         bonusDieResult: null,
         bonusDieWinner: null,
+        roundSummary: null,
         winner: null,
     };
 }

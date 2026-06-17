@@ -192,7 +192,9 @@ const s: Record<string, React.CSSProperties> = {
         alignItems: "center",
         gap: 20,
         background: "transparent",
-        border: "2px solid transparent",
+        borderWidth: 2,
+        borderStyle: "solid",
+        borderColor: "transparent",
         borderRadius: 12,
         padding: "24px 42px",
         color: "#c9a86c", // Match settings text color
@@ -250,7 +252,9 @@ const s: Record<string, React.CSSProperties> = {
     },
     recipeBtn: {
         background: "transparent",
-        border: "1px solid #3a1a5a",
+        borderWidth: 1,
+        borderStyle: "solid",
+        borderColor: "#3a1a5a",
         borderRadius: 5,
         color: "#c9a86c",
         padding: "7px 12px",

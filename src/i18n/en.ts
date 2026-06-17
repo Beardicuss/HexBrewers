@@ -50,7 +50,7 @@ export const en: Translations = {
 
     rubySpend: {
         title: "✦ Round Complete ✦",
-        vpEarned: "VP earned:",
+        vpEarned: "Prestige total:",
         coinsEarned: "Coins earned:",
         bonusDie: "🎲 Bonus Die:",
         rubiesLabel: "rubies",

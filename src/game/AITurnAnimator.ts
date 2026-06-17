@@ -56,13 +56,21 @@ function movementForToken(player: Player, token: Token, state: GameState): numbe
     movement += 1;
   }
   if (player.yellowDoubleNext) movement *= 2;
-  if (token.color === "yellow" && getRecipeSetForColor(state.recipeBooks, "yellow") === 4) {
-    movement += countPlacedColor(player.crucible, "yellow") + 1;
-  }
+    if (token.color === "yellow" && getRecipeSetForColor(state.recipeBooks, "yellow") === 4) {
+      const yellowIndex = countPlacedColor(player.crucible, "yellow") + 1;
+      movement += yellowIndex <= 3 ? yellowIndex : 0;
+    }
   return movement;
 }
 
 function placeTokenWithActiveBooks(player: Player, token: Token, state: GameState): Player {
+  if (token.color === "red" && getRecipeSetForColor(state.recipeBooks, "red") === 2) {
+    return {
+      ...player,
+      redReserve: [...(player.redReserve ?? []), token],
+    };
+  }
+
   const previousToken = player.crucible.lastDrawnToken;
   const threshold = getRecipeSetForColor(state.recipeBooks, "yellow") === 3
     ? getExplosionThreshold(player.crucible)
@@ -73,13 +81,13 @@ function placeTokenWithActiveBooks(player: Player, token: Token, state: GameStat
     crucible: placeToken(player.crucible, token, movementForToken(player, token, state), threshold),
   };
 
-  if (updated.crucible.exploded && (updated.blueProtectionDraws ?? 0) > 0) {
-    updated = {
-      ...updated,
-      blueProtectionDraws: 0,
-      crucible: { ...updated.crucible, exploded: false },
-    };
-  } else if ((updated.blueProtectionDraws ?? 0) > 0) {
+    if (updated.crucible.exploded && (updated.blueProtectionDraws ?? 0) > 0) {
+      updated = {
+        ...updated,
+        blueProtectionDraws: 0,
+        blueBonusExplosion: true,
+      };
+    } else if ((updated.blueProtectionDraws ?? 0) > 0) {
     updated = { ...updated, blueProtectionDraws: Math.max(0, (updated.blueProtectionDraws ?? 0) - 1) };
   }
 
@@ -186,6 +194,17 @@ export class AITurnAnimator {
         await wait(TIMING.afterExplosion);
         break;
       }
+    }
+
+    if ((current.redReserve?.length ?? 0) > 0) {
+      const reserve = current.redReserve ?? [];
+      current = reserve.reduce(
+        (player, token) => ({
+          ...player,
+          crucible: placeToken(player.crucible, token, token.value),
+        }),
+        { ...current, redReserve: [] as Token[] }
+      );
     }
 
     if (!current.crucible.exploded) {

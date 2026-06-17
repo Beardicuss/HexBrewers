@@ -12,7 +12,7 @@ import { calculateRoundScore } from "../game/scoring";
 import { canUseFlask, useFlask } from "../game/flask";
 import { purchaseItem } from "../game/bazaar";
 import { applyRatStones } from "../game/ratTail";
-import { drawBlueBonus, applyBlueImmediate, applyEndOfRoundEffects, redBonusValue, applyYellowImmediate, countPlacedColor } from "../game/chipEffects";
+import { drawBlueBonus, applyBlueImmediate, applyEndOfRoundEffects, redBonusValue, applyYellowImmediate, applyYellowSetOneBonus, countPlacedColor, greenSetFourSpendMax, applyGreenSetFourSpend, greenSetTwoRewards, purpleChoices, applyPurpleChoice } from "../game/chipEffects";
 import { rollBonusDie } from "../game/bonusDie";
 import { spendRubiesForDroplet, spendRubiesForFlask, canAdvanceDroplet, canRefillFlask } from "../game/rubyActions";
 import { decideExplodedChoice, decideMarketTurn } from "../game/ai";
@@ -189,13 +189,28 @@ function movementForToken(player: Player, token: Token, state: GameState): numbe
   }
 
   if (token.color === "yellow" && getRecipeSetForColor(state.recipeBooks, "yellow") === 4) {
-    movement += countPlacedColor(player.crucible, "yellow") + 1;
+    const yellowIndex = countPlacedColor(player.crucible, "yellow") + 1;
+    movement += yellowIndex <= 3 ? yellowIndex : 0;
   }
 
   return movement;
 }
 
-function placeTokenForActiveBooks(player: Player, token: Token, bagTokens: Token[], state: GameState): Player {
+function placeTokenForActiveBooks(
+  player: Player,
+  token: Token,
+  bagTokens: Token[],
+  state: GameState,
+  options: { deferHumanYellowChoice?: boolean } = {}
+): Player {
+  if (token.color === "red" && getRecipeSetForColor(state.recipeBooks, "red") === 2) {
+    return {
+      ...player,
+      bag: { tokens: bagTokens },
+      redReserve: [...(player.redReserve ?? []), token],
+    };
+  }
+
   const previousToken = player.crucible.lastDrawnToken;
   const movement = movementForToken(player, token, state);
   const explosionThreshold =
@@ -214,13 +229,13 @@ function placeTokenForActiveBooks(player: Player, token: Token, bagTokens: Token
     updated = {
       ...updated,
       blueProtectionDraws: 0,
-      crucible: { ...updated.crucible, exploded: false },
+      blueBonusExplosion: true,
     };
   } else if ((updated.blueProtectionDraws ?? 0) > 0) {
     updated = { ...updated, blueProtectionDraws: Math.max(0, (updated.blueProtectionDraws ?? 0) - 1) };
   }
 
-  if (token.color === "yellow") {
+  if (token.color === "yellow" && !options.deferHumanYellowChoice) {
     updated = applyYellowImmediate(updated, previousToken, state.recipeBooks);
   }
 
@@ -247,6 +262,11 @@ interface GameStore {
 
   // Blue chip choice: player picks which of 2 drawn tokens to keep (or neither)
   humanResolveBlue: (keepTokenId: string | null, extraTokens: Token[]) => void;
+  humanResolveYellow: (returnPrevious: boolean) => void;
+  humanResolveRed: (action: "place" | "save" | "bag") => void;
+  humanResolvePurple: (choiceId: string) => void;
+  humanResolveGreenReward: (color: TokenColor, value: number) => void;
+  humanResolveGreenSpend: (steps: number) => void;
 
   // Scoring
   humanExplodedChoice: (choice: ExplodedChoice) => void;
@@ -328,7 +348,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       soundManager.play("token_draw");
 
-      let updatedHuman = placeTokenForActiveBooks(human, drawn.token, drawn.bag.tokens, state);
+      const previousToken = human.crucible.lastDrawnToken;
+      const shouldAskYellow =
+        drawn.token.color === "yellow" &&
+        getRecipeSetForColor(state.recipeBooks, "yellow") === 1 &&
+        previousToken?.color === "white";
+      let updatedHuman = placeTokenForActiveBooks(
+        human,
+        drawn.token,
+        drawn.bag.tokens,
+        state,
+        { deferHumanYellowChoice: shouldAskYellow }
+      );
       const updatedCrucible = updatedHuman.crucible;
 
       if (drawn.token.color === "white") {
@@ -341,6 +372,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
         soundManager.play("explosion");
       }
       result = { token: drawn.token, exploded: updatedCrucible.exploded };
+
+      if (shouldAskYellow && previousToken) {
+        return {
+          state: {
+            ...updatePlayer(state, "human", () => updatedHuman),
+            phase: "yellow_choice" as GamePhase,
+            pendingYellowPreviousToken: previousToken,
+          },
+        };
+      }
 
       // Blue chip: trigger draw-N-keep-1 phase based on its value
       if (drawn.token.color === "blue" && getRecipeSetForColor(state.recipeBooks, "blue") === 1 && !updatedCrucible.exploded) {
@@ -357,10 +398,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
         };
       }
 
+      const phase = updatedHuman.crucible.exploded
+        ? ((updatedHuman.redReserve?.length ?? 0) > 0 ? "red_choice" : "end_of_round")
+        : state.phase;
+
       return {
         state: {
           ...updatePlayer(state, "human", () => updatedHuman),
-          phase: updatedHuman.crucible.exploded ? "end_of_round" as GamePhase : state.phase,
+          phase: phase as GamePhase,
+          pendingRedTokens: phase === "red_choice" ? updatedHuman.redReserve : undefined,
         },
       };
     });
@@ -370,7 +416,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   humanStop: () => {
     soundManager.play("brew_stop");
-    set((s) => ({ state: { ...s.state, phase: "end_of_round" } }));
+    set((s) => {
+      const human = getPlayer(s.state, "human");
+      const pendingRedTokens = human.redReserve ?? [];
+      return {
+        state: {
+          ...s.state,
+          phase: pendingRedTokens.length > 0 ? "red_choice" as GamePhase : "end_of_round" as GamePhase,
+          pendingRedTokens: pendingRedTokens.length > 0 ? pendingRedTokens : undefined,
+        },
+      };
+    });
   },
 
   humanUseFlask: () => {
@@ -431,6 +487,157 @@ export const useGameStore = create<GameStore>((set, get) => ({
           ...updatePlayer(state, "human", () => updatedHuman),
           phase: updatedHuman.crucible.exploded ? "end_of_round" as GamePhase : "brewing" as GamePhase,
           pendingBlueTokens: undefined,
+        },
+      };
+    });
+  },
+
+  humanResolveYellow: (returnPrevious: boolean) => {
+    set((s) => {
+      const state = s.state;
+      const human = getPlayer(state, "human");
+      const previousToken = state.pendingYellowPreviousToken ?? null;
+      const updatedHuman = returnPrevious
+        ? applyYellowSetOneBonus(human, previousToken)
+        : human;
+
+      return {
+        state: {
+          ...updatePlayer(state, "human", () => updatedHuman),
+          phase: updatedHuman.crucible.exploded
+            ? ((updatedHuman.redReserve?.length ?? 0) > 0 ? "red_choice" as GamePhase : "end_of_round" as GamePhase)
+            : "brewing" as GamePhase,
+          pendingYellowPreviousToken: undefined,
+          pendingRedTokens: updatedHuman.crucible.exploded && (updatedHuman.redReserve?.length ?? 0) > 0
+            ? updatedHuman.redReserve
+            : undefined,
+        },
+      };
+    });
+  },
+
+  humanResolveRed: (action: "place" | "save" | "bag") => {
+    set((s) => {
+      const state = s.state;
+      const human = getPlayer(state, "human");
+      const pending = state.pendingRedTokens ?? [];
+      const [token, ...rest] = pending;
+      if (!token) {
+        return { state: { ...state, phase: "end_of_round" as GamePhase, pendingRedTokens: undefined } };
+      }
+
+      const existingSaved = (human.redReserve ?? []).filter(
+        (reserved) => !pending.some((pendingToken) => pendingToken.id === reserved.id)
+      );
+
+      let updatedHuman: Player = { ...human, redReserve: existingSaved };
+
+      if (action === "place") {
+        updatedHuman = {
+          ...updatedHuman,
+          crucible: placeToken(updatedHuman.crucible, token, token.value),
+        };
+      } else if (action === "save") {
+        updatedHuman = {
+          ...updatedHuman,
+          redReserve: [...(updatedHuman.redReserve ?? []), token],
+        };
+      } else {
+        updatedHuman = {
+          ...updatedHuman,
+          bag: { tokens: [...updatedHuman.bag.tokens, token] },
+        };
+      }
+
+      return {
+        state: {
+          ...updatePlayer(state, "human", () => updatedHuman),
+          phase: rest.length > 0 ? "red_choice" as GamePhase : "end_of_round" as GamePhase,
+          pendingRedTokens: rest.length > 0 ? rest : undefined,
+        },
+      };
+    });
+  },
+
+  humanResolveGreenSpend: (steps: number) => {
+    set((s) => {
+      const state = s.state;
+      const human = getPlayer(state, "human");
+      const max = state.pendingGreenSpendMax ?? 0;
+      const spend = Math.max(0, Math.min(steps, max));
+      const updatedHuman = applyGreenSetFourSpend(human, spend);
+      const nextPhase = state.phaseAfterGreenChoice ?? (updatedHuman.crucible.exploded ? "scoring" : "market");
+
+      return {
+        state: {
+          ...updatePlayer(state, "human", () => updatedHuman),
+          phase: nextPhase as GamePhase,
+          pendingGreenSpendMax: undefined,
+          phaseAfterGreenChoice: undefined,
+        },
+      };
+    });
+  },
+
+  humanResolvePurple: (choiceId: string) => {
+    set((s) => {
+      const state = s.state;
+      const human = getPlayer(state, "human");
+      const choices = state.pendingPurpleChoices ?? [];
+      const choice = choices.find((option) => option.id === choiceId) ?? choices[0];
+      if (!choice) {
+        return { state: { ...state, phase: state.pendingGreenRewards?.length ? "green_reward_choice" : state.pendingGreenSpendMax !== undefined ? "green_choice" : state.phaseAfterGreenChoice ?? "market", pendingPurpleChoices: undefined } };
+      }
+
+      const updatedHuman = applyPurpleChoice(human, choice);
+      const nextPhase = state.pendingGreenRewards?.length
+        ? "green_reward_choice" as GamePhase
+        : state.pendingGreenSpendMax !== undefined
+          ? "green_choice" as GamePhase
+          : state.phaseAfterGreenChoice ?? "market" as GamePhase;
+
+      return {
+        state: {
+          ...updatePlayer(state, "human", () => updatedHuman),
+          phase: nextPhase,
+          pendingPurpleChoices: undefined,
+          phaseAfterGreenChoice: state.pendingGreenRewards?.length || state.pendingGreenSpendMax !== undefined
+            ? state.phaseAfterGreenChoice
+            : undefined,
+        },
+      };
+    });
+  },
+
+  humanResolveGreenReward: (color: TokenColor, value: number) => {
+    set((s) => {
+      const state = s.state;
+      const human = getPlayer(state, "human");
+      const [reward, ...rest] = state.pendingGreenRewards ?? [];
+      if (!reward) {
+        return { state: { ...state, phase: state.phaseAfterGreenChoice ?? "market", pendingGreenRewards: undefined } };
+      }
+
+      const selected = reward.options.some((option) => option.color === color && option.value === value)
+        ? { color, value }
+        : reward.options[0];
+      const token = makeFreeToken(human.id, selected.color, selected.value, "green-reward");
+      const updatedHuman: Player = {
+        ...human,
+        bag: { tokens: [...human.bag.tokens, token] },
+      };
+      const resolvedNextPhase = rest.length > 0
+        ? "green_reward_choice" as GamePhase
+        : state.pendingGreenSpendMax !== undefined
+          ? "green_choice" as GamePhase
+          : state.phaseAfterGreenChoice ?? "market" as GamePhase;
+
+      return {
+        state: {
+          ...updatePlayer(state, "human", () => updatedHuman),
+          phase: resolvedNextPhase,
+          pendingGreenRewards: rest.length > 0 ? rest : undefined,
+          phaseAfterGreenChoice: rest.length > 0 || state.pendingGreenSpendMax !== undefined ? state.phaseAfterGreenChoice : undefined,
         },
       };
     });
@@ -599,7 +806,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
         aiBonus = bonus.result;
       }
 
-      let humanFinal = applyEndOfRoundEffects(humanAfterBonus, aiAfterBonus, stateWithAI.recipeBooks);
+      const greenRewards = greenSetTwoRewards(humanAfterBonus, stateWithAI.recipeBooks);
+      const pendingPurpleChoices = purpleChoices(humanAfterBonus, stateWithAI.recipeBooks);
+      let humanFinal = applyEndOfRoundEffects(
+        humanAfterBonus,
+        aiAfterBonus,
+        stateWithAI.recipeBooks,
+        { autoGreenSetTwo: false, autoGreenSetFour: false, autoPurple: false }
+      );
       let aiFinal = applyEndOfRoundEffects(aiAfterBonus, humanAfterBonus, stateWithAI.recipeBooks);
 
       humanFinal = applyOmenScoringEffect(humanFinal, stateWithAI.currentOmen, humanResult);
@@ -614,7 +828,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         rubies: aiFinal.rubies + rubyRewardForResult(stateWithAI.currentOmen, aiResult),
       };
 
-      if (aiResult.exploded) {
+      if (aiResult.exploded && aiFinal.blueBonusExplosion) {
+        aiFinal = {
+          ...aiFinal,
+          score: aiFinal.score + aiResult.vp,
+          coinsThisRound: aiResult.coins,
+        };
+      } else if (aiResult.exploded) {
         const choice = decideExplodedChoice(aiFinal, aiResult, stateWithAI);
         aiFinal = {
           ...aiFinal,
@@ -629,7 +849,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         };
       }
 
-      if (!humanResult.exploded) {
+      if (humanResult.exploded && humanFinal.blueBonusExplosion) {
+        humanFinal = {
+          ...humanFinal,
+          score: humanFinal.score + humanResult.vp,
+          coinsThisRound: humanResult.coins,
+        };
+      } else if (!humanResult.exploded) {
         humanFinal = {
           ...humanFinal,
           score: humanFinal.score + humanResult.vp,
@@ -637,6 +863,36 @@ export const useGameStore = create<GameStore>((set, get) => ({
         };
       }
 
+      const greenSpendMax = greenSetFourSpendMax(humanFinal, stateWithAI.recipeBooks);
+      const humanNeedsExplosionChoice = humanResult.exploded && !humanFinal.blueBonusExplosion;
+      const finalDecisionPhase = humanNeedsExplosionChoice ? "scoring" as GamePhase : "market" as GamePhase;
+      const phaseAfterGreenChoice = finalDecisionPhase;
+      const roundSummary = {
+        round: stateWithAI.currentRound,
+        bonusDieWinner: humanBonus ? human.id : aiBonus ? ai.id : null,
+        players: [
+          {
+            playerId: human.id,
+            name: human.name,
+            space: humanResult.space,
+            vp: humanResult.vp,
+            coins: humanResult.coins,
+            ruby: humanResult.ruby,
+            exploded: humanResult.exploded,
+            bonusDie: humanBonus,
+          },
+          {
+            playerId: ai.id,
+            name: ai.name,
+            space: aiResult.space,
+            vp: aiResult.vp,
+            coins: aiResult.coins,
+            ruby: aiResult.ruby,
+            exploded: aiResult.exploded,
+            bonusDie: aiBonus,
+          },
+        ],
+      };
       const resolvedState = {
         ...stateWithAI,
         players: stateWithAI.players.map((p) => {
@@ -644,10 +900,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
           if (p.id === "ai") return aiFinal;
           return p;
         }),
-        phase: humanResult.exploded ? "scoring" as GamePhase : "market" as GamePhase,
-        buyPhaseState: humanResult.exploded ? null : scoringMarketState(humanFinal),
+        phase: pendingPurpleChoices.length > 0
+          ? "purple_choice" as GamePhase
+          : greenRewards.length > 0
+            ? "green_reward_choice" as GamePhase
+            : greenSpendMax > 0
+              ? "green_choice" as GamePhase
+              : phaseAfterGreenChoice,
+        buyPhaseState: humanNeedsExplosionChoice ? null : scoringMarketState(humanFinal),
         bonusDieResult: humanBonus,
         bonusDieWinner: humanBonus ? human.id : aiBonus ? ai.id : null,
+        roundSummary,
+        pendingPurpleChoices: pendingPurpleChoices.length > 0 ? pendingPurpleChoices : undefined,
+        pendingGreenRewards: greenRewards.length > 0 ? greenRewards : undefined,
+        pendingGreenSpendMax: greenSpendMax > 0 ? greenSpendMax : undefined,
+        phaseAfterGreenChoice: pendingPurpleChoices.length > 0 || greenRewards.length > 0 || greenSpendMax > 0 ? phaseAfterGreenChoice : undefined,
       };
 
       return { state: resolvedState };

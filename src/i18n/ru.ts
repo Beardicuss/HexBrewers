@@ -50,7 +50,7 @@ export const ru: Translations = {
 
     rubySpend: {
         title: "✦ Раунд Завершён ✦",
-        vpEarned: "Очки победы:",
+        vpEarned: "Итог славы:",
         coinsEarned: "Монеты:",
         bonusDie: "🎲 Бонусный Кубик:",
         rubiesLabel: "рубинов",
