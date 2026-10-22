@@ -3,7 +3,12 @@ import { soundManager } from "../SoundManager";
 
 type IntroStage = "softcurse" | "loading" | "trailerPrelude" | "trailer" | "trailerFade" | "darkNarration" | "postNarrationBlack" | "posterReveal" | "posterHold" | "poster";
 const OPENING_ASSETS = [
+  "/videos/intro/ashenveil-trailer-original.webm", "/audio/intro/ashenveil-trailer-narration.mp3",
+  "/audio/intro/ashenveil-trailer-choir-tail.ogg", "/music/music-ashenveil-theme.ogg",
   "/images/intro/ashenveil-poster.webp", "/images/core/rooms/central-laboratory.webp",
+  "/videos/menu/central-laboratory.webm?v=2", "/videos/menu/new-game-ritual-chamber.webm?v=2",
+  "/videos/menu/grimoire-scriptorium.webm?v=2", "/videos/menu/dlc-reliquary.webm?v=2",
+  "/videos/menu/settings-astrolabe.webm?v=2", "/images/title/title-en.webp",
   "/images/ui/menu/menu-icon-continue.webp", "/images/ui/menu/menu-icon-new-game.webp",
   "/images/ui/menu/menu-icon-grimoire.webp", "/images/ui/menu/menu-icon-dlcs.webp", "/images/ui/menu/menu-icon-settings.webp",
 ];
@@ -44,9 +49,13 @@ export function IntroSequence({ onComplete }: { onComplete: () => void }) {
     let cancelled = false;
     const started = performance.now();
     void Promise.allSettled(OPENING_ASSETS.map(async (url) => {
-      const preload = new Image();
-      preload.src = url;
-      await preload.decode();
+      if (/\.(?:webp|png|jpe?g|avif)(?:\?|$)/i.test(url)) {
+        const preload = new Image();
+        preload.src = url;
+        await preload.decode();
+      } else {
+        await preloadTimedMedia(url);
+      }
       if (!cancelled) setProgress((value) => Math.min(100, value + 100 / OPENING_ASSETS.length));
     })).then(() => {
       const wait = Math.max(0, 900 - (performance.now() - started));
@@ -161,7 +170,7 @@ export function IntroSequence({ onComplete }: { onComplete: () => void }) {
           100% { opacity: 1; filter: brightness(1) blur(0); transform: scale(1); }
         }
       `}</style>
-      <video ref={softcurseRef} src="/videos/intro/softcurse-ident.webm" autoPlay muted={!soundUnlocked} playsInline preload="auto"
+      <video ref={softcurseRef} src="/videos/intro/softcurse-systems.mp4" autoPlay muted={!soundUnlocked} playsInline preload="auto"
         onEnded={() => setStage("loading")} style={{ ...styles.video, opacity: stage === "softcurse" ? 1 : 0 }} />
       <video ref={trailerRef} src="/videos/intro/ashenveil-trailer-original.webm" playsInline preload="auto"
         onTimeUpdate={(event) => {
@@ -197,6 +206,21 @@ export function IntroSequence({ onComplete }: { onComplete: () => void }) {
       {(stage === "softcurse" || stage === "trailerPrelude" || stage === "trailer") && <button type="button" onClick={skip} style={styles.skip}>Skip</button>}
     </main>
   );
+}
+
+function preloadTimedMedia(url: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const media = document.createElement(/\.(?:mp3|ogg|wav)(?:\?|$)/i.test(url) ? "audio" : "video");
+    const timeout = window.setTimeout(() => reject(new Error(`Timed out preloading ${url}`)), 30000);
+    const finish = () => { window.clearTimeout(timeout); media.src = ""; resolve(); };
+    const fail = () => { window.clearTimeout(timeout); reject(new Error(`Unable to preload ${url}`)); };
+    media.preload = "auto";
+    media.muted = true;
+    media.addEventListener("canplaythrough", finish, { once: true });
+    media.addEventListener("error", fail, { once: true });
+    media.src = url;
+    media.load();
+  });
 }
 
 const styles: Record<string, React.CSSProperties> = {

@@ -26,7 +26,7 @@
     "pack:win": "npm run build && electron-builder --win dir",
     "release:win": "npm run build && electron-builder --win nsis",
     "release:verify": "npm run check:assets && npm run typecheck && npm run test && npm run test:e2e && npm run pack:win",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/upload-r2-release.ps1 && wrangler deploy --config wrangler.jsonc"
   },
   "dependencies": {
     "pixi.js": "^8.4.0",

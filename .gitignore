@@ -23,6 +23,7 @@ public/audio/
 output/playwright
 playwright-report
 test-results
+.playwright-cli/
 *.local
 
 # Editor directories and files

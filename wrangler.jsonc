@@ -1,11 +1,15 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "hexbrewers-of-ashenveil",
+  "main": "worker/index.js",
   "compatibility_date": "2026-10-12",
   "observability": {
     "enabled": true
   },
-  "assets": {
-    "not_found_handling": "single-page-application"
-  }
+  "r2_buckets": [
+    {
+      "binding": "RELEASE_BUCKET",
+      "bucket_name": "hexbrewers-assets"
+    }
+  ]
 }

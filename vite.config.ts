@@ -3,8 +3,6 @@ import { resolve } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 
-import { cloudflare } from "@cloudflare/vite-plugin";
-
 const DEFAULT_ASSET_ORIGIN = "https://pub-7b92547fbe944d259e437d18c1c425d4.r2.dev/releases/b9d0faa";
 const MEDIA_DIRECTORIES = ["images", "videos", "music", "sounds", "audio"] as const;
 
@@ -30,7 +28,7 @@ function externalMediaAssets(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [externalMediaAssets(), react(), cloudflare()],
+  plugins: [externalMediaAssets(), react()],
   server: {
     port: 5173,
     open: true,
