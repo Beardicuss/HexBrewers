@@ -7,18 +7,24 @@ import { DEFAULT_RECIPE_BOOKS, getRecipeCost } from "./recipeBooks";
 //         blue=Frostbile, red=Bloodthorn, yellow=Plaguedust,
 //         purple=Wraithbloom, black=Shadowmoss
 
-export function createMarket(recipeBooks: RecipeBooks = DEFAULT_RECIPE_BOOKS): MarketItem[] {
-  return [
+export function createMarket(
+  recipeBooks: RecipeBooks = DEFAULT_RECIPE_BOOKS,
+  playerCount = 2,
+  includeCovenants = false,
+  includeVeilglass = false,
+): MarketItem[] {
+  const seatedPlayers = Math.max(2, Math.min(5, playerCount));
+  const market: MarketItem[] = [
     // Orange (Brimstone) — no effect, pure position
-    { id: "m-orange-1", token: { id: "o1-buy", color: "orange", value: 1 }, cost: 3, stock: 20, available: true, unlockRound: 1 },
+    { id: "m-orange-1", token: { id: "o1-buy", color: "orange", value: 1 }, cost: 3, stock: 22 - seatedPlayers, available: true, unlockRound: 1 },
 
     // Green (Deathweave) — end-of-round effect
-    { id: "m-green-1", token: { id: "g1-buy", color: "green", value: 1 }, cost: getRecipeCost("green", 1, recipeBooks), stock: 13, available: true, unlockRound: 1 },
+    { id: "m-green-1", token: { id: "g1-buy", color: "green", value: 1 }, cost: getRecipeCost("green", 1, recipeBooks), stock: 15 - seatedPlayers, available: true, unlockRound: 1 },
     { id: "m-green-2", token: { id: "g2-buy", color: "green", value: 2 }, cost: getRecipeCost("green", 2, recipeBooks), stock: 8, available: true, unlockRound: 1 },
     { id: "m-green-4", token: { id: "g4-buy", color: "green", value: 4 }, cost: getRecipeCost("green", 4, recipeBooks), stock: 13, available: true, unlockRound: 1 },
 
     // Blue (Frostbile) — immediate: draw 2 extra, keep 1
-    { id: "m-blue-1", token: { id: "b1-buy", color: "blue", value: 1 }, cost: getRecipeCost("blue", 1, recipeBooks), stock: 8, available: true, unlockRound: 1 },
+    { id: "m-blue-1", token: { id: "b1-buy", color: "blue", value: 1 }, cost: getRecipeCost("blue", 1, recipeBooks), stock: 12, available: true, unlockRound: 1 },
     { id: "m-blue-2", token: { id: "b2-buy", color: "blue", value: 2 }, cost: getRecipeCost("blue", 2, recipeBooks), stock: 8, available: true, unlockRound: 1 },
     { id: "m-blue-4", token: { id: "b4-buy", color: "blue", value: 4 }, cost: getRecipeCost("blue", 4, recipeBooks), stock: 10, available: true, unlockRound: 1 },
 
@@ -38,4 +44,12 @@ export function createMarket(recipeBooks: RecipeBooks = DEFAULT_RECIPE_BOOKS): M
     // Black (Shadowmoss) — end-of-round effect, expensive
     { id: "m-black-1", token: { id: "k1-buy", color: "black", value: 1 }, cost: 10, stock: 17, available: true, unlockRound: 1 },
   ];
+
+  if (includeCovenants || includeVeilglass) market.push(
+    { id: "m-echo-0", token: { id: "e0-buy", color: "echo", value: 0 }, cost: 8, stock: seatedPlayers, available: false, unlockRound: 2 },
+  );
+  if (includeCovenants) market.push(
+    { id: "m-orange-6", token: { id: "o6-buy", color: "orange", value: 6 }, cost: 12, stock: seatedPlayers, available: false, unlockRound: 2 },
+  );
+  return market;
 }

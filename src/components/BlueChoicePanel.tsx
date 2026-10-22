@@ -1,6 +1,9 @@
 import React from "react";
 import type { Token } from "../game/tokenTypes";
 import { useTranslation } from "../i18n/useTranslation";
+import { getLocalizedTokenName } from "../i18n/tokenNames";
+import { getTokenVisual } from "../pixi/tokenVisuals";
+import { CORE_INGREDIENT_ASSETS } from "../assets/coreAssets";
 
 export function BlueChoicePanel({
     tokens,
@@ -14,25 +17,20 @@ export function BlueChoicePanel({
         <div style={panelStyle}>
             <div style={labelStyle}>{t.blueChoice.title}</div>
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                {tokens.map((t) => (
+                {tokens.map((token) => (
                     <button
-                        key={t.id}
-                        onClick={() => onChoose(t.id)}
+                        key={token.id}
+                        onClick={() => onChoose(token.id)}
                         style={buttonStyle}
+                        aria-label={`${getLocalizedTokenName(token.color, t, token.value)} ${token.resolvedMovement ?? token.value}`}
                     >
                         <img
-                            src={`/images/${t.color === "blue" ? "frostbile" :
-                                t.color === "red" ? "bloodthorn" :
-                                    t.color === "yellow" ? "plaguedust" :
-                                        t.color === "green" ? "deathweave" :
-                                            t.color === "black" ? "shadowmoss" :
-                                                t.color === "purple" ? "wraithbloom" : "empty"
-                                }.png`}
-                            alt={t.color}
+                            src={CORE_INGREDIENT_ASSETS[token.color] ?? CORE_INGREDIENT_ASSETS.white}
+                            alt=""
                             style={{ width: 44, height: 44, objectFit: "contain" }}
                         />
                         <span style={{ fontFamily: "Georgia, serif", fontSize: 13, color: "#eebbff" }}>
-                            {t.value}
+                            {getTokenVisual(token.color).symbol} {getLocalizedTokenName(token.color, t, token.value)} {token.resolvedMovement ?? (token.color === "echo" ? "?" : token.value)}
                         </span>
                     </button>
                 ))}

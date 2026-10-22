@@ -1,6 +1,7 @@
 import type { Player } from "./playerTypes";
 import type { Token } from "./tokenTypes";
 import { returnToken } from "./bag";
+import { removePlacedToken } from "./crucible";
 
 // Flask rules (official):
 // 1. Can only be used on the LAST chip drawn (lastDrawnToken)
@@ -25,17 +26,22 @@ export function useFlask(player: Player): Player {
   }
 
   const token = player.crucible.lastDrawnToken!;
+  const lastPlacement = player.crucible.placements[player.crucible.placements.length - 1];
+  if (!lastPlacement || lastPlacement.token.id !== token.id) {
+    throw new Error("Flask placement history is inconsistent.");
+  }
+  const remainingPlacements = player.crucible.placements.slice(0, -1);
 
   // Reverse the token placement
+  const withoutToken = removePlacedToken(player.crucible, token.id);
   const revertedCrucible = {
-    ...player.crucible,
-    filledUpTo: player.crucible.filledUpTo - token.value,
+    ...withoutToken,
+    filledUpTo: lastPlacement.startPosition,
     whiteSum: player.crucible.whiteSum - token.value,
     exploded: false,
-    lastDrawnToken: null,
-    slots: player.crucible.slots.map((s) =>
-      s.token?.id === token.id ? { ...s, token: null } : s
-    ),
+    lastDrawnToken: remainingPlacements[remainingPlacements.length - 1]?.token ?? null,
+    placements: remainingPlacements,
+    overflowTokens: withoutToken.overflowTokens,
   };
 
   return {

@@ -1,4 +1,5 @@
 import type { Crucible } from "./crucibleTypes";
+import type { Player } from "./playerTypes";
 import { SPACE_VP, getCoinsForSpace, RUBY_SPACES, getScoringSpace } from "./crucibleTypes";
 
 export interface RoundScoreResult {
@@ -7,6 +8,8 @@ export interface RoundScoreResult {
   coins: number;       // coins available to spend in buy phase
   ruby: boolean;       // whether a ruby is earned (all players, even exploded)
   exploded: boolean;
+  overflowValue?: number;
+  overflowVp?: number;
 }
 
 // Calculate end-of-round results from crucible state.
@@ -15,14 +18,38 @@ export interface RoundScoreResult {
 // If survived: player earns both VP and coins.
 export function calculateRoundScore(crucible: Crucible): RoundScoreResult {
   const space = getScoringSpace(crucible.filledUpTo);
-  const vp = SPACE_VP[space] ?? 0;
+  const overflowValue = crucible.overflowTokens.reduce(
+    (total, token) => total + (token.resolvedMovement ?? token.value),
+    0,
+  );
+  const overflowVp = Math.floor(overflowValue / 2);
+  const vp = (SPACE_VP[space] ?? 0) + overflowVp;
   const coins = getCoinsForSpace(space);
   const ruby = RUBY_SPACES.has(space);
 
-  return { space, vp, coins, ruby, exploded: crucible.exploded };
+  return { space, vp, coins, ruby, exploded: crucible.exploded, overflowValue, overflowVp };
 }
 
 export type ExplodedChoice = "vp" | "coins";
+
+export function applyRoundReward(
+  player: Player,
+  result: RoundScoreResult,
+  choice?: ExplodedChoice
+): Player {
+  const awardsBoth = !result.exploded || Boolean(player.blueBonusExplosion);
+  if (result.exploded && !awardsBoth && !choice) {
+    throw new Error("An exploded player must choose prestige or coins.");
+  }
+  const reward = awardsBoth
+    ? applyFullReward(result)
+    : applyExplodedReward(result, choice!);
+  return {
+    ...player,
+    score: player.score + reward.vp,
+    coinsThisRound: reward.coins,
+  };
+}
 
 // Survived — earn both
 export function applyFullReward(result: RoundScoreResult): {

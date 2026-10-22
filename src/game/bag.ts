@@ -1,5 +1,6 @@
 import type { Bag } from "./bagTypes";
 import type { Token } from "./tokenTypes";
+import { gameplayRandom } from "./random";
 
 // Draw a random token from the bag.
 // Returns the token and the updated bag (immutable).
@@ -7,7 +8,7 @@ import type { Token } from "./tokenTypes";
 export function drawToken(bag: Bag): { token: Token; bag: Bag } | null {
   if (bag.tokens.length === 0) return null;
 
-  const index = Math.floor(Math.random() * bag.tokens.length);
+  const index = Math.floor(gameplayRandom() * bag.tokens.length);
   const token = bag.tokens[index];
   const remaining = bag.tokens.filter((_, i) => i !== index);
 

@@ -3,8 +3,11 @@ import type { Crucible } from "./crucibleTypes";
 import { EXPLOSION_THRESHOLD } from "./crucibleTypes";
 
 // How much white value is still needed to trigger an explosion.
-export function remainingWhiteCapacity(crucible: Crucible): number {
-  return EXPLOSION_THRESHOLD - crucible.whiteSum;
+export function remainingWhiteCapacity(
+  crucible: Crucible,
+  explosionThreshold = EXPLOSION_THRESHOLD
+): number {
+  return explosionThreshold - crucible.whiteSum;
 }
 
 // Total white value sitting in the bag right now.
@@ -18,11 +21,12 @@ export function totalWhiteValueInBag(bag: Bag): number {
 // = sum of values of white tokens that would push over threshold / total tokens
 export function explosionProbabilityOnNextDraw(
   bag: Bag,
-  crucible: Crucible
+  crucible: Crucible,
+  explosionThreshold = EXPLOSION_THRESHOLD
 ): number {
   if (bag.tokens.length === 0) return 0;
 
-  const capacity = remainingWhiteCapacity(crucible);
+  const capacity = remainingWhiteCapacity(crucible, explosionThreshold);
   const dangerousTokens = bag.tokens.filter(
     (t) => t.color === "white" && t.value > capacity
   );
@@ -46,12 +50,13 @@ export function expectedWhiteValueOnNextDraw(bag: Bag): number {
 export function survivalProbabilityForNDraws(
   bag: Bag,
   crucible: Crucible,
-  draws: number
+  draws: number,
+  explosionThreshold = EXPLOSION_THRESHOLD
 ): number {
   if (draws === 0) return 1;
   if (bag.tokens.length === 0) return 1;
 
-  const capacity = remainingWhiteCapacity(crucible);
+  const capacity = remainingWhiteCapacity(crucible, explosionThreshold);
   const safeTokens = bag.tokens.filter(
     (t) => t.color !== "white" || t.value <= capacity
   );
@@ -78,6 +83,6 @@ export function survivalProbabilityForNDraws(
 
   return (
     surviveThisDraw *
-    survivalProbabilityForNDraws(simulatedBag, simulatedCrucible, draws - 1)
+    survivalProbabilityForNDraws(simulatedBag, simulatedCrucible, draws - 1, explosionThreshold)
   );
 }

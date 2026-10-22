@@ -1,11 +1,12 @@
 import * as PIXI from "pixi.js";
+import { prefersReducedMotion } from "../accessibility";
 
 // Full-screen overlay that flashes and shakes when crucible explodes
 export class ExplosionOverlay extends PIXI.Container {
   private flash: PIXI.Graphics;
   private text: PIXI.Text;
 
-  constructor(screenW: number, screenH: number) {
+  constructor(screenW: number, screenH: number, label: string) {
     super();
 
     // Red flash background
@@ -16,7 +17,7 @@ export class ExplosionOverlay extends PIXI.Container {
 
     // "CRUCIBLE SHATTERED" warning text
     this.text = new PIXI.Text({
-      text: "✦ CRUCIBLE SHATTERED ✦",
+      text: label,
       style: {
         fontFamily: "serif",
         fontSize: 36,
@@ -43,6 +44,17 @@ export class ExplosionOverlay extends PIXI.Container {
 
   // Play explosion sequence — returns promise when done
   async play(): Promise<void> {
+    if (prefersReducedMotion()) {
+      this.visible = true;
+      this.flash.alpha = 0.24;
+      this.text.alpha = 1;
+      this.text.scale.set(1);
+      await new Promise((resolve) => window.setTimeout(resolve, 650));
+      this.visible = false;
+      this.flash.alpha = 0;
+      this.text.alpha = 0;
+      return;
+    }
     this.visible = true;
 
     // Phase 1: flash in fast

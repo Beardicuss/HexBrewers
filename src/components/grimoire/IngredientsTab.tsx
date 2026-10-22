@@ -1,7 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
+import { CORE_INGREDIENT_ASSETS } from "../../assets/coreAssets";
 import { useTranslation } from "../../i18n/useTranslation";
 import type { Ingredient } from "./grimoireData";
 import { ing, det } from "./grimoireStyles";
+import { useGameStore } from "../../store/gameStore";
+import type { RecipeColor } from "../../game/recipeBooks";
+import { getLocalizedTokenName } from "../../i18n/tokenNames";
+import { MIREWROUGHT_ASSETS } from "../../assets/mirewroughtAssets";
 
 // ─── Ingredients tab ──────────────────────────────────────────────────────────
 
@@ -15,41 +20,28 @@ export function IngredientsTab({
     onSelect: (i: Ingredient) => void;
 }) {
     const t = useTranslation();
-    return (
-        <div style={ing.layout}>
-            {/* Sidebar list */}
-            <div style={ing.sidebar}>
-                <div style={ing.sidebarTitle}>{t.grimoire.ingredientsLabel}</div>
+    const [inspecting, setInspecting] = useState(false);
+    if (!inspecting) {
+        return (
+            <div className="ingredient-gallery">
                 {ingredients.map((item) => (
-                    <button
-                        key={item.color}
-                        style={{
-                            ...ing.sidebarItem,
-                            border:
-                                selected.color === item.color
-                                    ? `1px solid ${item.border}99`
-                                    : "1px solid transparent",
-                            background:
-                                selected.color === item.color
-                                    ? `${item.fill}cc`
-                                    : "transparent",
-                        }}
-                        onClick={() => onSelect(item)}
-                    >
-                        <TokenDot ingredient={item} size={22} />
-                        <div style={ing.sidebarItemText}>
-                            <span style={{ ...ing.sidebarName, color: item.border }}>
-                                {(t.grimoire as any)[item.name.toLowerCase()] ?? item.name}
-                            </span>
-                            <span style={ing.sidebarRarity}>{item.rarity}</span>
-                        </div>
+                    <button key={`${item.color}-${item.name}`} className="ingredient-gallery-item" onClick={() => { onSelect(item); setInspecting(true); }}>
+                        <TokenDot ingredient={item} size={150} />
+                        <span style={{ color: item.border }}>{item.name === "Embercore" ? t.grimoire.embercore : getLocalizedTokenName(item.color, t)}</span>
+                        <small>{localizedRarity(item.rarity, t.grimoire)}</small>
                     </button>
                 ))}
             </div>
-
-            {/* Detail panel */}
-            <div style={ing.detail}>
+        );
+    }
+    return (
+        <div>
+            <button className="collection-return" onClick={() => setInspecting(false)}>← INGREDIENTS</button>
+            <div className="ingredient-inspector">
+                <div className="ingredient-hero"><TokenDot ingredient={selected} size={360} /></div>
+            <div className="ingredient-detail" style={ing.detail}>
                 <IngredientDetail ingredient={selected} />
+            </div>
             </div>
         </div>
     );
@@ -60,20 +52,47 @@ export function IngredientsTab({
 function IngredientDetail({ ingredient: i }: { ingredient: Ingredient }) {
     const t = useTranslation();
     const iData = t.grimoireIngredientsData[i.name];
+    const { market, recipeBooks } = useGameStore((store) => ({
+        market: store.state.market,
+        recipeBooks: store.state.recipeBooks,
+    }));
+    const marketItems = market.filter((item) => item.token.color === i.color);
+    const sharedStock = marketItems.reduce((total, item) => total + item.stock, 0);
+    const unlockRound = marketItems.length > 0 ? Math.min(...marketItems.map((item) => item.unlockRound)) : null;
+    const recipeSet = (["blue", "red", "yellow", "green", "purple"] as string[]).includes(i.color)
+        ? recipeBooks[i.color as RecipeColor]
+        : null;
 
     return (
-        <div style={det.root}>
+        <div className="grimoire-card ingredient-detail-card" style={det.root}>
             {/* Header */}
             <div style={det.header}>
                 <TokenDot ingredient={i} size={56} />
                 <div style={det.headerText}>
-                    <div style={{ ...det.name, color: i.border }}>{(t.grimoire as any)[i.name.toLowerCase()] ?? i.name}</div>
+                    <div style={{ ...det.name, color: i.border }}>{i.name === "Embercore" ? t.grimoire.embercore : getLocalizedTokenName(i.color, t)}</div>
                     <div style={det.latin}>{(t.grimoire as any)[i.name.toLowerCase() + "Sub"] ?? i.latinName}</div>
-                    <RarityBadge rarity={i.rarity} color={i.border} />
+                    <RarityBadge rarity={i.rarity} label={localizedRarity(i.rarity, t.grimoire)} color={i.border} />
                 </div>
             </div>
 
             <Divider />
+
+            {(unlockRound !== null || recipeSet !== null) && (
+                <div style={{ ...det.effectBox, border: `1px solid ${i.border}33` }}>
+                    {recipeSet !== null && (
+                        <div style={{ ...det.sectionTitle, color: i.border }}>
+                            {t.grimoire.activeRecipeSet.replace("{set}", String(recipeSet))}
+                        </div>
+                    )}
+                    {unlockRound !== null && (
+                        <div style={{ fontFamily: "monospace", fontSize: 12, color: "#c5b49c", lineHeight: 1.7 }}>
+                            {t.grimoire.sharedStock.replace("{count}", String(sharedStock))}
+                            {" · "}
+                            {t.grimoire.unlockRound.replace("{round}", String(unlockRound))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Values */}
             <div style={det.section}>
@@ -111,13 +130,28 @@ function IngredientDetail({ ingredient: i }: { ingredient: Ingredient }) {
                 <p style={det.body}>{iData?.description ?? i.description}</p>
             </div>
 
-            {/* Game effect */}
-            <div style={det.section}>
-                <div style={det.sectionTitle}>{t.grimoire.gameEffectLabel}</div>
-                <div style={{ ...det.effectBox, border: `1px solid ${i.border}33` }}>
-                    <p style={{ ...det.body, color: "#cc99ff" }}>{iData?.effect ?? i.effect}</p>
+            {t.grimoireRecipeSets[i.name] && (
+                <div style={det.section}>
+                    {t.grimoireRecipeSets[i.name].map((recipe, index) => (
+                        <div key={index} style={{ ...det.effectBox, border: `1px solid ${i.border}33`, marginBottom: 9 }}>
+                            <div style={{ ...det.sectionTitle, color: i.border }}>
+                                {t.grimoire.recipeSet.replace("{set}", String(index + 1))}
+                            </div>
+                            <p style={{ ...det.body, color: "#f0d8a7", marginBottom: 6 }}>{recipe.effect}</p>
+                            <div style={{ fontFamily: "monospace", fontSize: 12, color: "#b9a78d" }}>{recipe.costs}</div>
+                        </div>
+                    ))}
                 </div>
-            </div>
+            )}
+
+            {!t.grimoireRecipeSets[i.name] && (
+                <div style={det.section}>
+                    <div style={det.sectionTitle}>{t.grimoire.gameEffectLabel}</div>
+                    <div style={{ ...det.effectBox, border: `1px solid ${i.border}33` }}>
+                        <p style={{ ...det.body, color: "#f0d8a7" }}>{iData?.effect ?? i.effect}</p>
+                    </div>
+                </div>
+            )}
 
             {/* Warning */}
             {(iData?.warning ?? i.warning) && (
@@ -139,17 +173,27 @@ function IngredientDetail({ ingredient: i }: { ingredient: Ingredient }) {
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 export function TokenDot({ ingredient, size }: { ingredient: Ingredient; size: number }) {
-    const colorMap: Record<string, string> = {
-        white: "empty.png",
-        orange: "spider.png",
-        green: "deathweave.png",
-        blue: "frostbile.png",
-        red: "bloodthorn.png",
-        yellow: "plaguedust.png",
-        purple: "wraithbloom.png",
-        black: "shadowmoss.png",
-    };
-    const iconPath = `/images/${colorMap[ingredient.color] || "empty.png"}`;
+    if (ingredient.color === "echo" || ingredient.name === "Embercore") {
+        const iconPath = ingredient.color === "echo"
+            ? MIREWROUGHT_ASSETS.echoReed
+            : MIREWROUGHT_ASSETS.embercore;
+        return (
+            <img
+                src={iconPath}
+                alt={ingredient.name}
+                style={{
+                    width: size,
+                    height: size,
+                    display: "block",
+                    flexShrink: 0,
+                    borderRadius: "50%",
+                    objectFit: "contain",
+                    filter: `drop-shadow(0 0 ${size * 0.25}px ${ingredient.glow})`,
+                }}
+            />
+        );
+    }
+    const iconPath = CORE_INGREDIENT_ASSETS[ingredient.color] ?? CORE_INGREDIENT_ASSETS.white;
 
     return (
         <img
@@ -169,7 +213,17 @@ export function TokenDot({ ingredient, size }: { ingredient: Ingredient; size: n
     );
 }
 
-function RarityBadge({ rarity, color }: { rarity: string; color: string }) {
+function localizedRarity(rarity: string, text: { rarityCommon: string; rarityUncommon: string; rarityRare: string; rarityLegendary: string }) {
+    return rarity === "Common"
+        ? text.rarityCommon
+        : rarity === "Uncommon"
+            ? text.rarityUncommon
+            : rarity === "Rare"
+                ? text.rarityRare
+                : text.rarityLegendary;
+}
+
+function RarityBadge({ rarity, label, color }: { rarity: string; label: string; color: string }) {
     const colors: Record<string, string> = {
         Common: "#887799",
         Uncommon: "#44aa66",
@@ -186,7 +240,7 @@ function RarityBadge({ rarity, color }: { rarity: string; color: string }) {
                 textTransform: "uppercase",
             }}
         >
-            {rarity}
+            {label}
         </span>
     );
 }

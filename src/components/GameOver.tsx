@@ -4,14 +4,15 @@ import { useTranslation } from "../i18n/useTranslation";
 
 interface GameOverProps {
   players: Player[];
-  winner: Player;
+  winners: Player[];
   onRestart: () => void;
 }
 
-export function GameOver({ players, winner, onRestart }: GameOverProps) {
+export function GameOver({ players, winners, onRestart }: GameOverProps) {
   const t = useTranslation();
   const sorted = [...players].sort((a, b) => b.score - a.score);
-  const humanWon = winner.kind === "human";
+  const humanWon = winners.some((player) => player.kind === "human");
+  const winnerIds = new Set(winners.map((player) => player.id));
 
   return (
     <div style={styles.overlay}>
@@ -37,9 +38,9 @@ export function GameOver({ players, winner, onRestart }: GameOverProps) {
           {sorted.map((p, i) => (
             <div key={p.id} style={{
               ...styles.scoreRow,
-              ...(i === 0 ? styles.scoreRowFirst : {}),
+              ...(winnerIds.has(p.id) ? styles.scoreRowFirst : {}),
             }}>
-              <span style={styles.rank}>{i === 0 ? "✦" : "◈"}</span>
+              <span style={styles.rank}>{winnerIds.has(p.id) ? "✦" : "◈"}</span>
               <span style={styles.playerName}>{p.name}</span>
               <span style={styles.playerKind}>
                 {p.kind === "ai" ? "[AI]" : `[${t.game.you}]`}
@@ -72,18 +73,21 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     zIndex: 200,
     backdropFilter: "blur(8px)",
+    padding: 16,
   },
   panel: {
     background: "linear-gradient(160deg, #0a0618 0%, #160930 60%, #0a0418 100%)",
     border: "1px solid #4a1a7a",
     borderRadius: 16,
-    padding: "44px 52px",
+    padding: "clamp(24px, 5vh, 44px) clamp(22px, 5vw, 52px)",
     maxWidth: 420,
     width: "90%",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     gap: 20,
+    maxHeight: "94vh",
+    overflowY: "auto",
     boxShadow: "0 0 100px rgba(120, 40, 200, 0.3)",
   },
   runeTop: {
@@ -94,7 +98,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: {
     fontFamily: "serif",
-    fontSize: 40,
+    fontSize: "clamp(28px, 6vw, 40px)",
     color: "#cc88ff",
     letterSpacing: 4,
     textShadow: "0 0 24px rgba(180, 80, 255, 0.5)",

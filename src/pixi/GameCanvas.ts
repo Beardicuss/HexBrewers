@@ -4,9 +4,14 @@ import { BagAnimation } from "./BagAnimation";
 import { ExplosionOverlay } from "./ExplosionOverlay";
 import type { Crucible } from "../game/crucibleTypes";
 import type { Token } from "../game/tokenTypes";
+import { MIREWROUGHT_ASSETS } from "../assets/mirewroughtAssets";
+import { CORE_ECONOMY_ASSETS, CORE_INGREDIENT_ASSETS } from "../assets/coreAssets";
 
 export interface GameCanvasOptions {
   container: HTMLElement;
+  explosionLabel: string;
+  renderScale: number;
+  mirewroughtEnabled: boolean;
 }
 
 // Root Pixi scene — mounts into a React ref
@@ -16,7 +21,7 @@ export class GameCanvas {
   private bagAnimation: BagAnimation;
   private explosionOverlay: ExplosionOverlay;
 
-  private constructor(app: PIXI.Application, container: HTMLElement) {
+  private constructor(app: PIXI.Application, container: HTMLElement, explosionLabel: string) {
     this.app = app;
 
     const { width, height } = app.screen;
@@ -38,7 +43,7 @@ export class GameCanvas {
     app.stage.addChild(this.bagAnimation);
 
     // Explosion overlay on top of everything
-    this.explosionOverlay = new ExplosionOverlay(width, height);
+    this.explosionOverlay = new ExplosionOverlay(width, height, explosionLabel);
     app.stage.addChild(this.explosionOverlay);
 
     // Self-contained resize handling
@@ -59,30 +64,25 @@ export class GameCanvas {
     const app = new PIXI.Application();
 
     await app.init({
-      resizeTo: window, // <--- Natively make the canvas fill the window!
+      resizeTo: options.container,
       backgroundAlpha: 0,
       antialias: true,
-      resolution: window.devicePixelRatio || 1,
+      resolution: options.renderScale,
       autoDensity: true,
     });
 
     // --- PRELOAD ASSETS ---
-    await PIXI.Assets.load([
+    const assets = [
       "/images/cauldron_bg.jpg",
-      "/images/brew_bag.png",
-      "/images/empty.png",
-      "/images/spider.png",
-      "/images/deathweave.png",
-      "/images/frostbile.png",
-      "/images/bloodthorn.png",
-      "/images/plaguedust.png",
-      "/images/wraithbloom.png",
-      "/images/shadowmoss.png"
-    ]);
+      CORE_ECONOMY_ASSETS.brewBag,
+      ...Object.values(CORE_INGREDIENT_ASSETS),
+    ];
+    if (options.mirewroughtEnabled) assets.push(MIREWROUGHT_ASSETS.echoReed, MIREWROUGHT_ASSETS.embercore);
+    await PIXI.Assets.load(assets);
 
     options.container.appendChild(app.canvas);
 
-    return new GameCanvas(app, options.container);
+    return new GameCanvas(app, options.container, options.explosionLabel);
   }
 
   // ── Public API called by React components ─────────────────────────────────
@@ -114,6 +114,12 @@ export class GameCanvas {
   // Reset between rounds
   resetRound(): void {
     this.crucibleScene.reset();
+  }
+
+  setPaused(paused: boolean): void {
+    this.crucibleScene.setPaused(paused);
+    if (paused) this.app.ticker.stop();
+    else this.app.ticker.start();
   }
 
   // Resize handler - deprecated to internal

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "../i18n/useTranslation";
 
 export function GreenSpendChoicePanel({
   maxSteps,
@@ -7,15 +8,16 @@ export function GreenSpendChoicePanel({
   maxSteps: number;
   onChoose: (steps: number) => void;
 }) {
+  const t = useTranslation();
   const options = Array.from({ length: maxSteps + 1 }, (_, steps) => steps);
 
   return (
     <div style={styles.panel}>
-      <div style={styles.label}>Deathweave may feed rubies to the droplet.</div>
+      <div style={styles.label}>{t.choices.greenSpendPrompt}</div>
       <div style={styles.buttons}>
         {options.map((steps) => (
           <button key={steps} style={styles.btn} onClick={() => onChoose(steps)}>
-            {steps === 0 ? "Spend none" : `Spend ${steps} ${steps === 1 ? "ruby" : "rubies"}`}
+            {steps === 0 ? t.choices.spendNone : t.choices.spendRubies.replace("{count}", String(steps))}
           </button>
         ))}
       </div>

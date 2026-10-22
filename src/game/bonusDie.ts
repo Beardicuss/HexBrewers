@@ -1,5 +1,8 @@
 // Bonus die — rolled by the player with the highest non-exploded scoring space
 // Results: ruby, coins, or a specific chip
+import { gameplayRandom } from "./random";
+import type { Player } from "./playerTypes";
+import type { Token } from "./tokenTypes";
 
 export type BonusDieResult =
   | { type: "ruby"; amount: 1 }
@@ -18,8 +21,27 @@ const DIE_FACES: BonusDieResult[] = [
 ];
 
 export function rollBonusDie(): BonusDieResult {
-  const idx = Math.floor(Math.random() * DIE_FACES.length);
+  const idx = Math.floor(gameplayRandom() * DIE_FACES.length);
   return DIE_FACES[idx];
+}
+
+export function applyBonusDieResult(
+  player: Player,
+  result: BonusDieResult,
+  orangeToken: Token
+): Player {
+  if (result.type === "ruby") return { ...player, rubies: player.rubies + result.amount };
+  if (result.type === "vp") return { ...player, score: player.score + result.amount };
+  if (result.type === "droplet") {
+    return {
+      ...player,
+      crucible: {
+        ...player.crucible,
+        dropletPosition: Math.min(32, player.crucible.dropletPosition + result.amount),
+      },
+    };
+  }
+  return { ...player, bag: { tokens: [...player.bag.tokens, orangeToken] } };
 }
 
 export function describeDieResult(result: BonusDieResult): string {

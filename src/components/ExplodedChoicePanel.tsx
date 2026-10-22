@@ -5,8 +5,12 @@ import { useTranslation } from "../i18n/useTranslation";
 
 export function ExplodedChoicePanel({
     onChoose,
+    prestige,
+    coins,
 }: {
     onChoose: (c: "vp" | "coins") => void;
+    prestige: number;
+    coins: number;
 }) {
     const t = useTranslation();
     return (
@@ -14,10 +18,10 @@ export function ExplodedChoicePanel({
             <div style={choiceStyles.label}>{t.exploded.title}</div>
             <div style={choiceStyles.buttons}>
                 <button style={choiceStyles.btn} onClick={() => onChoose("vp")}>
-                    {t.exploded.oneVP}
+                    {t.exploded.oneVP}: +{prestige}
                 </button>
                 <button style={choiceStyles.btn} onClick={() => onChoose("coins")}>
-                    {t.exploded.lastIngredient}
+                    {t.exploded.lastIngredient}: +{coins}
                 </button>
             </div>
         </div>

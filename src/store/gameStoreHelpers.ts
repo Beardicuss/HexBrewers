@@ -6,6 +6,12 @@ import { createMarket } from "../game/bazaarFactory";
 import { createShuffledOmenDeck, drawOmen } from "../game/omen";
 import type { RecipeMode } from "../game/recipeBooks";
 import { createRecipeBooks } from "../game/recipeBooks";
+import type { AIDifficulty } from "../game/aiStrategy";
+import { GAME_RULES } from "../game/ruleConstants";
+import type { GameSetup } from "../game/contentPacks";
+import { createGameSetup } from "../game/contentPacks";
+import { createCovenantOffer, createCovenantSeals } from "../game/covenants";
+import { createAfflictionOffer, createAfflictionState } from "../game/distillation";
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
@@ -27,7 +33,7 @@ export function createPlayer(id: string, name: string, kind: "human" | "ai"): Pl
         id, name, kind,
         bag: createStartingBag(),
         crucible: createCrucible(),
-        rubies: 0,
+        rubies: 1,
         coinsThisRound: 0,
         score: 0,
         flask: true,
@@ -39,28 +45,69 @@ export function createPlayer(id: string, name: string, kind: "human" | "ai"): Pl
     };
 }
 
-export function createInitialState(recipeMode: RecipeMode = 1): GameState {
-    const omenDeck = createShuffledOmenDeck();
+const AI_NAMES = ["The Shade", "The Wraith", "The Seer", "The Hollow"];
+
+export function createInitialState(recipeMode: RecipeMode = 1, aiCount: number = 1, aiDifficulty: AIDifficulty = "skilled"): GameState {
+    return createInitialStateWithSetup(
+        createGameSetup({ recipeMode, totalPlayers: Math.max(2, Math.min(GAME_RULES.maxPlayers, aiCount + 1)) }),
+        aiDifficulty,
+    );
+}
+
+export function createInitialStateWithSetup(setup: GameSetup, aiDifficulty: AIDifficulty = "skilled"): GameState {
+    const normalizedSetup = createGameSetup(setup);
+    const omenDeck = createShuffledOmenDeck(normalizedSetup.enabledPacks);
     const firstOmen = drawOmen(omenDeck);
-    const recipeBooks = createRecipeBooks(recipeMode);
+    const recipeBooks = createRecipeBooks(normalizedSetup.recipeMode, normalizedSetup.modules.patrons);
+    const aiCount = normalizedSetup.totalPlayers - 1;
 
     return {
+        setup: normalizedSetup,
+        afflictionOffer: normalizedSetup.modules.distillation
+          ? createAfflictionOffer(normalizedSetup.recipeMode, normalizedSetup.totalPlayers)
+          : undefined,
+        covenantOffer: normalizedSetup.modules.patrons
+          ? createCovenantOffer(normalizedSetup.recipeMode, normalizedSetup.totalPlayers)
+          : undefined,
+        selectedCovenants: undefined,
         players: [
             createPlayer("human", "Hexbrewer", "human"),
-            createPlayer("ai", "The Shade", "ai"),
-        ],
+            ...Array.from({ length: aiCount }, (_, index) =>
+                createPlayer(index === 0 ? "ai" : `ai-${index + 1}`, AI_NAMES[index], "ai")
+            ),
+        ].map((player, index) => {
+          const withPatrons = normalizedSetup.modules.patrons
+            ? {
+                ...player,
+                covenantSeals: createCovenantSeals(),
+                crucible: { ...player.crucible, overflowEnabled: true },
+              }
+            : player;
+          return normalizedSetup.modules.distillation
+            ? { ...withPatrons, affliction: createAfflictionState(index) }
+            : withPatrons;
+        }),
         currentRound: 1,
-        totalRounds: 9,
-        phase: "omen",
+        totalRounds: GAME_RULES.totalRounds,
+        phase: normalizedSetup.modules.distillation || normalizedSetup.modules.patrons ? "setup" : "omen",
         activePlayerIndex: 0,
         currentOmen: firstOmen?.card ?? null,
         omenDeck: firstOmen?.remaining ?? [],
-        market: createMarket(recipeBooks),
+        market: createMarket(
+          recipeBooks,
+          normalizedSetup.totalPlayers,
+          normalizedSetup.modules.patrons,
+          normalizedSetup.modules.distillation,
+        ),
         recipeBooks,
+        aiDifficulty,
         buyPhaseState: null,
+        marketCompletedPlayerIds: [],
+        omenCompletedPlayerIds: [],
         bonusDieResult: null,
         bonusDieWinner: null,
         roundSummary: null,
         winner: null,
+        winners: [],
     };
 }

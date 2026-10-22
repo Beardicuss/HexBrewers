@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Language } from "../i18n/types";
+import type { ContentPackId } from "../game/contentPacks";
 
 export interface SettingsState {
     // Video
@@ -14,6 +15,8 @@ export interface SettingsState {
 
     // Language
     language: Language;
+    tutorialSeen: boolean;
+    enabledPacks: ContentPackId[];
 
     // Actions
     setResolution: (r: string) => void;
@@ -22,6 +25,8 @@ export interface SettingsState {
     setMusicVolume: (v: number) => void;
     setSfxVolume: (v: number) => void;
     setLanguage: (l: Language) => void;
+    setTutorialSeen: (seen: boolean) => void;
+    setEnabledPacks: (packs: ContentPackId[]) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -33,6 +38,8 @@ export const useSettingsStore = create<SettingsState>()(
             musicVolume: 60,
             sfxVolume: 80,
             language: "en",
+            tutorialSeen: false,
+            enabledPacks: ["base"],
 
             setResolution: (resolution) => set({ resolution }),
             setQuality: (quality) => set({ quality }),
@@ -40,6 +47,8 @@ export const useSettingsStore = create<SettingsState>()(
             setMusicVolume: (musicVolume) => set({ musicVolume }),
             setSfxVolume: (sfxVolume) => set({ sfxVolume }),
             setLanguage: (language) => set({ language }),
+            setTutorialSeen: (tutorialSeen) => set({ tutorialSeen }),
+            setEnabledPacks: (enabledPacks) => set({ enabledPacks }),
         }),
         {
             name: "hexbrewers-settings",

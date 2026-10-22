@@ -1,14 +1,32 @@
 {
   "name": "hexbrewers-of-ashenveil",
   "version": "0.1.0",
+  "description": "A dark fantasy bag-building brewing game.",
+  "author": "Softcurse Systems",
+  "license": "UNLICENSED",
   "private": true,
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview",
+    "preview": "npm run build && wrangler dev",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run src",
+    "check:assets": "node scripts/check-asset-budget.mjs",
+    "test:ai-benchmark": "vitest run benchmarks/aiDifficulty.bench.test.ts",
+    "test:dlc-benchmark": "vitest run benchmarks/mirewroughtBalance.bench.test.ts",
+    "test:dlc-covenant-matrix": "vitest run benchmarks/mirewroughtCovenantMatrix.bench.test.ts",
+    "test:dlc-affliction-matrix": "vitest run benchmarks/veilglassAfflictionMatrix.bench.test.ts",
+    "test:dlc-combined-matrix": "vitest run benchmarks/combinedDlcMatrix.bench.test.ts",
+    "test:dlc-ai-difficulty": "vitest run benchmarks/dlcAiDifficulty.bench.test.ts",
+    "test:e2e": "npm run build && playwright test",
+    "test:release": "npm run test && npm run test:e2e",
+    "desktop": "npm run build && electron .",
+    "pack:win": "npm run build && electron-builder --win dir",
+    "release:win": "npm run build && electron-builder --win nsis",
+    "release:verify": "npm run check:assets && npm run typecheck && npm run test && npm run test:e2e && npm run pack:win",
+    "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "pixi.js": "^8.4.0",
@@ -17,12 +35,46 @@
     "zustand": "^4.5.4"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.64.0",
+    "@playwright/test": "^1.60.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^6.0.2",
+    "electron": "^44.9.0",
+    "electron-builder": "^26.15.3",
     "playwright": "^1.60.0",
     "typescript": "^5.5.3",
     "vite": "^8.0.13",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.7",
+    "wrangler": "^4.151.1"
+  },
+  "build": {
+    "appId": "com.softcurse.hexbrewers",
+    "productName": "Hexbrewers of Ashenveil",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Hexbrewers of Ashenveil",
+      "uninstallDisplayName": "Hexbrewers of Ashenveil"
+    },
+    "artifactName": "${productName}-Setup-${version}.${ext}"
   }
 }

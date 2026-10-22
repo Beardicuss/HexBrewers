@@ -20,16 +20,16 @@ export const C = {
 export const ss: Record<string, React.CSSProperties> = {
     sectionTitle: {
         fontFamily: "Georgia, serif",
-        fontSize: 55,
+        fontSize: 15,
         color: C.gold,
         letterSpacing: 1.5,
         marginBottom: 14,
         textShadow: "0 0 8px rgba(232, 184, 77, 0.2)",
-        textAlign: "center",
+        textAlign: "left",
     },
     label: {
         fontFamily: "monospace",
-        fontSize: 45,
+        fontSize: 14,
         color: C.amber,
         letterSpacing: 0.5,
         marginBottom: 6,
@@ -57,7 +57,7 @@ export const ss: Record<string, React.CSSProperties> = {
         backdropFilter: "none",
         border: "none",
         borderRadius: 10,
-        padding: "24px 28px",
+        padding: 0,
         display: "flex",
         flexDirection: "column",
         gap: 6,

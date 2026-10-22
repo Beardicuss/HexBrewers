@@ -10,7 +10,8 @@ import type { PurpleChoice } from "./gameState";
 import { drawToken } from "./bag";
 import type { RecipeBooks } from "./recipeBooks";
 import { DEFAULT_RECIPE_BOOKS, getRecipeSetForColor } from "./recipeBooks";
-import { placeToken } from "./crucible";
+import { getPlacedTokens, placeToken, removePlacedToken } from "./crucible";
+import { RUBY_SPACES } from "./crucibleTypes";
 
 export interface GreenSetTwoReward {
   sourceTokenId: string;
@@ -27,6 +28,7 @@ const TOKEN_LABELS: Record<TokenColor, string> = {
   red: "Bloodthorn",
   yellow: "Plaguedust",
   black: "Shadowmoss",
+  echo: "Echo Reed",
 };
 
 export interface EffectResult {
@@ -48,10 +50,13 @@ export function redBonusValue(crucible: Crucible, books: RecipeBooks = DEFAULT_R
     return previous?.color === "white" ? previous.value : 0;
   }
   if (set === 4) return 0;
+  if (set === 5) {
+    const colors = new Set(getPlacedTokens(crucible).filter((token) => token.color !== "white").map((token) => token.color));
+    return Math.min(2, Math.floor(colors.size / 3));
+  }
+  if (set === 6) return Math.min(3, countPlacedColor(crucible, "echo"));
 
-  const orangeCount = crucible.slots.filter(
-    (s) => s.token?.color === "orange"
-  ).length;
+  const orangeCount = getPlacedTokens(crucible).filter((token) => token.color === "orange").length;
   if (orangeCount >= 3) return 2;
   if (orangeCount >= 1) return 1;
   return 0;
@@ -87,12 +92,16 @@ export function applyBlueImmediate(player: Player, token: Token, books: RecipeBo
   }
 
   if (set === 3 || set === 4) {
-    const landedOnRuby = [4, 9, 15, 21, 28].includes(player.crucible.filledUpTo + 1);
+    const landedOnRuby = RUBY_SPACES.has(player.crucible.filledUpTo);
     if (!landedOnRuby) return player;
     return set === 3
       ? { ...player, rubies: player.rubies + 1 }
       : { ...player, score: player.score + token.value };
   }
+  if (set === 5) return player.crucible.whiteSum <= 2 ? { ...player, rubies: player.rubies + 1 } : player;
+  if (set === 6) return player.crucible.whiteSum >= 6 && player.crucible.whiteSum <= 7
+    ? { ...player, score: player.score + token.value }
+    : player;
 
   return player;
 }
@@ -107,12 +116,9 @@ export function applyYellowSetOneBonus(player: Player, previousToken: Token | nu
     ...player,
     bag: { tokens: [...player.bag.tokens, previousToken] },
     crucible: {
-      ...player.crucible,
+      ...removePlacedToken(player.crucible, previousToken.id),
       whiteSum,
       exploded: whiteSum > 7,
-      slots: player.crucible.slots.map((slot) =>
-        slot.token?.id === previousToken.id ? { ...slot, token: null } : slot
-      ),
     },
   };
 }
@@ -121,6 +127,16 @@ export function applyYellowImmediate(player: Player, previousToken: Token | null
   const set = getRecipeSetForColor(books, "yellow");
   if (set === 1) return applyYellowSetOneBonus(player, previousToken);
   if (set === 2) return { ...player, yellowDoubleNext: true };
+  if (set === 5 && previousToken?.color === "white") return { ...player, rubies: player.rubies + 1 };
+  if (set === 6 && previousToken?.color === "white") {
+    return {
+      ...player,
+      crucible: {
+        ...player.crucible,
+        dropletPosition: Math.min(32, player.crucible.dropletPosition + 1),
+      },
+    };
+  }
   return player;
 }
 
@@ -130,13 +146,11 @@ export function applyYellowImmediate(player: Player, previousToken: Token | null
 export function greenRubyBonus(crucible: Crucible, books: RecipeBooks = DEFAULT_RECIPE_BOOKS): number {
   const set = getRecipeSetForColor(books, "green");
   if (set !== 1) return 0;
-  const placed = crucible.slots.filter((s) => s.token !== null);
-  const lastTwo = placed.slice(-2);
-  return lastTwo.filter((s) => s.token?.color === "green").length;
+  return getPlacedTokens(crucible).slice(-2).filter((token) => token.color === "green").length;
 }
 
 export function countPlacedColor(crucible: Crucible, color: Token["color"]): number {
-  return crucible.slots.filter((s) => s.token?.color === color).length;
+  return getPlacedTokens(crucible).filter((token) => token.color === color).length;
 }
 
 export function applyPurpleSetOneBonus(player: Player): Player {
@@ -181,12 +195,33 @@ export function applyBlackSetOneBonus(player: Player, opponent: Player): Player 
     : moved;
 }
 
+export function applyBlackMultiplayerBonus(player: Player, left: Player, right: Player): Player {
+  const blackCount = countPlacedColor(player.crucible, "black");
+  if (blackCount <= 0) return player;
+
+  const beatsLeft = blackCount > countPlacedColor(left.crucible, "black");
+  const beatsRight = blackCount > countPlacedColor(right.crucible, "black");
+  if (!beatsLeft && !beatsRight) return player;
+
+  const moved = {
+    ...player,
+    crucible: {
+      ...player.crucible,
+      dropletPosition: Math.min(player.crucible.dropletPosition + 1, 32),
+    },
+  };
+
+  return beatsLeft && beatsRight
+    ? { ...moved, rubies: moved.rubies + 1 }
+    : moved;
+}
+
 // Apply all end-of-round chip effects to a player.
 export function applyEndOfRoundEffects(
   player: Player,
   opponent?: Player,
   books: RecipeBooks = DEFAULT_RECIPE_BOOKS,
-  options: { autoGreenSetTwo?: boolean; autoGreenSetFour?: boolean; autoPurple?: boolean } = {}
+  options: { autoGreenSetTwo?: boolean; autoGreenSetThree?: boolean; autoGreenSetFour?: boolean; autoPurple?: boolean } = {}
 ): Player {
   let updated = {
     ...player,
@@ -194,6 +229,7 @@ export function applyEndOfRoundEffects(
 
   updated = applyGreenEndEffect(updated, books, {
     autoSetTwo: options.autoGreenSetTwo ?? true,
+    autoSetThree: options.autoGreenSetThree ?? true,
     autoSetFour: options.autoGreenSetFour ?? true,
   });
   if (options.autoPurple ?? true) {
@@ -207,15 +243,15 @@ export function applyEndOfRoundEffects(
   return updated;
 }
 
-function applyGreenEndEffect(
+export function applyGreenEndEffect(
   player: Player,
   books: RecipeBooks,
-  options: { autoSetTwo: boolean; autoSetFour: boolean }
+  options: { autoSetTwo: boolean; autoSetThree: boolean; autoSetFour: boolean }
 ): Player {
   const set = getRecipeSetForColor(books, "green");
-  const placed = player.crucible.slots.filter((slot) => slot.token !== null);
+  const placed = player.crucible.placements;
   const lastTwo = placed.slice(-2);
-  const greenTokens = lastTwo.map((slot) => slot.token).filter((token): token is Token => token?.color === "green");
+  const greenTokens = lastTwo.map((placement) => placement.token).filter((token) => token.color === "green");
 
   if (set === 1) {
     return { ...player, rubies: player.rubies + greenTokens.length };
@@ -230,22 +266,8 @@ function applyGreenEndEffect(
     return { ...player, bag: { tokens: [...player.bag.tokens, ...gained] } };
   }
 
-  if (set === 3 && player.crucible.whiteSum === 7) {
-    const totalGreen = player.crucible.slots.reduce(
-      (sum, slot) => sum + (slot.token?.color === "green" ? slot.token.value : 0),
-      0
-    );
-    if (totalGreen <= 0) return player;
-    const last = placed[placed.length - 1];
-    if (!last?.token) return player;
-    const movedCrucible = {
-      ...player.crucible,
-      slots: player.crucible.slots.map((slot) =>
-        slot.position === last.position ? { ...slot, token: null } : slot
-      ),
-      filledUpTo: Math.min(player.crucible.filledUpTo + totalGreen, 33),
-    };
-    return { ...player, crucible: placeToken(movedCrucible, last.token, 0) };
+  if (set === 3 && options.autoSetThree) {
+    return applyGreenSetThreeMove(player, greenSetThreeMoveAmount(player, books));
   }
 
   if (set === 4 && options.autoSetFour) {
@@ -259,16 +281,49 @@ function applyGreenEndEffect(
       },
     };
   }
+  if (set === 5) return { ...player, score: player.score + greenTokens.length };
+  if (set === 6) {
+    return {
+      ...player,
+      crucible: {
+        ...player.crucible,
+        dropletPosition: Math.min(32, player.crucible.dropletPosition + greenTokens.length),
+      },
+    };
+  }
 
   return player;
 }
 
+export function greenSetThreeMoveAmount(player: Player, books: RecipeBooks): number {
+  if (getRecipeSetForColor(books, "green") !== 3 || player.crucible.whiteSum !== 7) return 0;
+  if (player.crucible.placements.length === 0) return 0;
+  return player.crucible.placements.reduce(
+    (sum, placement) => sum + (placement.token.color === "green" ? placement.token.value : 0),
+    0,
+  );
+}
+
+export function applyGreenSetThreeMove(player: Player, amount: number): Player {
+  if (amount <= 0) return player;
+  const last = player.crucible.placements[player.crucible.placements.length - 1];
+  if (!last) return player;
+  const withoutLast = removePlacedToken(player.crucible, last.token.id);
+  return {
+    ...player,
+    crucible: placeToken(
+      { ...withoutLast, filledUpTo: player.crucible.filledUpTo },
+      last.token,
+      amount,
+      Number.POSITIVE_INFINITY,
+    ),
+  };
+}
+
 export function greenSetTwoRewards(player: Player, books: RecipeBooks): GreenSetTwoReward[] {
   if (getRecipeSetForColor(books, "green") !== 2) return [];
-  const placed = player.crucible.slots.filter((slot) => slot.token !== null);
-  return placed.slice(-2)
-    .map((slot) => slot.token)
-    .filter((token): token is Token => token?.color === "green")
+  return getPlacedTokens(player.crucible).slice(-2)
+    .filter((token) => token.color === "green")
     .map((token) => {
       if (token.value === 1) {
         return {
@@ -300,8 +355,7 @@ export function greenSetTwoRewards(player: Player, books: RecipeBooks): GreenSet
 
 export function greenSetFourSpendMax(player: Player, books: RecipeBooks): number {
   if (getRecipeSetForColor(books, "green") !== 4) return 0;
-  const placed = player.crucible.slots.filter((slot) => slot.token !== null);
-  const greenTokens = placed.slice(-2).filter((slot) => slot.token?.color === "green").length;
+  const greenTokens = getPlacedTokens(player.crucible).slice(-2).filter((token) => token.color === "green").length;
   return Math.min(greenTokens, player.rubies);
 }
 
@@ -326,16 +380,14 @@ function makeEffectToken(playerId: string, color: TokenColor, value: number, sou
 }
 
 function placedTokens(player: Player): Token[] {
-  return player.crucible.slots
-    .map((slot) => slot.token)
-    .filter((token): token is Token => token !== null);
+  return getPlacedTokens(player.crucible);
 }
 
 export function purpleChoices(player: Player, books: RecipeBooks): PurpleChoice[] {
   const set = getRecipeSetForColor(books, "purple");
   const purples = placedTokens(player).filter((token) => token.color === "purple");
   const purpleCount = purples.length;
-  if (purpleCount <= 0 || set === 3) return [];
+  if (purpleCount <= 0 || (set !== 1 && set !== 2 && set !== 4)) return [];
 
   const choices: PurpleChoice[] = [{ id: "skip", label: "Skip Wraithbloom", kind: "skip" }];
 
@@ -353,7 +405,9 @@ export function purpleChoices(player: Player, books: RecipeBooks): PurpleChoice[
     return choices;
   }
 
-  const tokens = placedTokens(player).filter((token) => token.color !== "white" && token.color !== "purple" && token.color !== "black");
+  const tokens = placedTokens(player).filter((token) =>
+    token.color === "blue" || token.color === "red" || token.color === "yellow" || token.color === "green"
+  );
   const canUpgradeOne = purpleCount >= 1;
   const canUpgradeTwo = purpleCount >= 2;
   const canUpgradeOneToFour = purpleCount >= 3;
@@ -414,16 +468,11 @@ export function applyPurpleChoice(player: Player, choice: PurpleChoice): Player 
   }
 
   if (choice.kind === "set2") {
-    const purpleIds = player.crucible.slots
-      .filter((slot) => slot.token?.color === "purple")
+    const purpleIds = player.crucible.placements
+      .filter((placement) => placement.token.color === "purple")
       .slice(0, choice.tradeCount)
-      .map((slot) => slot.token!.id);
-    const withoutTraded = {
-      ...player.crucible,
-      slots: player.crucible.slots.map((slot) =>
-        slot.token && purpleIds.includes(slot.token.id) ? { ...slot, token: null } : slot
-      ),
-    };
+      .map((placement) => placement.token.id);
+    const withoutTraded = purpleIds.reduce(removePlacedToken, player.crucible);
     const rewards =
       choice.tradeCount === 1
         ? [makeEffectToken(player.id, "black", 1, "purple-trade")]
@@ -449,19 +498,14 @@ export function applyPurpleChoice(player: Player, choice: PurpleChoice): Player 
     };
   }
 
-  const hasToken = player.crucible.slots.some(
-    (slot) => slot.token?.id === choice.tokenId && slot.token.value === choice.fromValue
+  const hasToken = player.crucible.placements.some(
+    (placement) => placement.token.id === choice.tokenId && placement.token.value === choice.fromValue
   );
   if (!hasToken) return player;
 
   return {
     ...player,
-    crucible: {
-      ...player.crucible,
-      slots: player.crucible.slots.map((slot) =>
-        slot.token?.id === choice.tokenId ? { ...slot, token: null } : slot
-      ),
-    },
+      crucible: removePlacedToken(player.crucible, choice.tokenId),
     bag: {
       tokens: [
         ...player.bag.tokens,
@@ -471,7 +515,7 @@ export function applyPurpleChoice(player: Player, choice: PurpleChoice): Player 
   };
 }
 
-function applyPurpleEndEffect(player: Player, books: RecipeBooks): Player {
+export function applyPurpleEndEffect(player: Player, books: RecipeBooks): Player {
   const set = getRecipeSetForColor(books, "purple");
   const purpleCount = countPlacedColor(player.crucible, "purple");
   if (purpleCount <= 0) return player;
@@ -487,17 +531,29 @@ function applyPurpleEndEffect(player: Player, books: RecipeBooks): Player {
   }
 
   if (set === 3) {
-    const score = player.crucible.slots.reduce(
-      (sum, slot) => {
-        if (slot.token?.color !== "purple") return sum;
-        if (slot.position >= 30) return sum + 3;
-        if (slot.position >= 20) return sum + 2;
-        if (slot.position >= 10) return sum + 1;
+    const score = player.crucible.placements.reduce(
+      (sum, placement) => {
+        if (placement.token.color !== "purple") return sum;
+        if (placement.position >= 30) return sum + 3;
+        if (placement.position >= 20) return sum + 2;
+        if (placement.position >= 10) return sum + 1;
         return sum;
       },
       0
     );
     return { ...player, score: player.score + score };
+  }
+
+  if (set === 5) {
+    const distinct = new Set(getPlacedTokens(player.crucible).filter((token) => token.color !== "white").map((token) => token.color)).size;
+    return { ...player, score: player.score + Math.min(4, distinct) };
+  }
+  if (set === 6) {
+    return {
+      ...player,
+      score: player.score + Math.min(2, purpleCount),
+      rubies: player.rubies + purpleCount,
+    };
   }
 
   const upgraded = player.bag.tokens.map((token) => {

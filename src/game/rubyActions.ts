@@ -5,20 +5,21 @@
 import type { Player } from "./playerTypes";
 import { advanceDroplet } from "./crucible";
 import { CRUCIBLE_SIZE } from "./crucibleTypes";
+import { GAME_RULES } from "./ruleConstants";
 
 export function canAdvanceDroplet(player: Player): boolean {
-  return player.rubies >= 2 && player.crucible.dropletPosition < CRUCIBLE_SIZE - 1;
+  return player.rubies >= GAME_RULES.rubyActionCost && player.crucible.dropletPosition < CRUCIBLE_SIZE - 1;
 }
 
 export function canRefillFlask(player: Player): boolean {
-  return player.rubies >= 2 && !player.flask;
+  return player.rubies >= GAME_RULES.rubyActionCost && !player.flask;
 }
 
 export function spendRubiesForDroplet(player: Player): Player {
   if (!canAdvanceDroplet(player)) throw new Error("Cannot advance droplet.");
   return {
     ...player,
-    rubies: player.rubies - 2,
+    rubies: player.rubies - GAME_RULES.rubyActionCost,
     crucible: advanceDroplet(player.crucible),
   };
 }
@@ -27,7 +28,7 @@ export function spendRubiesForFlask(player: Player): Player {
   if (!canRefillFlask(player)) throw new Error("Cannot refill flask.");
   return {
     ...player,
-    rubies: player.rubies - 2,
+    rubies: player.rubies - GAME_RULES.rubyActionCost,
     flask: true,
   };
 }

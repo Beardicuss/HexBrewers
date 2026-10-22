@@ -1,6 +1,7 @@
 import type { MarketItem, BuyPhaseState } from "./bazaarTypes";
 import type { Player } from "./playerTypes";
 import type { Token } from "./tokenTypes";
+import { GAME_RULES } from "./ruleConstants";
 
 // Check if a player can buy a specific item given current buy phase state
 export function canAfford(
@@ -11,7 +12,7 @@ export function canAfford(
 ): boolean {
   if (!item.available || item.stock <= 0) return false;
   if (item.unlockRound > currentRound) return false;
-  if (state.purchases.length >= 2) return false;
+  if (state.purchases.length >= GAME_RULES.marketPurchaseLimit) return false;
   if (state.coinsAvailable - state.coinsSpent < item.cost) return false;
 
   // Second purchase must be different color

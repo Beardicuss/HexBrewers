@@ -1,5 +1,6 @@
 import React from "react";
 import type { Token } from "../game/tokenTypes";
+import { useTranslation } from "../i18n/useTranslation";
 
 export function YellowChoicePanel({
   token,
@@ -8,15 +9,16 @@ export function YellowChoicePanel({
   token: Token;
   onChoose: (returnPrevious: boolean) => void;
 }) {
+  const t = useTranslation();
   return (
     <div style={styles.panel}>
-      <div style={styles.label}>Plaguedust may cast back the last Voidshard.</div>
+      <div style={styles.label}>{t.choices.yellowPrompt}</div>
       <div style={styles.tokenRow}>
-        <span style={styles.tokenName}>Voidshard {token.value}</span>
+        <span style={styles.tokenName}>{t.grimoire.voidshard} {token.value}</span>
       </div>
       <div style={styles.buttons}>
-        <button style={styles.btn} onClick={() => onChoose(true)}>Return it</button>
-        <button style={styles.btn} onClick={() => onChoose(false)}>Leave it</button>
+        <button style={styles.btn} onClick={() => onChoose(true)}>{t.choices.returnIt}</button>
+        <button style={styles.btn} onClick={() => onChoose(false)}>{t.choices.leaveIt}</button>
       </div>
     </div>
   );

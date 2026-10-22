@@ -1,13 +1,6 @@
 import React from "react";
 import type { GreenRewardChoice } from "../game/gameState";
-
-const TOKEN_NAMES: Record<string, string> = {
-  orange: "Brimstone",
-  blue: "Frostbile",
-  red: "Bloodthorn",
-  yellow: "Plaguedust",
-  purple: "Wraithbloom",
-};
+import { useTranslation } from "../i18n/useTranslation";
 
 export function GreenRewardChoicePanel({
   reward,
@@ -18,11 +11,16 @@ export function GreenRewardChoicePanel({
   remaining: number;
   onChoose: (color: GreenRewardChoice["options"][number]["color"], value: number) => void;
 }) {
+  const t = useTranslation();
+  const tokenNames: Record<string, string> = {
+    orange: t.grimoire.brimstone, blue: t.grimoire.frostbile, red: t.grimoire.bloodthorn,
+    yellow: t.grimoire.plaguedust, purple: t.grimoire.wraithbloom,
+  };
   return (
     <div style={styles.panel}>
-      <div style={styles.label}>Deathweave adds a reward to your bag.</div>
-      <div style={styles.source}>Deathweave {reward.sourceValue}</div>
-      <div style={styles.count}>{remaining} reward{remaining === 1 ? "" : "s"} pending</div>
+      <div style={styles.label}>{t.choices.greenRewardPrompt}</div>
+      <div style={styles.source}>{t.grimoire.deathweave} {reward.sourceValue}</div>
+      <div style={styles.count}>{t.choices.rewardsPending.replace("{count}", String(remaining))}</div>
       <div style={styles.buttons}>
         {reward.options.map((option) => (
           <button
@@ -30,7 +28,7 @@ export function GreenRewardChoicePanel({
             style={styles.btn}
             onClick={() => onChoose(option.color, option.value)}
           >
-            {TOKEN_NAMES[option.color] ?? option.color} {option.value}
+            {tokenNames[option.color] ?? option.color} {option.value}
           </button>
         ))}
       </div>

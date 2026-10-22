@@ -1,7 +1,9 @@
+import type { TokenColor } from "../../game/tokenTypes";
+
 // ─── Grimoire Data Types & Static Arrays ──────────────────────────────────────
 
 export interface Ingredient {
-    color: string;
+    color: TokenColor;
     fill: string;
     glow: string;
     border: string;
@@ -48,7 +50,7 @@ export const INGREDIENTS: Ingredient[] = [
         lore:
             "\"Never trust a brew with no Voidshards — it will be weak. Never trust a brew with too many — you will not survive it.\" — Old hexbrewer proverb",
         warning:
-            "CRITICAL: Track your Voidshard total at all times. 7 is the threshold of annihilation.",
+            "CRITICAL: 7 pressure is safe. Your crucible shatters at 8 or more.",
     },
     {
         color: "orange",
@@ -248,9 +250,47 @@ export const OMENS: OmenEntry[] = [
     },
 ];
 
+export const COVENANT_INGREDIENTS: Ingredient[] = [
+    {
+        color: "echo",
+        fill: "#082b28",
+        glow: "#71f4d5",
+        border: "#b8ffe9",
+        name: "Echo Reed",
+        latinName: "Calamus Resonans",
+        rarity: "Rare",
+        values: [0],
+        description: "A marsh reed crystallised around the memory of every path not taken.",
+        effect: "When drawn, its movement becomes your current catch-up offset, with a minimum value of 1. The resolved value is fixed when placed.",
+        lore: "The reed repeats the distance between you and victory.",
+    },
+    {
+        color: "orange",
+        fill: "#351204",
+        glow: "#ff8a24",
+        border: "#ffc05d",
+        name: "Embercore",
+        latinName: "Cor Favillae",
+        rarity: "Legendary",
+        values: [6],
+        description: "A soot-black mineral seed split by six veins of banked fire.",
+        effect: "A safe orange ingredient that advances 6 spaces and counts as Brimstone for orange-based effects.",
+        lore: "Even cold stone remembers the furnace that made it.",
+    },
+];
+
 // ─── Rules ────────────────────────────────────────────────────────────────────
 
 export const RULES: RuleEntry[] = [
+    {
+        title: "Setup & Round Flow",
+        content: [
+            "Choose 2–4 total brewers and one of four recipe-book sets. One seat is human; the remaining seats are AI opponents.",
+            "Every brewer begins with the same nine-chip bag, 1 ruby, a filled Cursed Vial, and their droplet on the starting space.",
+            "The starting seat rotates clockwise after every round. Omen choices and purchases that use limited stock resolve in that order.",
+            "Each round proceeds through Omen, rat tails, brewing, evaluation, buying, and ruby spending.",
+        ],
+    },
     {
         title: "The Crucible Spiral",
         content: [
@@ -288,12 +328,22 @@ export const RULES: RuleEntry[] = [
         ],
     },
     {
+        title: "Effect Timing & Decision Order",
+        content: [
+            "Resolve an immediate ingredient effect as soon as its chip is placed. A chip placed by that effect resolves its own immediate effect before brewing continues.",
+            "A returned chip leaves empty distance in the crucible; later chips do not slide backward.",
+            "After all brewers finish, resolve bonus dice before end-of-round ingredient effects.",
+            "End-of-round choices and shared-stock rewards resolve clockwise from the rotating starting seat, followed by Omen rewards, ruby spaces, and scoring.",
+            "The game pauses for every required human decision; skip is offered only when the rule permits it.",
+        ],
+    },
+    {
         title: "Scoring & Rubies",
         content: [
             "VP are earned based on the scoring track (your spiral position). Coins equal your space number.",
             "If your crucible survived: collect both VP and coins.",
             "If your crucible shattered: choose one — VP OR coins.",
-            "Evaluation order is bonus die, end-round chip effects, rubies, VP, buying, then ruby spending.",
+            "Every tied farthest surviving brewer rolls the bonus die. Evaluation then resolves end-round ingredient effects, rubies, VP, buying, and ruby spending.",
             "Rubies are earned from ruby spaces and chip effects. At the end of the round, spend 2 rubies to advance your droplet 1 space or refill your Cursed Vial.",
         ],
     },
@@ -303,7 +353,7 @@ export const RULES: RuleEntry[] = [
             "After scoring, the Black Market opens. Spend your coins to buy new ingredient tokens.",
             "You may buy up to 2 tokens per round, but they must be different colours.",
             "Purchased tokens are added directly to your bag — they will appear in future rounds.",
-            "The market refreshes availability each round based on unlock rules.",
+            "Market stock is shared by all brewers and is not replenished. New ingredient colours unlock in their printed rounds.",
         ],
     },
     {
@@ -312,6 +362,16 @@ export const RULES: RuleEntry[] = [
             "From round 2 onward, trailing players get a head start. Count rat tail icons between your score and the leader's score.",
             "Your rat stone is placed that many spaces ahead of your droplet, giving you a longer starting position.",
             "The leader gets no bonus. This prevents runaway victories.",
+        ],
+    },
+    {
+        title: "Multiplayer Seating & Shared Stock",
+        content: [
+            "Games support 2–4 brewers. The human occupies one seat and AI opponents occupy the remaining seats.",
+            "The starting seat rotates clockwise and controls ordered Omen choices, end effects, and market access.",
+            "In a duel, Shadowmoss compares one opponent. With 3–4 players it compares both seated neighbors: beating one advances the droplet; beating both also grants a ruby.",
+            "Market supply is shared. Stock taken by an earlier seat can become unavailable to later seats.",
+            "Brewing outcomes are evaluated together although opponents are presented sequentially. Fast-forward changes presentation time only.",
         ],
     },
     {
@@ -327,9 +387,52 @@ export const RULES: RuleEntry[] = [
         title: "Victory",
         content: [
             "The game lasts exactly 9 rounds. In round 6, an extra Voidshard (value 1) is added to every player's bag.",
-            "At the end of round 9, remaining 5 coins or 2 rubies may be converted into 1 VP as often as possible.",
+            "At the end of round 9, every complete set of 5 unspent coins and every complete pair of rubies converts into 1 VP.",
             "After round 9, the player with the highest total VP wins.",
-            "Ties are broken by who reached the furthest scoring space in the final round. Further ties are shared.",
+            "Tied leaders compare their final-round scoring spaces. If they are still tied, they share the victory.",
+            "The physical final round uses simultaneous draws. This solo digital adaptation presents turns sequentially, then evaluates all finished crucibles together.",
+        ],
+    },
+];
+
+export const MIREWROUGHT_RULES: RuleEntry[] = [
+    {
+        title: "Mire Covenants",
+        content: [
+            "At setup, choose one Bone, one Moon, and one Blood Covenant for every brewer.",
+            "Each brewer receives one matching seal of each kind. Every seal and its power may be used only once per match.",
+            "Bone powers resolve during ruby spending, Moon powers before that brewer's first draw, and Blood powers during the market.",
+            "Mirewrought Pacts permits a fifth brewer and adds The Hollow as the fourth AI identity.",
+        ],
+    },
+    {
+        title: "Abyssal Runoff & Mire Ingredients",
+        content: [
+            "The ingredient that reaches the final crucible space is placed normally. Later ingredients enter the Abyssal Runoff.",
+            "Runoff ingredients add half their total printed value, rounded down, as prestige. Their colored ingredient actions do not activate.",
+            "Echo Reed fixes its context-dependent movement when drawn. Embercore is a safe value-6 orange ingredient.",
+            "Recipe sets 5 and 6 are available only while Mirewrought Pacts is enabled.",
+        ],
+    },
+];
+
+export const VEILGLASS_RULES: RuleEntry[] = [
+    {
+        title: "Distillation Phase",
+        content: [
+            "At setup, each brewer binds one of the three offered Affliction Contracts; multiple brewers may bind the same Contract.",
+            "After brewing and before ordinary end-round scoring, every brewer completes Distillation.",
+            "Gain 1 progress per distinct non-white ingredient color, +1 at exactly 7 Voidshard pressure, and +1 per adjacent shattered rival.",
+            "A rival is counted once in a two-player game. With three or more brewers, only the seated left and right neighbors are checked.",
+        ],
+    },
+    {
+        title: "Afflictions & Remedy Paths",
+        content: [
+            "Your Contract converts this round's Distillation progress into its listed prestige, droplet movement, or next-brew head start.",
+            "A delayed head start is added at the beginning of the following brew and is then consumed.",
+            "In round 9, Distillation progress converts directly into equal prestige instead of the Contract's ordinary reward.",
+            "Veilglass Omens may modify Distillation. Retort Resonance and Deep Resonance provide two optional Echo Reed recipes.",
         ],
     },
 ];

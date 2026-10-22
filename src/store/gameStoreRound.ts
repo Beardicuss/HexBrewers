@@ -8,28 +8,38 @@ import { drawOmen } from "../game/omen";
 import { refreshMarketAvailability } from "../game/bazaar";
 import { calculateRoundScore } from "../game/scoring";
 import { updatePlayer } from "./gameStoreHelpers";
+import { GAME_RULES } from "../game/ruleConstants";
 
 // ─── Round advancement ────────────────────────────────────────────────────────
 
 export function advanceToNextRound(state: GameState): GameState {
+    if (state.phase === "game_over") return state;
     const nextRound = state.currentRound + 1;
 
     if (nextRound > state.totalRounds) {
         const finalPlayers = state.players.map((player) => ({
             ...player,
-            score: player.score + Math.floor(player.coinsThisRound / 5) + Math.floor(player.rubies / 2),
+            score: player.score
+                + Math.floor(player.coinsThisRound / GAME_RULES.finalCoinConversion)
+                + Math.floor(player.rubies / GAME_RULES.finalRubyConversion),
         }));
-        const winner = [...finalPlayers].sort((a, b) => {
+        const ranked = [...finalPlayers].sort((a, b) => {
             if (b.score !== a.score) return b.score - a.score;
             return calculateRoundScore(b.crucible).space - calculateRoundScore(a.crucible).space;
-        })[0];
+        });
+        const winner = ranked[0];
+        const winningSpace = calculateRoundScore(winner.crucible).space;
+        const winners = ranked.filter((player) =>
+            player.score === winner.score &&
+            calculateRoundScore(player.crucible).space === winningSpace
+        );
         const human = finalPlayers.find(p => p.id === "human");
-        if (human && winner.id === "human") {
+        if (human && winners.some((player) => player.id === human.id)) {
             soundManager.play("game_win");
         } else {
             soundManager.play("game_lose");
         }
-        return { ...state, players: finalPlayers, phase: "game_over", winner };
+        return { ...state, players: finalPlayers, phase: "game_over", winner, winners };
     }
 
     // Reset all players for new round
@@ -48,6 +58,8 @@ export function advanceToNextRound(state: GameState): GameState {
             blueProtectionDraws: 0,
             blueBonusExplosion: false,
             yellowDoubleNext: false,
+            omenFirstWhiteReturned: false,
+            omenSecondChanceUsed: false,
         };
 
         // Round 6: add extra white 1-chip to every bag
@@ -65,11 +77,30 @@ export function advanceToNextRound(state: GameState): GameState {
     return {
         ...newState,
         currentRound: nextRound,
+        activePlayerIndex: (state.activePlayerIndex + 1) % state.players.length,
         phase: "omen",
         currentOmen: omenResult?.card ?? null,
         omenDeck: omenResult?.remaining ?? [],
         market: refreshMarketAvailability(newState.market, nextRound),
         buyPhaseState: null,
+        marketCompletedPlayerIds: [],
+        omenCompletedPlayerIds: [],
+        pendingBlueTokens: undefined,
+        pendingYellowPreviousToken: undefined,
+        pendingRedTokens: undefined,
+        pendingPurpleChoices: undefined,
+        pendingOmenChoices: undefined,
+        pendingGreenRewards: undefined,
+        pendingGreenSpendMax: undefined,
+        pendingGreenMoveAmount: undefined,
+        pendingMovementChoice: undefined,
+        pendingPurpleAIPlayerIds: undefined,
+        pendingGreenAIPlayerIds: undefined,
+        pendingOmenSampleTokens: undefined,
+        pendingOmenRewardPlayerIds: undefined,
+        pendingOmenUpgradePlayerIds: undefined,
+        phaseAfterOmenChoice: undefined,
+        phaseAfterGreenChoice: undefined,
         bonusDieResult: null,
         bonusDieWinner: null,
         roundSummary: null,

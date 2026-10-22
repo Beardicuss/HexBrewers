@@ -9,6 +9,12 @@ export type { OmenCard, OmenEffect } from "./omenTypes";
 export type { MarketItem, BuyPhaseState } from "./bazaarTypes";
 export type { GameState, GamePhase } from "./gameState";
 export type { BonusDieResult } from "./bonusDie";
+export type { ContentPackId, ContentPackDefinition, GameModules, GameSetup, PlayerCount } from "./contentPacks";
+export { BASE_GAME_SETUP, BASE_MODULES, CONTENT_PACKS, createGameSetup, hasContentPack, normalizeContentPacks } from "./contentPacks";
+export type { RuleHook, RuleHookPoint } from "./moduleHooks";
+export { runRuleHooks } from "./moduleHooks";
+export type { CovenantDefinition, CovenantKind, CovenantSeals } from "./covenants";
+export { COVENANTS, canUseCovenant, createCovenantSeals, useCovenant } from "./covenants";
 
 // Bag
 export { drawToken, returnToken, isEmpty, countByColor, refillBag } from "./bag";
@@ -18,7 +24,9 @@ export { createStartingBag, addRound6WhiteChip } from "./bagFactory";
 export { createCrucible, placeToken, hasExploded, getPlacedTokens, resetCrucible, advanceDroplet, getSpiralPosition, checkRubyEarned } from "./crucible";
 
 // Scoring
-export { calculateRoundScore, applyFullReward, applyExplodedReward } from "./scoring";
+export { calculateRoundScore, applyFullReward, applyExplodedReward, applyRoundReward } from "./scoring";
+export { AFFLICTIONS, adjacentPlayerIndexes, calculateDistillationProgress, createAfflictionState, resolveDistillationRound } from "./distillation";
+export type { AfflictionDefinition, AfflictionId, AfflictionState } from "./distillation";
 export type { RoundScoreResult, ExplodedChoice } from "./scoring";
 
 // Flask
@@ -29,7 +37,7 @@ export { canAfford, purchaseItem, refreshMarketAvailability, getAvailableItems }
 export { createMarket } from "./bazaarFactory";
 
 // Omen
-export { OMEN_DECK, createShuffledOmenDeck, drawOmen } from "./omen";
+export { OMEN_DECK, VEILGLASS_OMENS, omenDeckForPacks, createShuffledOmenDeck, drawOmen } from "./omen";
 
 // Chip effects
 export {
@@ -53,7 +61,7 @@ export { canAdvanceDroplet, canRefillFlask, spendRubiesForDroplet, spendRubiesFo
 export { rollBonusDie, describeDieResult } from "./bonusDie";
 
 // AI
-export { buildAIContext, selectAIMode, getRiskTolerance } from "./aiStrategy";
-export type { AIMode, AIContext } from "./aiStrategy";
-export { decideBrewingAction, decideFlaskUse, decideExplodedChoice, decideMarketTurn } from "./ai";
+export { buildAIContext, getAIProfile, selectAIMode, getRiskTolerance } from "./aiStrategy";
+export type { AIMode, AIDifficulty, AIContext, AIProfile } from "./aiStrategy";
+export { decideAIRubyAction, decideBlueKeep, decideBrewingAction, decideFlaskUse, decideExplodedChoice, decideMarketTurn, decideGreenRewardChoice, evaluateMasterLookahead } from "./ai";
 export type { BrewingDecision } from "./ai";

@@ -5,13 +5,25 @@ export interface CrucibleSlot {
   token: Token | null;
 }
 
+// Authoritative placement history. Several chips can legitimately finish on the
+// final spoon, so a one-token-per-space array cannot safely own the game state.
+export interface CruciblePlacement {
+  token: Token;
+  startPosition: number;
+  position: number;
+  movement: number;
+}
+
 export interface Crucible {
   slots: CrucibleSlot[];
+  placements: CruciblePlacement[];
   dropletPosition: number; // permanent start offset (advanced by rubies)
   filledUpTo: number;      // current furthest filled position (1–33)
   exploded: boolean;
   whiteSum: number;
   lastDrawnToken: Token | null; // needed for flask rule
+  overflowEnabled: boolean;
+  overflowTokens: Token[]; // chips drawn after reaching the final spoon
 }
 
 export const EXPLOSION_THRESHOLD = 7;

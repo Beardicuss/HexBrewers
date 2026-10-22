@@ -2,9 +2,11 @@ import React, { useEffect, useRef, useState } from "react";
 import type { AITurnEvent } from "../game/AITurnAnimator";
 import type { Token } from "../game/tokenTypes";
 import { getTokenVisual } from "../pixi/tokenVisuals";
+import { getLocalizedTokenName } from "../i18n/tokenNames";
 import type { LogEntry } from "./aiOverlayHelpers";
 import { buildEntry, getBullet } from "./aiOverlayHelpers";
 import { s } from "./aiOverlayStyles";
+import { useTranslation } from "../i18n/useTranslation";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -13,6 +15,8 @@ interface AITurnOverlayProps {
   events: AITurnEvent[];
   whiteSum: number;
   spiral: number;
+  onFastForward: () => void;
+  opponentName: string;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -22,7 +26,10 @@ export function AITurnOverlay({
   events,
   whiteSum,
   spiral,
+  onFastForward,
+  opponentName,
 }: AITurnOverlayProps) {
+  const t = useTranslation();
   const [log, setLog] = useState<LogEntry[]>([]);
   const logEndRef = useRef<HTMLDivElement>(null);
 
@@ -35,11 +42,11 @@ export function AITurnOverlay({
 
     const last = events[events.length - 1];
 
-    const entry = buildEntry(last);
+    const entry = buildEntry(last, t.aiOverlay);
     if (!entry) return;
 
     setLog((prev) => [...prev.slice(-14), entry]); // keep last 15
-  }, [events]);
+  }, [events, t.aiOverlay]);
 
   // Auto-scroll log
   useEffect(() => {
@@ -53,16 +60,16 @@ export function AITurnOverlay({
       <div style={s.panel}>
         {/* Header */}
         <div style={s.header}>
-          <div style={s.shade}>✦ The Shade ✦</div>
-          <div style={s.subtitle}>is brewing</div>
+          <div style={s.shade}>✦ {opponentName} ✦</div>
+          <div style={s.subtitle}>{t.aiOverlay.brewing}</div>
           <BrewingDots />
         </div>
 
         {/* Stats bar */}
         <div style={s.statsRow}>
-          <StatPill label="Spiral" value={spiral} color="#cc88ff" />
-          <VoidshardMeter sum={whiteSum} />
-          <StatPill label="Shard Σ" value={`${whiteSum}/7`} color={whiteSum >= 6 ? "#ff3300" : whiteSum >= 4 ? "#ff8800" : "#7755aa"} />
+          <StatPill label={t.aiOverlay.spiral} value={spiral} color="#cc88ff" />
+          <VoidshardMeter sum={whiteSum} label={t.aiOverlay.voidshards} />
+          <StatPill label={t.aiOverlay.shardSum} value={`${whiteSum}/7`} color={whiteSum >= 6 ? "#ff3300" : whiteSum >= 4 ? "#ff8800" : "#7755aa"} />
         </div>
 
         {/* Event log */}
@@ -72,10 +79,23 @@ export function AITurnOverlay({
           ))}
           <div ref={logEndRef} />
         </div>
+        <button style={fastForwardStyle} onClick={onFastForward}>» {t.aiOverlay.fastForward}</button>
       </div>
     </div>
   );
 }
+
+const fastForwardStyle: React.CSSProperties = {
+  alignSelf: "center",
+  marginTop: 12,
+  padding: "8px 18px",
+  border: "1px solid #6644aa",
+  borderRadius: 6,
+  background: "rgba(50, 20, 80, 0.7)",
+  color: "#ddbbff",
+  cursor: "pointer",
+  fontFamily: "monospace",
+};
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -100,6 +120,7 @@ function LogLine({ entry }: { entry: LogEntry }) {
 }
 
 function TokenChip({ token }: { token: Token }) {
+  const t = useTranslation();
   const visual = getTokenVisual(token.color);
   const fillHex = `#${visual.fill.toString(16).padStart(6, "0")}`;
   const borderHex = `#${visual.border.toString(16).padStart(6, "0")}`;
@@ -126,19 +147,19 @@ function TokenChip({ token }: { token: Token }) {
         display: "inline-block",
       }} />
       <span style={{ color: borderHex, fontSize: 11 }}>
-        {visual.label} ×{token.value}
+        {getLocalizedTokenName(token.color, t, token.value)} ×{token.resolvedMovement ?? token.value}
       </span>
     </span>
   );
 }
 
-function VoidshardMeter({ sum }: { sum: number }) {
+function VoidshardMeter({ sum, label }: { sum: number; label: string }) {
   const pct = Math.min((sum / 7) * 100, 100);
   const color = sum >= 6 ? "#ff3300" : sum >= 4 ? "#ff8800" : "#4422aa";
 
   return (
     <div style={s.meterWrapper}>
-      <div style={s.meterLabel}>Voidshards</div>
+      <div style={s.meterLabel}>{label}</div>
       <div style={s.meterTrack}>
         <div style={{ ...s.meterFill, width: `${pct}%`, background: color, transition: "width 0.4s, background 0.4s" }} />
       </div>

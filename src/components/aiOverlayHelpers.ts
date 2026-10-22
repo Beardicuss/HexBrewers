@@ -1,5 +1,6 @@
 import type { AITurnEvent } from "../game/AITurnAnimator";
 import type { Token } from "../game/tokenTypes";
+import type { Translations } from "../i18n/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -16,18 +17,18 @@ export interface LogEntry {
 
 let entryId = 0;
 
-export function buildEntry(event: AITurnEvent): LogEntry | null {
+export function buildEntry(event: AITurnEvent, copy: Translations["aiOverlay"]): LogEntry | null {
     const id = ++entryId;
 
     switch (event.type) {
         case "thinking":
-            return { id, kind: "thinking", message: event.message };
+            return { id, kind: "thinking", message: copy.messages[event.messageKey] };
 
         case "draw":
             return {
                 id,
                 kind: "draw",
-                message: `Drew`,
+                message: copy.drew,
                 token: event.token,
             };
 
@@ -35,29 +36,29 @@ export function buildEntry(event: AITurnEvent): LogEntry | null {
             return {
                 id,
                 kind: "flask",
-                message: `Cursed Vial — returned`,
+                message: copy.flaskReturned,
                 token: event.token,
             };
 
         case "stop":
-            return { id, kind: "stop", message: "Stopped brewing" };
+            return { id, kind: "stop", message: copy.stopped };
 
         case "exploded":
-            return { id, kind: "exploded", message: "Crucible shattered!" };
+            return { id, kind: "exploded", message: copy.shattered };
 
         case "scored":
             return {
                 id,
                 kind: "scored",
                 message: event.choice
-                    ? `Chose ${event.choice} — +${event.vp}vp / +${event.coins} coins`
-                    : `Scored +${event.vp}vp and +${event.coins} coins`,
+                    ? copy.scoredChoice.replace("{choice}", event.choice).replace("{vp}", String(event.vp)).replace("{coins}", String(event.coins))
+                    : copy.scoredBoth.replace("{vp}", String(event.vp)).replace("{coins}", String(event.coins)),
                 points: event.vp,
                 soulstones: event.coins,
             };
 
         case "done":
-            return { id, kind: "surviving", message: "Turn complete" };
+            return { id, kind: "surviving", message: copy.complete };
 
         default:
             return null;

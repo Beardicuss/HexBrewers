@@ -22,6 +22,11 @@ export class ParticleSystem extends PIXI.Container {
     this.ticker.start();
   }
 
+  setPaused(paused: boolean): void {
+    if (paused) this.ticker.stop();
+    else this.ticker.start();
+  }
+
   // ── Smoke wisps — large, slow-rising translucent blobs ──────────────────────
   emitSmoke(x: number, y: number, count = 4): void {
     for (let i = 0; i < count; i++) {

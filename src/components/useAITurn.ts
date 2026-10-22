@@ -10,6 +10,8 @@ interface UseAITurnReturn {
   aiWhiteSum: number;
   aiSpiral: number;
   runAITurn: (aiPlayer: Player, state: GameState) => Promise<Player>;
+  fastForward: () => void;
+  resetFastForward: () => void;
 }
 
 export function useAITurn(): UseAITurnReturn {
@@ -18,10 +20,12 @@ export function useAITurn(): UseAITurnReturn {
   const [aiWhiteSum, setAiWhiteSum] = useState(0);
   const [aiSpiral, setAiSpiral] = useState(0);
   const eventsRef = useRef<AITurnEvent[]>([]);
+  const fastForwardRef = useRef(false);
 
   const runAITurn = useCallback(
     async (aiPlayer: Player, state: GameState): Promise<Player> => {
       setRunning(true);
+      aiTurnAnimator.setFastForward(fastForwardRef.current);
       eventsRef.current = [];
       setEvents([]);
       setAiWhiteSum(0);
@@ -42,13 +46,24 @@ export function useAITurn(): UseAITurnReturn {
         }
       });
 
-      const finalAI = await aiTurnAnimator.run(aiPlayer, state);
-
-      setRunning(false);
-      return finalAI;
+      try {
+        return await aiTurnAnimator.run(aiPlayer, state);
+      } finally {
+        setRunning(false);
+      }
     },
     []
   );
 
-  return { running, events, aiWhiteSum, aiSpiral, runAITurn };
+  const fastForward = useCallback(() => {
+    fastForwardRef.current = true;
+    aiTurnAnimator.setFastForward(true);
+  }, []);
+
+  const resetFastForward = useCallback(() => {
+    fastForwardRef.current = false;
+    aiTurnAnimator.setFastForward(false);
+  }, []);
+
+  return { running, events, aiWhiteSum, aiSpiral, runAITurn, fastForward, resetFastForward };
 }

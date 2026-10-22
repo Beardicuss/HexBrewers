@@ -5,6 +5,7 @@ export interface TokenVisual {
   glow: number;      // glow/bloom color
   border: number;    // border color
   label: string;     // ingredient name shown on token
+  symbol: string;    // color-independent identifier
 }
 
 // Dark fantasy color palette for each ingredient
@@ -14,48 +15,63 @@ export const TOKEN_VISUALS: Record<TokenColor, TokenVisual> = {
     glow: 0x8888ff,
     border: 0xaaaaff,
     label: "Voidshard",
+    symbol: "◇",
   },
   orange: {
     fill: 0x3d1a00,
     glow: 0xff6600,
     border: 0xff8800,
     label: "Brimstone",
+    symbol: "▲",
   },
   green: {
     fill: 0x001a00,
     glow: 0x00cc44,
     border: 0x00ff55,
     label: "Deathweave",
+    symbol: "✣",
   },
   purple: {
     fill: 0x1a0033,
     glow: 0xaa00ff,
     border: 0xcc44ff,
     label: "Wraithbloom",
+    symbol: "✦",
   },
   blue: {
     fill: 0x00001a,
     glow: 0x0044ff,
     border: 0x2266ff,
     label: "Frostbile",
+    symbol: "❄",
   },
   red: {
     fill: 0x1a0000,
     glow: 0xcc0000,
     border: 0xff2222,
     label: "Bloodthorn",
+    symbol: "†",
   },
   yellow: {
     fill: 0x1a1400,
     glow: 0xccaa00,
     border: 0xffdd00,
     label: "Plaguedust",
+    symbol: "☣",
   },
   black: {
     fill: 0x050505,
     glow: 0x333333,
     border: 0x666666,
     label: "Shadowmoss",
+    symbol: "●",
+  },
+  echo: {
+    fill: 0x082b28,
+    glow: 0x71f4d5,
+    border: 0xb8ffe9,
+    label: "Echo Reed",
+    symbol: "≋",
   },
 };
 

@@ -6,12 +6,16 @@ export const useHumanPlayer = () =>
 export const useAIPlayer = () =>
   useGameStore((s) => s.state.players.find((p) => p.kind === "ai")!);
 
+export const useAIPlayers = () =>
+  useGameStore((s) => s.state.players.filter((p) => p.kind === "ai"));
+
 export const useGamePhase = () => useGameStore((s) => s.state.phase);
 export const useCurrentRound = () => useGameStore((s) => s.state.currentRound);
 export const useTotalRounds = () => useGameStore((s) => s.state.totalRounds);
 export const useCurrentOmen = () => useGameStore((s) => s.state.currentOmen);
 export const useMarket = () => useGameStore((s) => s.state.market);
 export const useWinner = () => useGameStore((s) => s.state.winner);
+export const useWinners = () => useGameStore((s) => s.state.winners);
 export const useBuyPhaseState = () => useGameStore((s) => s.state.buyPhaseState);
 export const useBonusDie = () => useGameStore((s) => ({
   result: s.state.bonusDieResult,
@@ -32,6 +36,7 @@ export const useCanHumanDraw = () =>
     return (
       s.state.phase === "brewing" &&
       !human.crucible.exploded &&
+      (human.crucible.overflowEnabled || human.crucible.filledUpTo < 33) &&
       human.bag.tokens.length > 0
     );
   });

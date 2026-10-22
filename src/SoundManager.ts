@@ -5,7 +5,7 @@
 // ─── Sound catalogue ──────────────────────────────────────────────────────────
 // Add/remove entries here as you add real audio files.
 
-type SoundId =
+export type SoundId =
   | "token_draw"          // token pulled from bag
   | "token_place"         // token lands on spiral
   | "token_place_white"   // voidshard lands (more tense)
@@ -18,12 +18,19 @@ type SoundId =
   | "round_start"         // new round begins
   | "game_win"            // player wins
   | "game_lose"           // player loses
-  | "ambient_loop";       // background dark ambient (looped)
+  | "covenant_activate_bone" | "covenant_activate_moon" | "covenant_activate_blood"
+  | "covenant_spent" | "distillation_gain" | "retort_bottle_fill"
+  | "remedy_complete" | "affliction_contract_bind"
+  | "music_ashenveil" | "music_crucible" | "music_mirewrought"
+  | "music_veilglass" | "music_ninth_bell";
+
+export type MusicSoundId = "music_ashenveil" | "music_crucible" | "music_mirewrought" | "music_veilglass" | "music_ninth_bell";
 
 interface SoundConfig {
   path: string;           // relative to /public/
   volume: number;         // 0.0 – 1.0
   loop?: boolean;
+  bus?: "music" | "sfx";
 }
 
 const SOUNDS: Record<SoundId, SoundConfig> = {
@@ -39,14 +46,29 @@ const SOUNDS: Record<SoundId, SoundConfig> = {
   round_start: { path: "sounds/round_start.mp3", volume: 0.6 },
   game_win: { path: "sounds/game_win.mp3", volume: 0.85 },
   game_lose: { path: "sounds/game_lose.mp3", volume: 0.85 },
-  ambient_loop: { path: "sounds/ambient_loop.mp3", volume: 0.18, loop: true },
+  covenant_activate_bone: { path: "sounds/dlc/covenant-activate-bone.ogg", volume: 0.72 },
+  covenant_activate_moon: { path: "sounds/dlc/covenant-activate-moon.ogg", volume: 0.72 },
+  covenant_activate_blood: { path: "sounds/dlc/covenant-activate-blood.ogg", volume: 0.72 },
+  covenant_spent: { path: "sounds/dlc/covenant-spent.ogg", volume: 0.55 },
+  distillation_gain: { path: "sounds/dlc/distillation-gain.ogg", volume: 0.62 },
+  retort_bottle_fill: { path: "sounds/dlc/retort-bottle-fill.ogg", volume: 0.68 },
+  remedy_complete: { path: "sounds/dlc/remedy-complete.ogg", volume: 0.78 },
+  affliction_contract_bind: { path: "sounds/dlc/affliction-contract-bind.ogg", volume: 0.7 },
+  music_ashenveil: { path: "music/music-ashenveil-theme.ogg", volume: 0.42, loop: true, bus: "music" },
+  music_crucible: { path: "music/music-crucible-vigil.ogg", volume: 0.4, loop: true, bus: "music" },
+  music_mirewrought: { path: "music/music-mirewrought.ogg", volume: 0.4, loop: true, bus: "music" },
+  music_veilglass: { path: "music/music-veilglass.ogg", volume: 0.4, loop: true, bus: "music" },
+  music_ninth_bell: { path: "music/music-ninth-bell.ogg", volume: 0.43, loop: true, bus: "music" },
 };
+
+const MUSIC_IDS: MusicSoundId[] = ["music_ashenveil", "music_crucible", "music_mirewrought", "music_veilglass", "music_ninth_bell"];
 
 // ─── Manager class ────────────────────────────────────────────────────────────
 
 class SoundManager {
   private buffers: Map<SoundId, AudioBuffer> = new Map();
   private sources: Map<SoundId, AudioBufferSourceNode> = new Map();
+  private sourceGains: Map<SoundId, GainNode> = new Map();
   private context: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private musicGain: GainNode | null = null;
@@ -54,6 +76,10 @@ class SoundManager {
   private muted: boolean = false;
   private loaded: boolean = false;
   private rawBuffers: Map<SoundId, ArrayBuffer> = new Map(); // eagerly fetched
+  private loadingBuffers: Map<SoundId, Promise<void>> = new Map();
+  private desiredMusic: MusicSoundId | null = null;
+  private musicElements: Map<MusicSoundId, HTMLAudioElement> = new Map();
+  private musicElementGains: Map<MusicSoundId, GainNode> = new Map();
 
   // Call once on first user interaction (browsers require this)
   async init(): Promise<void> {
@@ -73,7 +99,6 @@ class SoundManager {
     // Apply persisted volume settings from Zustand store
     this.applyPersistedVolume();
 
-    await this.decodeAll();
     this.loaded = true;
   }
 
@@ -134,12 +159,41 @@ class SoundManager {
     );
   }
 
+  private loadBuffer(id: SoundId): Promise<void> {
+    const pending = this.loadingBuffers.get(id);
+    if (pending) return pending;
+    const task = (async () => {
+      if (!this.context || this.buffers.has(id)) return;
+      try {
+        const cached = this.rawBuffers.get(id);
+        const data = cached ?? await (await fetch(SOUNDS[id].path)).arrayBuffer();
+        const decoded = await this.context.decodeAudioData(data.slice(0));
+        this.buffers.set(id, decoded);
+        this.rawBuffers.delete(id);
+      } catch { /* optional audio must never block gameplay */ }
+      finally { this.loadingBuffers.delete(id); }
+    })();
+    this.loadingBuffers.set(id, task);
+    return task;
+  }
+
   // Play a sound
-  play(id: SoundId): void {
+  play(id: SoundId, fadeInMs: number = 0): void {
     if (!this.loaded || this.muted || !this.context || !this.masterGain) return;
 
+    if (SOUNDS[id].bus === "music") {
+      void this.playStreamedMusic(id as MusicSoundId, fadeInMs);
+      return;
+    }
+
     const buffer = this.buffers.get(id);
-    if (!buffer) return; // file not loaded — silent fallback
+    if (!buffer) {
+      void this.loadBuffer(id).then(() => {
+        if (SOUNDS[id].bus === "music" && this.desiredMusic !== id) return;
+        this.play(id, fadeInMs);
+      });
+      return;
+    }
 
     const config = SOUNDS[id];
 
@@ -147,10 +201,11 @@ class SoundManager {
     if (config.loop && this.sources.has(id)) return;
 
     const gainNode = this.context.createGain();
-    gainNode.gain.value = config.volume;
+    gainNode.gain.value = fadeInMs > 0 ? 0 : config.volume;
+    if (fadeInMs > 0) gainNode.gain.linearRampToValueAtTime(config.volume, this.context.currentTime + fadeInMs / 1000);
 
     // Route through the appropriate bus
-    const bus = config.loop ? this.musicGain! : this.sfxGain!;
+    const bus = config.bus === "music" ? this.musicGain! : this.sfxGain!;
     gainNode.connect(bus);
 
     const source = this.context.createBufferSource();
@@ -162,30 +217,93 @@ class SoundManager {
     // Track looping sources so they can be stopped
     if (config.loop) {
       this.sources.set(id, source);
+      this.sourceGains.set(id, gainNode);
+      source.onended = () => {
+        if (this.sources.get(id) === source) {
+          this.sources.delete(id);
+          this.sourceGains.delete(id);
+        }
+      };
+    }
+  }
+
+  private async playStreamedMusic(id: MusicSoundId, fadeInMs: number): Promise<void> {
+    if (!this.context || !this.musicGain || this.musicElements.has(id)) return;
+    const config = SOUNDS[id];
+    const element = new Audio(config.path);
+    element.loop = true;
+    element.preload = "metadata";
+    const source = this.context.createMediaElementSource(element);
+    const gain = this.context.createGain();
+    gain.gain.value = fadeInMs > 0 ? 0 : config.volume;
+    source.connect(gain);
+    gain.connect(this.musicGain);
+    this.musicElements.set(id, element);
+    this.musicElementGains.set(id, gain);
+    if (fadeInMs > 0) {
+      gain.gain.linearRampToValueAtTime(config.volume, this.context.currentTime + fadeInMs / 1000);
+    }
+    try {
+      await element.play();
+    } catch {
+      this.musicElements.delete(id);
+      this.musicElementGains.delete(id);
+      source.disconnect();
+      gain.disconnect();
     }
   }
 
   // Stop a looping sound
   stopLoop(id: SoundId): void {
+    if (SOUNDS[id].bus === "music") {
+      const musicId = id as MusicSoundId;
+      const element = this.musicElements.get(musicId);
+      if (element) {
+        element.pause();
+        element.removeAttribute("src");
+        element.load();
+      }
+      this.musicElements.delete(musicId);
+      this.musicElementGains.get(musicId)?.disconnect();
+      this.musicElementGains.delete(musicId);
+      return;
+    }
     const source = this.sources.get(id);
     if (source) {
       try { source.stop(); } catch { /* already stopped */ }
       this.sources.delete(id);
+      this.sourceGains.delete(id);
     }
   }
 
   // Fade a looping sound out over N milliseconds
   fadeOut(id: SoundId, durationMs: number = 1000): void {
+    if (SOUNDS[id].bus === "music") {
+      const musicId = id as MusicSoundId;
+      const gain = this.musicElementGains.get(musicId);
+      if (!gain || !this.context) return;
+      gain.gain.cancelScheduledValues(this.context.currentTime);
+      gain.gain.setValueAtTime(gain.gain.value, this.context.currentTime);
+      gain.gain.linearRampToValueAtTime(0, this.context.currentTime + durationMs / 1000);
+      window.setTimeout(() => this.stopLoop(musicId), durationMs);
+      return;
+    }
     const source = this.sources.get(id);
     if (!source || !this.context) return;
 
-    const gain = this.context.createGain();
-    source.connect(gain);
-    gain.connect(this.masterGain!);
-    gain.gain.setValueAtTime(SOUNDS[id].volume, this.context.currentTime);
+    const gain = this.sourceGains.get(id);
+    if (!gain) return;
+    gain.gain.cancelScheduledValues(this.context.currentTime);
+    gain.gain.setValueAtTime(gain.gain.value, this.context.currentTime);
     gain.gain.linearRampToValueAtTime(0, this.context.currentTime + durationMs / 1000);
 
     setTimeout(() => this.stopLoop(id), durationMs);
+  }
+
+  switchMusic(id: MusicSoundId, fadeMs: number = 1600): void {
+    this.desiredMusic = id;
+    for (const musicId of MUSIC_IDS) if (musicId !== id) this.fadeOut(musicId, fadeMs);
+    if (!this.musicElements.has(id)) this.play(id, fadeMs);
   }
 
   // Master volume (0.0 – 1.0)
@@ -241,11 +359,6 @@ export function useSoundManager() {
   const [muted, setMuted] = useState(false);
   const [ready, setReady] = useState(false);
 
-  // Eagerly fetch audio files as soon as component mounts (no user click needed)
-  useEffect(() => {
-    soundManager.preloadRaw();
-  }, []);
-
   // Init AudioContext on first user interaction (browser requires this)
   const initOnInteraction = useCallback(async () => {
     if (initialised.current) return;
@@ -256,7 +369,11 @@ export function useSoundManager() {
 
   useEffect(() => {
     window.addEventListener("pointerdown", initOnInteraction, { once: true });
-    return () => window.removeEventListener("pointerdown", initOnInteraction);
+    window.addEventListener("keydown", initOnInteraction, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", initOnInteraction);
+      window.removeEventListener("keydown", initOnInteraction);
+    };
   }, [initOnInteraction]);
 
   const play = useCallback((id: Parameters<typeof soundManager.play>[0]) => {

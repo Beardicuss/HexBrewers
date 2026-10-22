@@ -4,7 +4,9 @@ import type { Crucible } from "../game/crucibleTypes";
 import type { Token } from "../game/tokenTypes";
 
 interface UsePixiCanvasOptions {
-  // Empty options now since the canvas binds to window size natively.
+  explosionLabel: string;
+  renderScale: number;
+  mirewroughtEnabled: boolean;
 }
 
 interface UsePixiCanvasReturn {
@@ -14,11 +16,13 @@ interface UsePixiCanvasReturn {
   updateBagCount: (count: number) => void;
   playExplosion: () => Promise<void>;
   resetRound: () => void;
+  setPaused: (paused: boolean) => void;
 }
 
-export function usePixiCanvas(options: UsePixiCanvasOptions): UsePixiCanvasReturn {
+export function usePixiCanvas({ explosionLabel, renderScale, mirewroughtEnabled }: UsePixiCanvasOptions): UsePixiCanvasReturn {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<GameCanvas | null>(null);
+  const pausedRef = useRef(false);
 
   // Mount Pixi on first render
   useEffect(() => {
@@ -28,12 +32,16 @@ export function usePixiCanvas(options: UsePixiCanvasOptions): UsePixiCanvasRetur
 
     GameCanvas.create({
       container: containerRef.current,
+      explosionLabel,
+      renderScale,
+      mirewroughtEnabled,
     }).then((canvas) => {
       if (destroyed) {
         canvas.destroy();
         return;
       }
       canvasRef.current = canvas;
+      canvas.setPaused(pausedRef.current);
     });
 
     return () => {
@@ -41,7 +49,7 @@ export function usePixiCanvas(options: UsePixiCanvasOptions): UsePixiCanvasRetur
       canvasRef.current?.destroy();
       canvasRef.current = null;
     };
-  }, []); // mount once only
+  }, [explosionLabel, renderScale, mirewroughtEnabled]);
 
   // Handle resize - handled internally by GameCanvas now!
 
@@ -65,6 +73,11 @@ export function usePixiCanvas(options: UsePixiCanvasOptions): UsePixiCanvasRetur
     canvasRef.current?.resetRound();
   }, []);
 
+  const setPaused = useCallback((paused: boolean) => {
+    pausedRef.current = paused;
+    canvasRef.current?.setPaused(paused);
+  }, []);
+
   return {
     containerRef,
     updateCrucible,
@@ -72,5 +85,6 @@ export function usePixiCanvas(options: UsePixiCanvasOptions): UsePixiCanvasRetur
     updateBagCount,
     playExplosion,
     resetRound,
+    setPaused,
   };
 }

@@ -10,7 +10,7 @@ export const s: Record<string, React.CSSProperties> = {
         justifyContent: "center",
         zIndex: 90,
         backdropFilter: "blur(3px)",
-        pointerEvents: "none",
+        pointerEvents: "auto",
     },
     panel: {
         background: "linear-gradient(160deg, #0d0720 0%, #160930 60%, #0a0418 100%)",

@@ -1,7 +1,9 @@
 import * as PIXI from "pixi.js";
 import type { Token } from "../game/tokenTypes";
-import { getTokenVisual, TOKEN_RADIUS } from "./tokenVisuals";
+import { getTokenVisual } from "./tokenVisuals";
 import { ParticleSystem } from "./ParticleSystem";
+import { prefersReducedMotion } from "../accessibility";
+import { CORE_ECONOMY_ASSETS } from "../assets/coreAssets";
 
 // Animates a token flying out of the bag and landing on the crucible
 export class BagAnimation extends PIXI.Container {
@@ -20,7 +22,7 @@ export class BagAnimation extends PIXI.Container {
     // Try to use the real bag asset
     this.bagFallback = new PIXI.Graphics();
     try {
-      const texture = PIXI.Assets.get("/images/brew_bag.png");
+      const texture = PIXI.Assets.get(CORE_ECONOMY_ASSETS.brewBag);
       if (texture) {
         this.bagSprite = new PIXI.Sprite(texture);
         this.bagSprite.anchor.set(0.5);
@@ -59,7 +61,8 @@ export class BagAnimation extends PIXI.Container {
   }
 
   // Animate a token being drawn from the bag
-  async animateDraw(token: Token, targetX: number, targetY: number): Promise<void> {
+  async animateDraw(token: Token, _targetX: number, _targetY: number): Promise<void> {
+    if (prefersReducedMotion()) return;
     const visual = getTokenVisual(token.color);
 
     // Flash effect on bag
@@ -69,59 +72,7 @@ export class BagAnimation extends PIXI.Container {
     }
     this.particles.emitSparks(0, -10, visual.glow, 6);
 
-    // Create a flying token sprite
-    const flyingToken = new PIXI.Graphics();
-    flyingToken.circle(0, 0, TOKEN_RADIUS);
-    flyingToken.fill({ color: visual.fill });
-    flyingToken.stroke({ color: visual.border, width: 2 });
-    flyingToken.x = this.x;
-    flyingToken.y = this.y;
-
-    // Add to parent so it can fly across the screen
-    this.parent?.addChild(flyingToken);
-
-    // Animate fly to target
-    await this.flyTo(flyingToken, targetX, targetY);
-
-    // Burst on arrival
-    this.particles.emitSparks(targetX - this.x, targetY - this.y, visual.glow, 8);
-
-    flyingToken.destroy();
-  }
-
-  private flyTo(
-    sprite: PIXI.Graphics,
-    toX: number,
-    toY: number
-  ): Promise<void> {
-    return new Promise((resolve) => {
-      const fromX = sprite.x;
-      const fromY = sprite.y;
-      const totalFrames = 28;
-      let frame = 0;
-
-      const tick = () => {
-        frame++;
-        const t = frame / totalFrames;
-        // Ease out cubic
-        const eased = 1 - Math.pow(1 - t, 3);
-
-        // Arc path — rises then falls toward target
-        const arc = Math.sin(t * Math.PI) * -60;
-
-        sprite.x = fromX + (toX - fromX) * eased;
-        sprite.y = fromY + (toY - fromY) * eased + arc;
-        sprite.scale.set(0.6 + eased * 0.4);
-        sprite.alpha = t < 0.1 ? t / 0.1 : 1;
-
-        if (frame >= totalFrames) {
-          resolve();
-        } else {
-          requestAnimationFrame(tick);
-        }
-      };
-      requestAnimationFrame(tick);
-    });
+    await new Promise((resolve) => window.setTimeout(resolve, 180));
   }
 
   private drawFallbackBag(): void {

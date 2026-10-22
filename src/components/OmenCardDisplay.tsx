@@ -2,6 +2,9 @@ import React from "react";
 import type { OmenCard } from "../game/omenTypes";
 import type { Translations } from "../i18n/types";
 import { useTranslation } from "../i18n/useTranslation";
+import { VEILGLASS_OMEN_ART } from "../assets/veilglassAssets";
+import { BASE_OMEN_ART } from "../assets/baseAssets";
+import { CORE_OMEN_ASSETS } from "../assets/coreAssets";
 
 interface OmenCardProps {
   card: OmenCard | null;
@@ -12,23 +15,29 @@ interface OmenCardProps {
 export function OmenCardDisplay({ card, visible, onDismiss }: OmenCardProps) {
   const t = useTranslation();
   if (!card || !visible) return null;
+  const localized = t.omenCards[card.id];
+  const artwork = BASE_OMEN_ART[card.id] ?? VEILGLASS_OMEN_ART[card.id];
 
   return (
     <div style={styles.overlay}>
-      <div style={styles.card}>
-        <div style={styles.topRune}>✦</div>
-
-        <div style={styles.title}>{t.omenCards[card.id]?.title ?? card.title}</div>
-        <div style={styles.divider} />
-        <div style={styles.description}>{t.omenCards[card.id]?.description ?? card.description}</div>
-        <div style={styles.effectBadge}>{getEffectLabel(card, t)}</div>
-
-        <button style={styles.button} onClick={onDismiss}>
-          {t.omen.beginBrewing}
-        </button>
-
-        <div style={styles.bottomRune}>✦</div>
+      <div style={styles.reveal}>
+        <div style={styles.card}>
+          <div style={{ ...styles.art, ...(artwork ? { backgroundImage: `url('${artwork}')` } : {}) }} />
+          <img src={CORE_OMEN_ASSETS.blankFront} alt="" aria-hidden="true" style={styles.frame} />
+        </div>
+        <div style={styles.copy}>
+          <div style={styles.topRune}>✦　OMEN REVEALED　✦</div>
+          <div style={styles.title}>{localized?.title ?? card.title}</div>
+          <div style={styles.divider} />
+          <div style={styles.description}>{localized?.description ?? localized?.summary ?? card.description}</div>
+          <div style={styles.effectLabel}>EFFECT</div>
+          <div style={styles.effectBadge}>{localized?.summary ?? getEffectLabel(card, t)}</div>
+          <button className="omen-reveal-action" style={styles.button} onClick={onDismiss}>
+            ✦ {t.omen.beginBrewing} ✦
+          </button>
+        </div>
       </div>
+      <style>{`.omen-reveal-action:hover,.omen-reveal-action:focus-visible{color:#ffe39b!important;border-bottom-color:#e5b753!important;text-shadow:0 0 16px rgba(224,174,75,.55);transform:translateY(-2px);outline:none}`}</style>
     </div>
   );
 }
@@ -46,86 +55,95 @@ const styles: Record<string, React.CSSProperties> = {
   overlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(4, 2, 10, 0.95)",
+    background: "radial-gradient(ellipse at center,rgba(12,28,30,.82),rgba(3,1,8,.95) 72%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 100,
-    backdropFilter: "blur(4px)",
+    backdropFilter: "blur(6px)",
+    padding: 24,
+  },
+  reveal: {
+    width: "min(1420px,94vw)",
+    maxHeight: "94vh",
+    overflowY: "auto",
+    display: "grid",
+    gridTemplateColumns: "minmax(390px,520px) minmax(0,1fr)",
+    alignItems: "center",
+    gap: "clamp(50px,7vw,110px)",
+    padding: "20px 34px",
   },
   card: {
-    backgroundImage: "url('/images/omen_card_front_blank.jpg')",
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    border: "1px solid #4a1a7a",
-    borderRadius: 12,
-    padding: "36px 44px",
-    width: "min(380px, 90vw)",
-    aspectRatio: "2.5 / 3.5",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 16,
-    boxShadow: "0 0 60px rgba(120, 40, 200, 0.25), inset 0 0 40px rgba(80, 0, 140, 0.1)",
     position: "relative",
+    width: "min(100%,520px)",
+    aspectRatio: "850 / 1260",
+    filter: "drop-shadow(0 24px 36px rgba(0,0,0,.8))",
+  },
+  art: {
+    position: "absolute",
+    zIndex: 2,
+    inset: "6.4% 7.4% 8.4%",
+    backgroundSize: "cover",
+    backgroundPosition: "center top",
+    borderRadius: "42% 42% 8% 8% / 18% 18% 6% 6%",
+    boxShadow: "inset 0 0 30px rgba(0,0,0,.55)",
+  },
+  frame: { position: "absolute", zIndex: 1, inset: 0, width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" },
+  copy: {
+    padding: "44px 28px 46px 46px",
+    borderLeft: "1px solid rgba(196,151,74,.52)",
+    background: "linear-gradient(100deg,rgba(3,8,12,.68),rgba(3,8,12,.2),transparent)",
+    textShadow: "0 2px 8px #000",
   },
   topRune: {
-    color: "#7733bb",
-    fontSize: 22,
-    opacity: 0.6,
-  },
-  title: {
-    fontFamily: "serif",
-    fontSize: 24,
-    color: "#eecccc",
-    textAlign: "center",
-    letterSpacing: 1.5,
-    textShadow: "2px 2px 4px rgba(0,0,0,0.9), 0 0 15px rgba(0,0,0,0.8)",
-  },
-  divider: {
-    width: "60%",
-    height: 1,
-    background: "linear-gradient(90deg, transparent, #6622aa, transparent)",
-  },
-  description: {
-    fontFamily: "serif",
-    fontSize: 16,
-    color: "#ddccdd",
-    textAlign: "center",
-    lineHeight: 1.7,
-    fontStyle: "italic",
-    textShadow: "1px 1px 3px rgba(0,0,0,0.9)",
-    margin: "auto 0",
-  },
-  effectBadge: {
-    background: "rgba(80, 20, 120, 0.4)",
-    border: "1px solid #5a1a8a",
-    borderRadius: 6,
-    padding: "8px 16px",
+    color: "#79c9bd",
     fontFamily: "monospace",
     fontSize: 14,
-    color: "#ffddff",
-    letterSpacing: 1,
-    textShadow: "1px 1px 2px rgba(0,0,0,0.9)",
-    boxShadow: "0 4px 10px rgba(0,0,0,0.4)",
+    letterSpacing: 3,
+    marginBottom: 18,
+  },
+  title: {
+    fontFamily: "Georgia,serif",
+    fontSize: "clamp(38px,4vw,62px)",
+    color: "#e8c675",
+    textAlign: "left",
+    letterSpacing: 1.5,
+    textShadow: "2px 2px 6px #000,0 0 20px rgba(213,164,73,.18)",
+  },
+  divider: {
+    width: "82%",
+    height: 1,
+    background: "linear-gradient(90deg,#b48843,transparent)",
+    margin: "22px 0 28px",
+  },
+  description: {
+    fontFamily: "Georgia,serif",
+    fontSize: "clamp(20px,1.65vw,27px)",
+    color: "#e6dac6",
+    textAlign: "left",
+    lineHeight: 1.7,
+    fontStyle: "italic",
+    marginBottom: 30,
+  },
+  effectLabel: { color: "#c59a53", fontFamily: "monospace", fontSize: 14, letterSpacing: 4, marginBottom: 10 },
+  effectBadge: {
+    padding: "4px 0 8px",
+    fontFamily: "Georgia,serif",
+    fontSize: "clamp(23px,1.8vw,30px)",
+    color: "#f0d7a2",
+    lineHeight: 1.55,
   },
   button: {
-    marginTop: 8,
+    marginTop: 36,
     background: "transparent",
-    border: "1px solid #7733bb",
-    borderRadius: 6,
-    padding: "10px 28px",
-    color: "#cc88ff",
-    fontFamily: "serif",
-    fontSize: 16,
+    border: 0,
+    borderBottom: "1px solid #b98b3f",
+    padding: "14px 34px",
+    color: "#e5c36f",
+    fontFamily: "Georgia,serif",
+    fontSize: 20,
     letterSpacing: 2,
     cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  bottomRune: {
-    color: "#7733bb",
-    fontSize: 22,
-    opacity: 0.6,
+    transition: "all .18s",
   },
 };

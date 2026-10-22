@@ -1,5 +1,6 @@
 import React from "react";
 import type { Token } from "../game/tokenTypes";
+import { useTranslation } from "../i18n/useTranslation";
 
 export function RedReserveChoicePanel({
   token,
@@ -10,15 +11,16 @@ export function RedReserveChoicePanel({
   remaining: number;
   onChoose: (action: "place" | "save" | "bag") => void;
 }) {
+  const t = useTranslation();
   return (
     <div style={styles.panel}>
-      <div style={styles.label}>Bloodthorn waits beside the pot.</div>
-      <div style={styles.token}>Bloodthorn {token.value}</div>
-      <div style={styles.count}>{remaining} reserved</div>
+      <div style={styles.label}>{t.choices.redPrompt}</div>
+      <div style={styles.token}>{t.grimoire.bloodthorn} {token.value}</div>
+      <div style={styles.count}>{t.choices.reserved.replace("{count}", String(remaining))}</div>
       <div style={styles.buttons}>
-        <button style={styles.btn} onClick={() => onChoose("place")}>Place now</button>
-        <button style={styles.btn} onClick={() => onChoose("save")}>Save it</button>
-        <button style={styles.btn} onClick={() => onChoose("bag")}>Return to bag</button>
+        <button style={styles.btn} onClick={() => onChoose("place")}>{t.choices.placeNow}</button>
+        <button style={styles.btn} onClick={() => onChoose("save")}>{t.choices.saveIt}</button>
+        <button style={styles.btn} onClick={() => onChoose("bag")}>{t.choices.returnToBag}</button>
       </div>
     </div>
   );

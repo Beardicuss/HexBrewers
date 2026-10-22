@@ -1,9 +1,11 @@
 import React from "react";
+import { CORE_ECONOMY_ASSETS } from "../assets/coreAssets";
 import { useTranslation } from "../i18n/useTranslation";
 import type { MarketItem, BuyPhaseState } from "../game/bazaarTypes";
 import type { Player } from "../game/playerTypes";
 import { canAfford } from "../game/bazaar";
 import { getTokenVisual } from "../pixi/tokenVisuals";
+import { getLocalizedTokenName } from "../i18n/tokenNames";
 
 interface BlackMarketProps {
   market: MarketItem[];
@@ -16,6 +18,10 @@ interface BlackMarketProps {
 
 export function BlackMarket({ market, player, buyPhaseState, round, onBuy, onDone }: BlackMarketProps) {
   const t = useTranslation();
+  const coinsRemaining = buyPhaseState ? buyPhaseState.coinsAvailable - buyPhaseState.coinsSpent : 0;
+  const coinRatio = buyPhaseState?.coinsAvailable
+    ? Math.max(0, coinsRemaining / buyPhaseState.coinsAvailable)
+    : 0;
   return (
     <div style={styles.overlay}>
       <div style={styles.panel}>
@@ -27,8 +33,12 @@ export function BlackMarket({ market, player, buyPhaseState, round, onBuy, onDon
 
         {/* Coins balance */}
         <div style={styles.balance}>
-          <span style={styles.balanceLabel}>{t.marketScreen.coinsAvailable}</span>
-          <span style={styles.balanceValue}>{buyPhaseState ? buyPhaseState.coinsAvailable - buyPhaseState.coinsSpent : 0}</span>
+          <span style={styles.balanceLabel}><img src={CORE_ECONOMY_ASSETS.coin} alt="" style={{ width: 22, height: 22, objectFit: "contain", verticalAlign: "middle", marginRight: 7 }} />{t.marketScreen.coinsAvailable}</span>
+          <span style={styles.balanceValue}>{coinsRemaining}</span>
+          <span style={styles.balanceTotal}>/ {buyPhaseState?.coinsAvailable ?? 0}</span>
+        </div>
+        <div style={styles.coinMeter} aria-label={`${coinsRemaining} ${t.marketScreen.coinsAvailable}`}>
+          <div style={{ ...styles.coinMeterFill, width: `${coinRatio * 100}%` }} />
         </div>
 
         <div style={styles.divider} />
@@ -44,7 +54,9 @@ export function BlackMarket({ market, player, buyPhaseState, round, onBuy, onDon
               <MarketItemCard
                 key={item.id}
                 item={item}
+                round={round}
                 canBuy={buyPhaseState ? canAfford(item, buyPhaseState, round, alreadyBoughtColor) : false}
+                purchased={Boolean(buyPhaseState?.purchases.includes(item.id))}
                 onBuy={() => onBuy(item.id)}
               />
             );
@@ -65,25 +77,30 @@ export function BlackMarket({ market, player, buyPhaseState, round, onBuy, onDon
 
 interface MarketItemCardProps {
   item: MarketItem;
+  round: number;
   canBuy: boolean;
+  purchased: boolean;
   onBuy: () => void;
 }
 
-function MarketItemCard({ item, canBuy, onBuy }: MarketItemCardProps) {
+function MarketItemCard({ item, round, canBuy, purchased, onBuy }: MarketItemCardProps) {
   const t = useTranslation();
   const visual = getTokenVisual(item.token.color);
   const colorHex = `#${visual.border.toString(16).padStart(6, "0")}`;
   const glowHex = `#${visual.glow.toString(16).padStart(6, "0")}`;
 
   const unavailable = !item.available;
+  const locked = round < item.unlockRound;
+  const soldOut = item.stock <= 0;
   const disabled = !canBuy || unavailable;
 
   return (
     <div
       style={{
         ...styles.itemCard,
-        opacity: disabled ? 0.45 : 1,
-        borderColor: unavailable ? "#1a0a2e" : colorHex + "66",
+        ...(purchased ? styles.itemCardPurchased : {}),
+        opacity: disabled && !purchased ? 0.45 : 1,
+        borderColor: purchased ? "#4d9b70" : unavailable ? "#1a0a2e" : colorHex + "66",
         boxShadow: canBuy && !unavailable
           ? `0 0 12px ${glowHex}22`
           : "none",
@@ -97,24 +114,28 @@ function MarketItemCard({ item, canBuy, onBuy }: MarketItemCardProps) {
         boxShadow: `0 0 8px ${glowHex}88`,
       }}>
         <span style={{ color: colorHex, fontSize: 12, fontWeight: "bold" }}>
-          {item.token.value}
+          {visual.symbol}{item.token.color === "echo" ? "?" : item.token.value}
         </span>
       </div>
 
       {/* Info */}
       <div style={styles.itemInfo}>
         <div style={{ ...styles.itemName, color: colorHex }}>
-          {visual.label}
+          {getLocalizedTokenName(item.token.color, t, item.token.value)}
         </div>
         <div style={styles.itemValue}>
-          {t.marketScreen.value} {item.token.value}
+          {t.marketScreen.value} {item.token.color === "echo" ? "?" : item.token.value}
         </div>
       </div>
 
       {/* Cost + buy */}
       <div style={styles.itemRight}>
         <div style={styles.cost}>⬡ {item.cost}</div>
-        {unavailable ? (
+        {purchased ? (
+          <div style={styles.purchased}>✓ {t.marketScreen.purchased}</div>
+        ) : locked ? (
+          <div style={styles.soldOut}>{t.marketScreen.lockedUntilRound} {item.unlockRound}</div>
+        ) : soldOut ? (
           <div style={styles.soldOut}>{t.marketScreen.sold}</div>
         ) : (
           <button
@@ -195,6 +216,26 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#e8d5b5",
     fontWeight: "bold",
   },
+  balanceTotal: {
+    color: "#756681",
+    fontFamily: "monospace",
+    fontSize: 12,
+  },
+  coinMeter: {
+    width: "min(320px, 78%)",
+    height: 6,
+    margin: "-10px auto 0",
+    overflow: "hidden",
+    border: "1px solid rgba(122, 83, 43, 0.65)",
+    borderRadius: 4,
+    background: "rgba(18, 9, 6, 0.82)",
+  },
+  coinMeterFill: {
+    height: "100%",
+    background: "linear-gradient(90deg, #7f4e1d, #e8b84d)",
+    boxShadow: "0 0 10px rgba(232, 184, 77, 0.45)",
+    transition: "width 0.28s ease-out",
+  },
   divider: {
     height: 1,
     background: "linear-gradient(90deg, transparent, #3a1a5a, transparent)",
@@ -212,7 +253,11 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid",
     borderRadius: 8,
     padding: "10px 14px",
-    transition: "opacity 0.2s, box-shadow 0.2s",
+    transition: "opacity 0.2s, box-shadow 0.2s, border-color 0.2s, transform 0.2s",
+  },
+  itemCardPurchased: {
+    background: "linear-gradient(110deg, rgba(20, 72, 48, 0.5), rgba(12, 24, 24, 0.72))",
+    boxShadow: "inset 3px 0 #58b27f, 0 0 18px rgba(55, 148, 98, 0.16)",
   },
   tokenDot: {
     width: 36,
@@ -277,6 +322,17 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     color: "#442233",
     letterSpacing: 1,
+  },
+  purchased: {
+    color: "#6cdaa0",
+    border: "1px solid #356f55",
+    borderRadius: 4,
+    padding: "3px 7px",
+    background: "rgba(25, 85, 57, 0.25)",
+    fontFamily: "monospace",
+    fontSize: 11,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   doneButton: {
     background: "transparent",

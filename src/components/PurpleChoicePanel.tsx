@@ -1,5 +1,6 @@
 import React from "react";
 import type { PurpleChoice } from "../game/gameState";
+import { useTranslation } from "../i18n/useTranslation";
 
 export function PurpleChoicePanel({
   choices,
@@ -8,13 +9,24 @@ export function PurpleChoicePanel({
   choices: PurpleChoice[];
   onChoose: (choiceId: string) => void;
 }) {
+  const t = useTranslation();
+  const labelFor = (choice: PurpleChoice): string => {
+    if (choice.kind === "skip") return t.choices.purpleSkip;
+    if (choice.kind === "set1") return t.choices.purpleSet1[choice.level - 1];
+    if (choice.kind === "set2") return t.choices.purpleSet2[choice.tradeCount - 1];
+    const names = { orange: t.grimoire.brimstone, green: t.grimoire.deathweave, blue: t.grimoire.frostbile, red: t.grimoire.bloodthorn, yellow: t.grimoire.plaguedust } as Record<string, string>;
+    return t.choices.purpleUpgrade
+      .replace("{name}", names[choice.color] ?? choice.color)
+      .replace("{from}", String(choice.fromValue))
+      .replace("{to}", String(choice.toValue));
+  };
   return (
     <div style={styles.panel}>
-      <div style={styles.label}>Wraithbloom offers a pact.</div>
+      <div style={styles.label}>{t.choices.purplePrompt}</div>
       <div style={styles.buttons}>
         {choices.map((choice) => (
           <button key={choice.id} style={styles.btn} onClick={() => onChoose(choice.id)}>
-            {choice.label}
+            {labelFor(choice)}
           </button>
         ))}
       </div>

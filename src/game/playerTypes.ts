@@ -1,5 +1,7 @@
 import type { Bag } from "./bagTypes";
 import type { Crucible } from "./crucibleTypes";
+import type { CovenantSeals } from "./covenants";
+import type { AfflictionState } from "./distillation";
 
 export type PlayerKind = "human" | "ai";
 
@@ -28,4 +30,8 @@ export interface Player {
   blueBonusExplosion?: boolean;
   yellowDoubleNext?: boolean;
   redReserve?: import("./tokenTypes").Token[];
+  omenFirstWhiteReturned?: boolean;
+  omenSecondChanceUsed?: boolean;
+  covenantSeals?: CovenantSeals;
+  affliction?: AfflictionState;
 }

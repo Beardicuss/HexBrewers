@@ -2,7 +2,8 @@ import React from "react";
 import { useTranslation } from "../i18n/useTranslation";
 import type { Player } from "../game/playerTypes";
 import type { BonusDieResult } from "../game/bonusDie";
-import { describeDieResult } from "../game/bonusDie";
+import { formatBonusDieResult } from "./bonusDieText";
+import { useSettingsStore } from "../store/settingsStore";
 
 interface RubySpendPanelProps {
     player: Player;
@@ -24,6 +25,13 @@ export function RubySpendPanel({
     onDone,
 }: RubySpendPanelProps) {
     const t = useTranslation();
+    const language = useSettingsStore((state) => state.language);
+    const pluralCategory = new Intl.PluralRules(language).select(player.rubies);
+    const rubyLabel = pluralCategory === "one"
+        ? t.rubySpend.rubiesOne
+        : pluralCategory === "few"
+            ? t.rubySpend.rubiesFew
+            : t.rubySpend.rubiesMany;
     return (
         <div style={styles.panel}>
             <div style={styles.title}>{t.rubySpend.title}</div>
@@ -31,7 +39,7 @@ export function RubySpendPanel({
             {/* Scoring summary */}
             <div style={styles.scoreRow}>
                 <span style={styles.scoreLabel}>{t.rubySpend.vpEarned}</span>
-                <span style={styles.scoreValue}>+{player.score}</span>
+                <span style={styles.scoreValue}>{player.score}</span>
             </div>
             <div style={styles.scoreRow}>
                 <span style={styles.scoreLabel}>{t.rubySpend.coinsEarned}</span>
@@ -40,7 +48,7 @@ export function RubySpendPanel({
 
             {bonusDieResult && (
                 <div style={styles.bonusDie}>
-                    🎲 Bonus Die: {describeDieResult(bonusDieResult)}
+                    {t.rubySpend.bonusDie} {formatBonusDieResult(bonusDieResult, t.bonusDieRewards)}
                 </div>
             )}
 
@@ -49,7 +57,7 @@ export function RubySpendPanel({
             {/* Ruby balance */}
             <div style={styles.rubyRow}>
                 <span style={styles.rubyIcon}>◆</span>
-                <span style={styles.rubyCount}>{player.rubies} {t.rubySpend.rubiesLabel}</span>
+                <span style={styles.rubyCount}>{player.rubies} {rubyLabel}</span>
             </div>
 
             {/* Spend buttons */}
@@ -88,13 +96,15 @@ export function RubySpendPanel({
 
 const styles: Record<string, React.CSSProperties> = {
     panel: {
-        background: "linear-gradient(160deg, #0a0618, #110828)",
-        border: "1px solid #2a0a4a",
+        background: "linear-gradient(160deg, rgba(7, 3, 16, 0.97), rgba(24, 9, 39, 0.94))",
+        border: "1px solid rgba(102, 51, 137, 0.72)",
         borderRadius: 10,
         padding: "16px 18px",
         display: "flex",
         flexDirection: "column",
         gap: 8,
+        boxShadow: "0 12px 34px rgba(0,0,0,0.42), inset 0 1px rgba(220,180,255,0.05)",
+        animation: "fadeInUp 0.24s ease-out",
     },
     title: {
         fontFamily: "Georgia, serif",
@@ -109,12 +119,16 @@ const styles: Record<string, React.CSSProperties> = {
         justifyContent: "space-between",
         fontFamily: "monospace",
         fontSize: 12,
+        padding: "6px 8px",
+        border: "1px solid rgba(96, 59, 122, 0.4)",
+        borderRadius: 5,
+        background: "rgba(9, 3, 17, 0.58)",
     },
     scoreLabel: {
         color: "#8a7656",
     },
     scoreValue: {
-        color: "#e8d5b5",
+        color: "#edc76e",
         fontWeight: "bold",
     },
     bonusDie: {
@@ -160,14 +174,15 @@ const styles: Record<string, React.CSSProperties> = {
         cursor: "pointer",
     },
     doneBtn: {
-        background: "rgba(40, 80, 60, 0.3)",
-        border: "1px solid #336644",
+        background: "linear-gradient(180deg, rgba(49, 124, 82, 0.52), rgba(21, 69, 45, 0.58))",
+        border: "1px solid #4f9d70",
         borderRadius: 7,
         padding: "10px",
-        color: "#66cc88",
+        color: "#8ee0af",
         fontFamily: "Georgia, serif",
         fontSize: 13,
         letterSpacing: 1,
         cursor: "pointer",
+        boxShadow: "0 0 16px rgba(75, 170, 112, 0.16)",
     },
 };
