@@ -34,31 +34,31 @@ interface SoundConfig {
 }
 
 const SOUNDS: Record<SoundId, SoundConfig> = {
-  token_draw: { path: "sounds/token_draw.mp3", volume: 0.7 },
-  token_place: { path: "sounds/token_place.mp3", volume: 0.6 },
-  token_place_white: { path: "sounds/token_place_white.mp3", volume: 0.75 },
-  explosion: { path: "sounds/explosion.mp3", volume: 0.9 },
-  brew_stop: { path: "sounds/brew_stop.mp3", volume: 0.5 },
-  flask_use: { path: "sounds/flask_use.mp3", volume: 0.8 },
-  market_buy: { path: "sounds/market_buy.mp3", volume: 0.6 },
-  market_open: { path: "sounds/market_open.mp3", volume: 0.5 },
-  omen_reveal: { path: "sounds/omen_reveal.mp3", volume: 0.7 },
-  round_start: { path: "sounds/round_start.mp3", volume: 0.6 },
-  game_win: { path: "sounds/game_win.mp3", volume: 0.85 },
-  game_lose: { path: "sounds/game_lose.mp3", volume: 0.85 },
-  covenant_activate_bone: { path: "sounds/dlc/covenant-activate-bone.ogg", volume: 0.72 },
-  covenant_activate_moon: { path: "sounds/dlc/covenant-activate-moon.ogg", volume: 0.72 },
-  covenant_activate_blood: { path: "sounds/dlc/covenant-activate-blood.ogg", volume: 0.72 },
-  covenant_spent: { path: "sounds/dlc/covenant-spent.ogg", volume: 0.55 },
-  distillation_gain: { path: "sounds/dlc/distillation-gain.ogg", volume: 0.62 },
-  retort_bottle_fill: { path: "sounds/dlc/retort-bottle-fill.ogg", volume: 0.68 },
-  remedy_complete: { path: "sounds/dlc/remedy-complete.ogg", volume: 0.78 },
-  affliction_contract_bind: { path: "sounds/dlc/affliction-contract-bind.ogg", volume: 0.7 },
-  music_ashenveil: { path: "music/music-ashenveil-theme.ogg", volume: 0.42, loop: true, bus: "music" },
-  music_crucible: { path: "music/music-crucible-vigil.ogg", volume: 0.4, loop: true, bus: "music" },
-  music_mirewrought: { path: "music/music-mirewrought.ogg", volume: 0.4, loop: true, bus: "music" },
-  music_veilglass: { path: "music/music-veilglass.ogg", volume: 0.4, loop: true, bus: "music" },
-  music_ninth_bell: { path: "music/music-ninth-bell.ogg", volume: 0.43, loop: true, bus: "music" },
+  token_draw: { path: "/sounds/token_draw.mp3", volume: 0.7 },
+  token_place: { path: "/sounds/token_place.mp3", volume: 0.6 },
+  token_place_white: { path: "/sounds/token_place_white.mp3", volume: 0.75 },
+  explosion: { path: "/sounds/explosion.mp3", volume: 0.9 },
+  brew_stop: { path: "/sounds/brew_stop.mp3", volume: 0.5 },
+  flask_use: { path: "/sounds/flask_use.mp3", volume: 0.8 },
+  market_buy: { path: "/sounds/market_buy.mp3", volume: 0.6 },
+  market_open: { path: "/sounds/market_open.mp3", volume: 0.5 },
+  omen_reveal: { path: "/sounds/omen_reveal.mp3", volume: 0.7 },
+  round_start: { path: "/sounds/round_start.mp3", volume: 0.6 },
+  game_win: { path: "/sounds/game_win.mp3", volume: 0.85 },
+  game_lose: { path: "/sounds/game_lose.mp3", volume: 0.85 },
+  covenant_activate_bone: { path: "/sounds/dlc/covenant-activate-bone.ogg", volume: 0.72 },
+  covenant_activate_moon: { path: "/sounds/dlc/covenant-activate-moon.ogg", volume: 0.72 },
+  covenant_activate_blood: { path: "/sounds/dlc/covenant-activate-blood.ogg", volume: 0.72 },
+  covenant_spent: { path: "/sounds/dlc/covenant-spent.ogg", volume: 0.55 },
+  distillation_gain: { path: "/sounds/dlc/distillation-gain.ogg", volume: 0.62 },
+  retort_bottle_fill: { path: "/sounds/dlc/retort-bottle-fill.ogg", volume: 0.68 },
+  remedy_complete: { path: "/sounds/dlc/remedy-complete.ogg", volume: 0.78 },
+  affliction_contract_bind: { path: "/sounds/dlc/affliction-contract-bind.ogg", volume: 0.7 },
+  music_ashenveil: { path: "/music/music-ashenveil-theme.ogg", volume: 0.42, loop: true, bus: "music" },
+  music_crucible: { path: "/music/music-crucible-vigil.ogg", volume: 0.4, loop: true, bus: "music" },
+  music_mirewrought: { path: "/music/music-mirewrought.ogg", volume: 0.4, loop: true, bus: "music" },
+  music_veilglass: { path: "/music/music-veilglass.ogg", volume: 0.4, loop: true, bus: "music" },
+  music_ninth_bell: { path: "/music/music-ninth-bell.ogg", volume: 0.43, loop: true, bus: "music" },
 };
 
 const MUSIC_IDS: MusicSoundId[] = ["music_ashenveil", "music_crucible", "music_mirewrought", "music_veilglass", "music_ninth_bell"];
@@ -230,7 +230,9 @@ class SoundManager {
   private async playStreamedMusic(id: MusicSoundId, fadeInMs: number): Promise<void> {
     if (!this.context || !this.musicGain || this.musicElements.has(id)) return;
     const config = SOUNDS[id];
-    const element = new Audio(config.path);
+    const element = new Audio();
+    element.crossOrigin = "anonymous";
+    element.src = config.path;
     element.loop = true;
     element.preload = "metadata";
     const source = this.context.createMediaElementSource(element);

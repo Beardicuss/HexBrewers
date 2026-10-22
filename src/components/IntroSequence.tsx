@@ -214,6 +214,7 @@ function preloadTimedMedia(url: string): Promise<void> {
     const timeout = window.setTimeout(() => reject(new Error(`Timed out preloading ${url}`)), 30000);
     const finish = () => { window.clearTimeout(timeout); media.src = ""; resolve(); };
     const fail = () => { window.clearTimeout(timeout); reject(new Error(`Unable to preload ${url}`)); };
+    if (url.includes("/music/")) media.crossOrigin = "anonymous";
     media.preload = "auto";
     media.muted = true;
     media.addEventListener("canplaythrough", finish, { once: true });

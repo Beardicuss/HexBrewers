@@ -40,7 +40,7 @@ export function Grimoire({ onBack, enabledPacks = ["base"] }: { onBack?: () => v
         {onBack && (
           <button
             className="grimoire-back ashen-route-button"
-            style={{ ...s.tab, position: "absolute", left: 24, top: 24, fontSize: 13, padding: "8px 18px" }}
+            style={{ ...s.tab, position: "fixed", zIndex: 20, left: "clamp(18px,3vw,46px)", bottom: "clamp(18px,3vh,38px)", top: "auto", fontSize: 13, padding: "8px 18px" }}
             onClick={onBack}
           >
             {t.grimoire.backToMenu}
