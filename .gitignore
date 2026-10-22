@@ -12,6 +12,14 @@ dist
 dist-ssr
 release
 output/
+
+# Large runtime media is published to Cloudflare R2. Keep local source copies
+# for development and regeneration without duplicating them in Git.
+public/images/
+public/videos/
+public/music/
+public/sounds/
+public/audio/
 output/playwright
 playwright-report
 test-results
