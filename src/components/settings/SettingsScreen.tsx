@@ -58,7 +58,7 @@ export function SettingsScreen({ onBack, backLabel }: SettingsScreenProps) {
             </div>
 
             {/* Back button */}
-            <button className="settings-back" style={styles.backBtn} onClick={onBack}>
+            <button className="settings-back ashen-route-button" style={styles.backBtn} onClick={onBack}>
                 {backLabel ?? t.settings.backToMenu}
             </button>
         </div>

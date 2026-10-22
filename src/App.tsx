@@ -45,6 +45,56 @@ const globalStyle = `
     filter: brightness(1.15);
   }
 
+  .ashen-route-button,
+  .cinematic-skip {
+    position: relative;
+    isolation: isolate;
+    min-height: 44px;
+    padding: 11px 24px !important;
+    border: 1px solid rgba(202, 165, 91, .62) !important;
+    border-radius: 2px !important;
+    background:
+      linear-gradient(135deg, transparent 9px, rgba(7, 12, 17, .9) 9px) top left,
+      linear-gradient(315deg, transparent 9px, rgba(7, 12, 17, .9) 9px) bottom right !important;
+    background-size: 55% 55% !important;
+    background-repeat: no-repeat !important;
+    color: #dfc17d !important;
+    font: 600 12px/1.2 Georgia, serif !important;
+    letter-spacing: 2.4px !important;
+    text-transform: uppercase;
+    text-shadow: 0 2px 7px #000, 0 0 12px rgba(216, 176, 89, .18);
+    box-shadow: inset 0 0 20px rgba(23, 107, 116, .08), 0 8px 24px rgba(0, 0, 0, .35) !important;
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+    transition: color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease, background-color .2s ease;
+  }
+  .ashen-route-button::before,
+  .ashen-route-button::after,
+  .cinematic-skip::before,
+  .cinematic-skip::after {
+    content: "◆";
+    position: absolute;
+    top: 50%;
+    color: #65bec4;
+    font-size: 7px;
+    text-shadow: 0 0 9px rgba(77, 196, 207, .75);
+    transform: translateY(-50%) rotate(45deg);
+  }
+  .ashen-route-button::before,
+  .cinematic-skip::before { left: 9px; }
+  .ashen-route-button::after,
+  .cinematic-skip::after { right: 9px; }
+  .ashen-route-button:hover,
+  .cinematic-skip:hover {
+    color: #f5d991 !important;
+    border-color: rgba(107, 210, 217, .76) !important;
+    box-shadow: inset 0 0 24px rgba(38, 146, 157, .16), 0 0 22px rgba(62, 178, 190, .16) !important;
+    transform: translateY(-2px);
+    filter: none;
+  }
+  .ashen-route-button:active,
+  .cinematic-skip:active { transform: translateY(0) scale(.98); }
+
   :where(button, a, input, select, textarea, [tabindex]):focus-visible {
     outline: 3px solid #f2c75c !important;
     outline-offset: 3px !important;

@@ -146,7 +146,7 @@ export function MainMenu({ onNewGame, onContinue, canContinue, onGrimoire, onDlc
                             <span><b>Rivals</b>{t.menu[aiDifficulty]}</span>
                             {veilglassEnabled && <span><b>Echo</b>{echoRecipe === "retort_resonance" ? t.menu.retortResonance : t.menu.deepResonance}</span>}
                         </aside>
-                        <button type="button" className="ritual-back" onClick={() => setView("main")} style={s.ritualBack}>← Main Menu</button>
+                        <button type="button" className="ritual-back ashen-route-button" onClick={() => setView("main")} style={s.ritualBack}>← Main Menu</button>
 
                         {veilglassEnabled && (
                             <fieldset className="ritual-group ritual-echo" style={{ ...s.ritualGroup, ...s.ritualEcho }}>

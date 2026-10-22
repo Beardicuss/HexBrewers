@@ -646,7 +646,7 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
             <button style={styles.pauseAction} onClick={() => setSettingsOpen(true)}>{t.pause.settings}</button>
             <button style={styles.pauseAction} onClick={replayTutorial}>{t.pause.tutorial}</button>
             <button style={styles.pauseAction} onClick={handleRestart}>{t.pause.restart}</button>
-            <button style={styles.pauseAction} onClick={handleReturnToMenu}>{t.pause.mainMenu}</button>
+            <button className="ashen-route-button" style={{ ...styles.pauseAction, ...styles.pauseMenuAction }} onClick={handleReturnToMenu}>{t.pause.mainMenu}</button>
           </div>
         </div>
       )}
@@ -833,6 +833,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: "Georgia, serif",
     fontSize: 15,
     cursor: "pointer",
+  },
+  pauseMenuAction: {
+    marginTop: 8,
+    color: "#dfc17d",
+    borderColor: "var(--scene-panel-border, rgba(202,165,91,.62))",
   },
   tutorialOverlay: {
     position: "fixed",

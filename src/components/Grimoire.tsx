@@ -39,7 +39,7 @@ export function Grimoire({ onBack, enabledPacks = ["base"] }: { onBack?: () => v
       <div className="grimoire-header" style={s.header}>
         {onBack && (
           <button
-            className="grimoire-back"
+            className="grimoire-back ashen-route-button"
             style={{ ...s.tab, position: "absolute", left: 24, top: 24, fontSize: 13, padding: "8px 18px" }}
             onClick={onBack}
           >

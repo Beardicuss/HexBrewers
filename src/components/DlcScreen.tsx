@@ -37,7 +37,7 @@ export function DlcScreen({ enabledPacks, onToggle, onBack }: DlcScreenProps) {
       <div className="dlc-sealed" style={{ "--dx": `${tuning.sealedText.x}%`, "--dy": `${tuning.sealedText.y}%`, "--scale": tuning.sealedText.scale } as React.CSSProperties} aria-label="Sealed Chronicle"><span>SEALED</span><strong>THE THIRD CHRONICLE</strong></div>
     </section>
     {selected && <ChronicleDetail id={selected} copy={selected === "mire" ? t.dlc.mire : t.dlc.veil} onClose={() => setSelected(null)} />}
-    <button type="button" className="dlc-back" onClick={selected ? () => setSelected(null) : onBack}>← {selected ? "Return to the Reliquary" : t.dlc.backToMenu}</button>
+    <button type="button" className="dlc-back ashen-route-button" onClick={selected ? () => setSelected(null) : onBack}>← {selected ? "Return to the Reliquary" : t.dlc.backToMenu}</button>
   </main>;
 }
 

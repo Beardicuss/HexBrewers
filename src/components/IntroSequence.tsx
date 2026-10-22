@@ -203,7 +203,7 @@ export function IntroSequence({ onComplete }: { onComplete: () => void }) {
         </div>
       )}
       {stage === "softcurse" && !soundUnlocked && <div style={styles.soundPrompt}>CLICK OR PRESS A KEY FOR SOUND</div>}
-      {(stage === "softcurse" || stage === "trailerPrelude" || stage === "trailer") && <button type="button" onClick={skip} style={styles.skip}>Skip</button>}
+      {(stage === "softcurse" || stage === "trailerPrelude" || stage === "trailer") && <button type="button" className="cinematic-skip" onClick={skip} style={styles.skip}>Skip</button>}
     </main>
   );
 }
@@ -237,5 +237,5 @@ const styles: Record<string, React.CSSProperties> = {
   fill: { display: "block", height: "100%", background: "linear-gradient(90deg,#765436,#dfc17f)", boxShadow: "0 0 12px #d5af68", transition: "width .24s ease" },
   logo: { position: "relative", width: "min(64vw,640px)", height: "auto", transform: "translateY(-8vh)", filter: "drop-shadow(0 12px 34px #000) drop-shadow(0 0 26px rgba(133,65,184,.3))" },
   continue: { position: "absolute", bottom: "9vh", margin: 0, fontFamily: "monospace", fontSize: 12, letterSpacing: 5, color: "#ddc391", animation: "pulse 1.8s ease-in-out infinite", textShadow: "0 2px 9px #000" },
-  skip: { position: "absolute", zIndex: 3, right: 24, bottom: 22, padding: "8px 14px", border: "1px solid rgba(190,158,100,.45)", borderRadius: 3, color: "#bca475", background: "rgba(4,2,9,.58)", fontFamily: "monospace", letterSpacing: 2, textTransform: "uppercase", cursor: "pointer" },
+  skip: { position: "absolute", zIndex: 3, right: "clamp(18px,2.2vw,34px)", bottom: "clamp(18px,2.2vh,30px)" },
 };
