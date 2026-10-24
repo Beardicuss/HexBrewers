@@ -3,8 +3,8 @@ import { soundManager } from "../SoundManager";
 
 type IntroStage = "softcurse" | "loading" | "trailerPrelude" | "trailer" | "trailerFade" | "darkNarration" | "postNarrationBlack" | "posterReveal" | "posterHold" | "poster";
 const OPENING_ASSETS = [
-  "/videos/intro/ashenveil-trailer-original.webm", "/audio/intro/ashenveil-trailer-narration.mp3",
-  "/audio/intro/ashenveil-trailer-choir-tail.ogg", "/music/music-ashenveil-theme.ogg",
+  "/videos/intro/ashenveil-trailer-original.webm", "/audio/intro/ashenveil-trailer-narration.mp3?v=2",
+  "/audio/intro/ashenveil-trailer-choir-tail.ogg?v=2", "/music/music-ashenveil-theme.ogg",
   "/images/intro/ashenveil-poster.webp", "/images/core/rooms/central-laboratory.webp",
   "/images/core/rooms/new-game-ritual-chamber.webp", "/images/core/rooms/grimoire-scriptorium.webp",
   "/images/core/rooms/dlc-reliquary.webp", "/images/core/rooms/settings-astrolabe.webp",
@@ -189,8 +189,8 @@ export function IntroSequence({ onComplete }: { onComplete: () => void }) {
           visibility: stage === "darkNarration" || stage === "postNarrationBlack" || stage === "posterReveal" || stage === "posterHold" || stage === "poster" ? "hidden" : "visible",
           pointerEvents: stage === "trailer" ? "auto" : "none",
         }} />
-      <audio ref={narrationRef} src="/audio/intro/ashenveil-trailer-narration.mp3" preload="auto" onEnded={() => setStage("postNarrationBlack")} />
-      <audio ref={choirTailRef} src="/audio/intro/ashenveil-trailer-choir-tail.ogg" preload="auto" />
+      <audio ref={narrationRef} src="/audio/intro/ashenveil-trailer-narration.mp3?v=2" crossOrigin="anonymous" preload="auto" onEnded={() => setStage("postNarrationBlack")} />
+      <audio ref={choirTailRef} src="/audio/intro/ashenveil-trailer-choir-tail.ogg?v=2" crossOrigin="anonymous" preload="auto" />
       {stage === "loading" && (
         <div style={{ ...styles.artScreen, backgroundImage: "url('/images/loading/loading-initial.webp')" }}>
           <div style={styles.shade} /><div style={styles.loadingContent}>
