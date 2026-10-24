@@ -6,12 +6,13 @@ import { s } from "./grimoire/grimoireStyles";
 import { IngredientsTab } from "./grimoire/IngredientsTab";
 import { OmensTab } from "./grimoire/OmensTab";
 import { RulesTab } from "./grimoire/RulesTab";
+import { CharactersTab } from "./grimoire/CharactersTab";
 import type { ContentPackId } from "../game/contentPacks";
 import { MenuRoomBackground } from "./MenuRoomBackground";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-type Tab = "ingredients" | "omens" | "rules";
+type Tab = "ingredients" | "omens" | "characters" | "rules";
 
 export function Grimoire({ onBack, enabledPacks = ["base"] }: { onBack?: () => void; enabledPacks?: ContentPackId[] }) {
   const [tab, setTab] = useState<Tab>("ingredients");
@@ -54,7 +55,7 @@ export function Grimoire({ onBack, enabledPacks = ["base"] }: { onBack?: () => v
 
       {/* Tab bar */}
       <div className="grimoire-tabs" style={s.tabBar}>
-        {(["ingredients", "omens", "rules"] as Tab[]).map((tabId) => (
+        {(["ingredients", "omens", "characters", "rules"] as Tab[]).map((tabId) => (
           <button
             key={tabId}
             style={{ ...s.tab, ...(tab === tabId ? s.tabActive : {}) }}
@@ -62,6 +63,7 @@ export function Grimoire({ onBack, enabledPacks = ["base"] }: { onBack?: () => v
           >
             {tabId === "ingredients" && t.grimoire.tabIngredients}
             {tabId === "omens" && t.grimoire.tabOmens}
+            {tabId === "characters" && t.grimoire.tabCharacters}
             {tabId === "rules" && t.grimoire.tabRules}
           </button>
         ))}
@@ -77,6 +79,7 @@ export function Grimoire({ onBack, enabledPacks = ["base"] }: { onBack?: () => v
           />
         )}
         {tab === "omens" && <OmensTab veilglassEnabled={distillationEnabled} />}
+        {tab === "characters" && <CharactersTab enabledPacks={enabledPacks} />}
         {tab === "rules" && (
           <RulesTab
             rules={visibleRules}
@@ -165,10 +168,16 @@ const grimoireResponsiveCss = `
   .rules-manuscript [style*="font-size: 9px"] { font-size:11px!important; }
   .grimoire-back { border:0!important;border-bottom:1px solid rgba(153,96,188,.45)!important;border-radius:0!important;background:transparent!important; }
   .grimoire-back:hover { color:#d39afa!important;border-bottom-color:#c984ef!important; }
-  }
+  .concordance-card { transition:transform .2s,border-color .2s,box-shadow .2s,filter .2s; }
+  .concordance-card:hover,.concordance-card:focus-visible { transform:translateY(-5px);border-color:rgba(196,154,85,.62)!important;box-shadow:0 13px 25px rgba(0,0,0,.42),0 0 16px rgba(152,88,188,.14);outline:none; }
+  .concordance-card.is-active { border-color:#c49a55!important;box-shadow:0 0 0 1px rgba(196,154,85,.18),0 15px 28px rgba(0,0,0,.5); }
+  .concordance-card.is-active .concordance-portrait { filter:brightness(1.12); }
+  .concordance-card.is-sealed:hover { filter:sepia(.12); }
+  .complete-codex-callout a { transition:color .18s,border-color .18s,background .18s,box-shadow .18s,transform .18s; }
+  .complete-codex-callout a:hover,.complete-codex-callout a:focus-visible { color:#fff1c9!important;border-color:#e0b96e!important;background:rgba(87,54,23,.42)!important;box-shadow:0 0 22px rgba(196,154,85,.16);transform:translateY(-2px);outline:none; }
   @media (max-width: 760px) {
     .grimoire-header { padding: 70px 18px 22px !important; }
-    .grimoire-back { left: 14px !important; top: 14px !important; }
+    .grimoire-back { left: 14px !important; bottom: 14px !important; top: auto !important; }
     .grimoire-tabs { justify-content: stretch !important; padding: 10px 12px !important; }
     .grimoire-tabs button { flex: 1; padding: 9px 8px !important; letter-spacing: 0.5px !important; }
     .grimoire-content { padding: 20px 12px 40px !important; }
@@ -189,6 +198,17 @@ const grimoireResponsiveCss = `
     .ingredient-hero { position:static; }
     .omen-manuscript { grid-template-columns:1fr!important; }
     .omen-card-copy { margin-top:0; }
+    .concordance-layout { grid-template-columns:1fr!important; }
+    .concordance-gallery { position:static!important; }
+    .concordance-reader { grid-template-columns:1fr!important;padding:18px!important; }
+    .concordance-reader .concordance-portrait.is-large { width:min(72vw,360px)!important; }
+    .complete-codex-callout { grid-template-columns:1fr!important;text-align:center; }
+    .complete-codex-callout > span:first-child { writing-mode:horizontal-tb!important; }
+    .complete-codex-callout a { justify-self:center; }
+    .rules-reader { grid-template-columns:1fr!important;gap:18px!important; }
+    .rules-index { position:static!important;max-height:none!important;padding-right:0!important; }
+    .rules-manuscript { padding:18px!important;border-left:0!important;border-top:1px solid rgba(183,132,65,.55)!important; }
+    .rules-manuscript [style*="repeat(6"] { grid-template-columns:repeat(2,minmax(0,1fr))!important; }
   }
   @media (max-width: 430px) {
     .grimoire-header h1 { font-size: 27px !important; letter-spacing: 2px !important; }

@@ -3,11 +3,16 @@ import { expect, test, type Page } from "@playwright/test";
 const SETTINGS_KEY = "hexbrewers-settings";
 
 async function dismissOpening(page: Page) {
-  const skip = page.getByRole("button", { name: "Skip", exact: true });
-  await expect(skip).toBeVisible();
-  await skip.click();
-  await expect(skip).toBeHidden();
-  await expect(skip).toBeVisible({ timeout: 15_000 });
+  const skip = page.getByRole("button", { name: /Skip/i });
+  const loading = page.getByText("OPENING THE WAY TO ASHENVEIL", { exact: true });
+  await expect(skip.or(loading)).toBeVisible({ timeout: 15_000 });
+  if (await skip.isVisible()) {
+    await skip.click();
+    await expect(skip).toBeHidden();
+  }
+  // The opening loader intentionally waits for its presentation media. On a
+  // cold local cache this can exceed the old 15-second assumption.
+  await expect(skip).toBeVisible({ timeout: 45_000 });
   await skip.click();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("button", { name: /New Game|Новая Игра|ახალი თამაში/ })).toBeVisible();
@@ -19,7 +24,12 @@ async function openNewGameSetup(page: Page) {
 }
 
 async function beginConfiguredGame(page: Page) {
-  await page.getByRole("button", { name: "Begin Brewing", exact: true }).click();
+  await page.getByRole("button", { name: /Begin Brewing/ }).click();
+}
+
+async function chooseRecipeSet(page: Page, recipeSet: number) {
+  await page.getByRole("button", { name: /Recipe Book/ }).click();
+  await page.getByRole("menuitemradio", { name: `Set ${recipeSet}`, exact: true }).click();
 }
 
 async function prepareDeterministicGame(page: Page, seed = 0x5eed, language: "en" | "ru" | "ka" = "en") {
@@ -37,6 +47,7 @@ async function prepareDeterministicGame(page: Page, seed = 0x5eed, language: "en
         masterVolume: 0,
         musicVolume: 0,
         sfxVolume: 0,
+        presentationSpeed: "fast",
         language,
         tutorialSeen: true,
       },
@@ -95,17 +106,17 @@ async function resolvePostBrewChoiceIfOffered(page: Page) {
 
 async function enableDlc(page: Page, title: "Mirewrought Pacts" | "Veilglass Afflictions") {
   await page.getByRole("button", { name: "DLCs", exact: true }).click();
-  const card = page.getByRole("heading", { name: title, exact: true }).locator("xpath=ancestor::article");
-  await expect(card).toBeVisible();
-  await card.getByRole("button", { name: "Enable DLC" }).click();
-  await expect(card.getByRole("button", { name: "Disable DLC" })).toHaveAttribute("aria-pressed", "true");
+  const toggle = page.getByRole("button", { name: `Enable DLC: ${title}`, exact: true });
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+  await expect(page.getByRole("button", { name: `Disable DLC: ${title}`, exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: /Back to Main Menu/ }).click();
 }
 
 async function playSafeMatch(page: Page, recipeSet: number, playerCount: 2 | 3 | 4) {
   await openNewGameSetup(page);
-  await page.getByRole("button", { name: `Set ${recipeSet}`, exact: true }).click();
-  await page.getByRole("button", { name: `${playerCount} Players` }).click();
+  await chooseRecipeSet(page, recipeSet);
+  await page.getByRole("button", { name: `${playerCount} players` }).click();
   await beginConfiguredGame(page);
 
   await completeNineRounds(page);
@@ -116,8 +127,11 @@ async function completeNineRounds(page: Page) {
     await expect(page.getByText(`Round ${round} / 9`, { exact: false })).toBeVisible();
     await resolveOmenChoiceIfOffered(page);
     await page.getByRole("button", { name: "✦ Begin Brewing ✦" }).click();
-    await resolveOmenChoiceIfOffered(page);
-    await page.getByRole("button", { name: "Stop Brewing" }).click();
+    const omenChoice = page.getByRole("group", { name: "The omen offers a choice." });
+    const stopBrewing = page.getByRole("button", { name: "Stop Brewing" });
+    await expect(omenChoice.or(stopBrewing)).toBeVisible();
+    if (await omenChoice.isVisible()) await omenChoice.getByRole("button").first().click();
+    await stopBrewing.click();
     await resolvePostBrewChoiceIfOffered(page);
     await finishAiTurn(page);
     await page.getByRole("button", { name: "✦ Leave Market ✦" }).click();
@@ -125,7 +139,7 @@ async function completeNineRounds(page: Page) {
   }
 
   await expect(page.getByText(/VICTORY|DEFEAT/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "✦ Brew Again ✦" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Brew Again/ })).toBeVisible();
 }
 
 for (const playerCount of [2, 3, 4] as const) {
@@ -141,17 +155,17 @@ for (const playerCount of [2, 3, 4] as const) {
 test("Mirewrought Pacts exclusively unlocks the fifth seat", async ({ page }) => {
   const browserErrors = await prepareDeterministicGame(page, 0xc0de);
   await openNewGameSetup(page);
-  await expect(page.getByRole("button", { name: "5 Players" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(page.getByRole("button", { name: "5 players requires Mirewrought Pacts" })).toBeDisabled();
+  await page.getByRole("button", { name: /Main Menu/ }).click();
 
   await enableDlc(page, "Mirewrought Pacts");
   await openNewGameSetup(page);
-  const fifthSeat = page.getByRole("button", { name: "5 Players" });
+  const fifthSeat = page.getByRole("button", { name: "5 players" });
   await expect(fifthSeat).toBeVisible();
-  await expect(page.getByRole("button", { name: "Set 5", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Set 6", exact: true })).toBeVisible();
-
-  await page.getByRole("button", { name: "Set 5", exact: true }).click();
+  await page.getByRole("button", { name: /Recipe Book/ }).click();
+  await expect(page.getByRole("menuitemradio", { name: "Set 5", exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitemradio", { name: "Set 6", exact: true })).toBeVisible();
+  await page.getByRole("menuitemradio", { name: "Set 5", exact: true }).click();
   await fifthSeat.click();
   await beginConfiguredGame(page);
   const covenantDialog = page.getByRole("dialog", { name: "Choose the Mire Covenants" });
@@ -175,8 +189,8 @@ for (const recipeSet of [5, 6] as const) {
     const browserErrors = await prepareDeterministicGame(page, 0xb000 + recipeSet);
     await enableDlc(page, "Mirewrought Pacts");
     await openNewGameSetup(page);
-    await page.getByRole("button", { name: `Set ${recipeSet}`, exact: true }).click();
-    await page.getByRole("button", { name: "2 Players" }).click();
+    await chooseRecipeSet(page, recipeSet);
+    await page.getByRole("button", { name: "2 players" }).click();
     await beginConfiguredGame(page);
 
     const covenantDialog = page.getByRole("dialog", { name: "Choose the Mire Covenants" });
@@ -196,7 +210,7 @@ for (const locale of [
     await prepareDeterministicGame(page, 0xd1c0, locale.language);
     await page.getByRole("button", { name: locale.menu, exact: true }).click();
     await expect(page.getByRole("heading", { name: locale.title, exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: locale.mire, exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: locale.mire, exact: true })).toBeVisible();
   });
 }
 
@@ -204,11 +218,11 @@ test("keeps DLC stories and controls reachable on a narrow screen", async ({ pag
   await page.setViewportSize({ width: 390, height: 844 });
   await prepareDeterministicGame(page, 0xd1c5, "ka");
   await page.getByRole("button", { name: "გაფართოებები", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "ჭაობნაქსოვი პაქტები", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "DLC-ის ჩართვა" }).first()).toBeVisible();
-  await page.getByRole("heading", { name: "ფარდამინის სენები", exact: true }).scrollIntoViewIfNeeded();
+  await expect(page.getByRole("button", { name: "ჭაობნაქსოვი პაქტები", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /DLC-ის ჩართვა:/ }).first()).toBeVisible();
+  await page.getByRole("button", { name: "ფარდამინის სენები", exact: true }).click();
   await expect(page.getByRole("heading", { name: "ფარდამინის სენები", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /მთავარ მენიუში დაბრუნება/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /რელიკვარიუმში დაბრუნება/ })).toBeVisible();
 });
 
 test("Veilglass Afflictions adds a persistent Affliction Contract", async ({ page }) => {
@@ -251,6 +265,24 @@ test("tutorial and pause flow remain keyboard accessible", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Resume" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Pause game" })).toBeFocused();
+});
+
+test("new and continued rituals use distinct setup-aware loading screens", async ({ page }) => {
+  await prepareDeterministicGame(page, 0x10ad);
+  await openNewGameSetup(page);
+  await beginConfiguredGame(page);
+  await expect(page.locator(".game-loading-new")).toBeVisible();
+  await expect(page.getByText("SEALING THE NEW CRUCIBLE", { exact: true })).toBeVisible();
+  await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", /\d+/);
+  await expect(page.getByRole("button", { name: "Pause game" })).toBeVisible({ timeout: 30_000 });
+
+  await page.keyboard.press("Escape");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: /Return to Main Menu/ }).click();
+  await page.getByRole("button", { name: "Continue Game" }).click();
+  await expect(page.locator(".game-loading-continue")).toBeVisible();
+  await expect(page.getByText("REKINDLING THE INTERRUPTED BREW", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pause game" })).toBeVisible({ timeout: 30_000 });
 });
 
 test("game stage and animated background fill every viewport without clipped overlays", async ({ page }) => {
@@ -304,18 +336,18 @@ test("game stage and animated background fill every viewport without clipped ove
   await page.keyboard.press("Escape");
   await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(true);
   await page.getByRole("button", { name: "Settings" }).click();
-  await page.getByRole("button", { name: "1920 × 1080" }).click();
-  await page.getByRole("option", { name: "1280 × 720" }).click();
-  await expect(page.getByRole("button", { name: "1280 × 720" })).toBeVisible();
+  await page.getByRole("button", { name: "Previous resolution" }).click();
+  await page.getByRole("button", { name: "Previous resolution" }).click();
+  await expect(page.getByText("1280 × 720", { exact: true })).toBeVisible();
   await expect.poll(() => stage.evaluate((element) => [element.clientWidth, element.clientHeight])).toEqual([1600, 700]);
 });
 
 test("three-opponent cards remain visible in a narrow layout", async ({ page }) => {
-  await page.setViewportSize({ width: 700, height: 900 });
   await prepareDeterministicGame(page, 0x4a12);
   await openNewGameSetup(page);
-  await page.getByRole("button", { name: "4 Players" }).click();
+  await page.getByRole("button", { name: "4 players" }).click();
   await beginConfiguredGame(page);
+  await page.setViewportSize({ width: 700, height: 900 });
 
   const cards = page.locator('[data-layout="compact"]');
   await expect(cards).toHaveCount(3);
@@ -345,7 +377,7 @@ test("formal rules reference is searchable and responsive", async ({ page }) => 
   await expect(page.getByText("Effect Timing & Decision Order")).toBeVisible();
   const search = page.getByRole("searchbox", { name: "Search the rules…" });
   await search.fill("shared stock");
-  await expect(page.getByText("Multiplayer Seating & Shared Stock")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Multiplayer Seating & Shared Stock" })).toBeVisible();
   await expect(page.getByText("The Crucible Spiral")).toHaveCount(0);
 });
 
@@ -373,24 +405,79 @@ test("all Grimoire tabs remain readable in a narrow layout", async ({ page }) =>
   await prepareDeterministicGame(page, 0x6a12);
   await page.getByRole("button", { name: "Grimoire" }).click();
 
-  await expect(page.locator(".ingredient-sidebar")).toBeVisible();
-  await expect(page.locator(".ingredient-detail-card")).toBeVisible();
+  const ingredientCards = page.locator(".ingredient-gallery > .ingredient-gallery-item");
+  await expect(ingredientCards.first()).toBeVisible();
+  expect(await ingredientCards.count()).toBeGreaterThanOrEqual(7);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await page.getByRole("button", { name: /Omen Cards/ }).click();
-  await expect(page.locator(".omen-grid > .grimoire-card")).toHaveCount(24);
-  await expect(page.locator(".omen-grid > .grimoire-card").first()).toBeVisible();
+  await expect(page.locator(".omen-deck-gallery > .omen-deck-card")).toHaveCount(24);
+  await expect(page.locator(".omen-deck-gallery > .omen-deck-card").first()).toBeVisible();
 
   await page.getByRole("button", { name: /Rules/ }).click();
   await expect(page.getByLabel("Authoritative Quick Reference")).toBeVisible();
+});
+
+test("Brewer's Chronicle exposes records, weekly trials, and honors", async ({ page }) => {
+  await prepareDeterministicGame(page, 0x6a14);
+  await page.getByRole("button", { name: "Brewer’s Chronicle", exact: true }).click();
+
+  await expect(page.getByRole("heading", { name: "Brewer’s Chronicle" })).toBeVisible();
+  await expect(page.getByText("The Daily Omen", { exact: true })).toBeVisible();
+  await expect(page.getByText("The Turning Trial", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Named Trials" }).click();
+  await expect(page.getByText("THIS WEEK’S TURNING SEAL", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Answer This Week’s Trial" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Honors & Titles" }).click();
+  await expect(page.getByText("First Seal", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Locked" }).first()).toBeDisabled();
+});
+
+test("Brewer's Chronicle migrates a version 2 record", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("hexbrewers-chronicle", JSON.stringify({
+      version: 2,
+      matchesPlayed: 3,
+      victories: 2,
+      totalPrestige: 51,
+      bestPrestige: 21,
+      dailyChallengesCompleted: 1,
+      dailyVictories: 1,
+      currentDailyStreak: 1,
+      bestDailyStreak: 1,
+      recentMatches: [],
+      challengeCompletions: {},
+      challengeVictories: {},
+      unlockedAchievementIds: ["first_ritual"],
+      selectedTitleId: "first_ritual",
+    }));
+  });
+  await prepareDeterministicGame(page, 0x6a15);
+  await page.getByRole("button", { name: "Brewer’s Chronicle", exact: true }).click();
+
+  await expect(page.getByText("Recorded title: Initiate of Ashenveil")).toBeVisible();
+  await expect(page.locator(".chronicle-ledger")).toContainText("3");
+  await expect(page.locator(".chronicle-ledger")).toContainText("67%");
+  await page.getByRole("button", { name: "Named Trials" }).click();
+  await expect(page.getByRole("button", { name: "Answer This Week’s Trial" })).toBeVisible();
+});
+
+test("local preview streams the original Softcurse ident", async ({ request }) => {
+  const response = await request.get("/videos/intro/softcurse-systems.mp4", {
+    headers: { Range: "bytes=0-1023" },
+  });
+  expect(response.status()).toBe(206);
+  expect(response.headers()["content-type"]).toContain("video/mp4");
+  expect((await response.body()).byteLength).toBe(1024);
 });
 
 test("reduced-motion preference disables menu animation", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   await dismissOpening(page);
-  const duration = await page.locator(".menu-light-teal").evaluate((element) => getComputedStyle(element).animationDuration);
-  expect(Number.parseFloat(duration)).toBeLessThanOrEqual(0.001);
+  await expect(page.locator(".menu-room-video")).toHaveCount(0);
 
   await page.keyboard.press("Tab");
   const focused = page.locator(":focus");
@@ -403,7 +490,7 @@ test("main menu remains fully visible at a laptop viewport", async ({ page }) =>
   await prepareDeterministicGame(page);
 
   const settings = page.getByRole("button", { name: /Settings/ });
-  const footer = page.getByText(/Built in the shadows/);
+  const footer = page.getByText(/Softcurse Systems/);
   await expect(settings).toBeVisible();
   await expect(footer).toBeVisible();
 

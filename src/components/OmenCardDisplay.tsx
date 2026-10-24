@@ -10,9 +10,10 @@ interface OmenCardProps {
   card: OmenCard | null;
   visible: boolean;
   onDismiss: () => void;
+  onPropagate?: (source: DOMRect) => void;
 }
 
-export function OmenCardDisplay({ card, visible, onDismiss }: OmenCardProps) {
+export function OmenCardDisplay({ card, visible, onDismiss, onPropagate }: OmenCardProps) {
   const t = useTranslation();
   if (!card || !visible) return null;
   const localized = t.omenCards[card.id];
@@ -21,7 +22,7 @@ export function OmenCardDisplay({ card, visible, onDismiss }: OmenCardProps) {
   return (
     <div style={styles.overlay}>
       <div style={styles.reveal}>
-        <div style={styles.card}>
+        <div data-omen-reveal-card style={styles.card}>
           <div style={{ ...styles.art, ...(artwork ? { backgroundImage: `url('${artwork}')` } : {}) }} />
           <img src={CORE_OMEN_ASSETS.blankFront} alt="" aria-hidden="true" style={styles.frame} />
         </div>
@@ -32,7 +33,11 @@ export function OmenCardDisplay({ card, visible, onDismiss }: OmenCardProps) {
           <div style={styles.description}>{localized?.description ?? localized?.summary ?? card.description}</div>
           <div style={styles.effectLabel}>EFFECT</div>
           <div style={styles.effectBadge}>{localized?.summary ?? getEffectLabel(card, t)}</div>
-          <button className="omen-reveal-action" style={styles.button} onClick={onDismiss}>
+          <button className="omen-reveal-action" style={styles.button} onClick={() => {
+            const source = document.querySelector<HTMLElement>("[data-omen-reveal-card]")?.getBoundingClientRect();
+            if (source && onPropagate) onPropagate(source);
+            window.setTimeout(onDismiss, onPropagate ? 420 : 0);
+          }}>
             ✦ {t.omen.beginBrewing} ✦
           </button>
         </div>

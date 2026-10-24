@@ -5,10 +5,14 @@
 // ─── Sound catalogue ──────────────────────────────────────────────────────────
 // Add/remove entries here as you add real audio files.
 
+import type { TokenColor } from "./game/tokenTypes";
+
 export type SoundId =
   | "token_draw"          // token pulled from bag
+  | "token_draw_anticipation" // tactile bag search before a presented draw
   | "token_place"         // token lands on spiral
   | "token_place_white"   // voidshard lands (more tense)
+  | "voidshard_impact"    // crystalline dimensional fracture on impact
   | "explosion"           // crucible shatters
   | "brew_stop"           // player stops voluntarily
   | "flask_use"           // cursed vial activated
@@ -33,10 +37,29 @@ interface SoundConfig {
   bus?: "music" | "sfx";
 }
 
+interface PlaybackOptions {
+  fadeInMs?: number;
+  playbackRate?: number;
+  volumeScale?: number;
+}
+
+const INGREDIENT_IMPACT_VOICES: Partial<Record<TokenColor, Required<Pick<PlaybackOptions, "playbackRate" | "volumeScale">>>> = {
+  orange: { playbackRate: 0.9, volumeScale: 1.08 },
+  green: { playbackRate: 0.95, volumeScale: 0.88 },
+  purple: { playbackRate: 1.09, volumeScale: 0.82 },
+  blue: { playbackRate: 1.16, volumeScale: 0.94 },
+  red: { playbackRate: 0.84, volumeScale: 1.02 },
+  yellow: { playbackRate: 1.05, volumeScale: 0.78 },
+  black: { playbackRate: 0.76, volumeScale: 0.84 },
+  echo: { playbackRate: 1.22, volumeScale: 0.72 },
+};
+
 const SOUNDS: Record<SoundId, SoundConfig> = {
   token_draw: { path: "/sounds/token_draw.mp3", volume: 0.7 },
+  token_draw_anticipation: { path: "/sounds/token-draw-anticipation.wav", volume: 0.62 },
   token_place: { path: "/sounds/token_place.mp3", volume: 0.6 },
   token_place_white: { path: "/sounds/token_place_white.mp3", volume: 0.75 },
+  voidshard_impact: { path: "/sounds/voidshard-impact.wav", volume: 0.74 },
   explosion: { path: "/sounds/explosion.mp3", volume: 0.9 },
   brew_stop: { path: "/sounds/brew_stop.mp3", volume: 0.5 },
   flask_use: { path: "/sounds/flask_use.mp3", volume: 0.8 },
@@ -179,7 +202,22 @@ class SoundManager {
 
   // Play a sound
   play(id: SoundId, fadeInMs: number = 0): void {
+    this.playWithOptions(id, { fadeInMs });
+  }
+
+  playIngredientImpact(color: TokenColor): void {
+    const voice = INGREDIENT_IMPACT_VOICES[color];
+    if (!voice) {
+      this.play("token_place");
+      return;
+    }
+    this.playWithOptions("token_place", voice);
+  }
+
+  private playWithOptions(id: SoundId, options: PlaybackOptions = {}): void {
     if (!this.loaded || this.muted || !this.context || !this.masterGain) return;
+
+    const fadeInMs = options.fadeInMs ?? 0;
 
     if (SOUNDS[id].bus === "music") {
       void this.playStreamedMusic(id as MusicSoundId, fadeInMs);
@@ -190,7 +228,7 @@ class SoundManager {
     if (!buffer) {
       void this.loadBuffer(id).then(() => {
         if (SOUNDS[id].bus === "music" && this.desiredMusic !== id) return;
-        this.play(id, fadeInMs);
+        this.playWithOptions(id, options);
       });
       return;
     }
@@ -201,8 +239,9 @@ class SoundManager {
     if (config.loop && this.sources.has(id)) return;
 
     const gainNode = this.context.createGain();
-    gainNode.gain.value = fadeInMs > 0 ? 0 : config.volume;
-    if (fadeInMs > 0) gainNode.gain.linearRampToValueAtTime(config.volume, this.context.currentTime + fadeInMs / 1000);
+    const targetVolume = config.volume * (options.volumeScale ?? 1);
+    gainNode.gain.value = fadeInMs > 0 ? 0 : targetVolume;
+    if (fadeInMs > 0) gainNode.gain.linearRampToValueAtTime(targetVolume, this.context.currentTime + fadeInMs / 1000);
 
     // Route through the appropriate bus
     const bus = config.bus === "music" ? this.musicGain! : this.sfxGain!;
@@ -211,6 +250,7 @@ class SoundManager {
     const source = this.context.createBufferSource();
     source.buffer = buffer;
     source.loop = config.loop ?? false;
+    source.playbackRate.value = options.playbackRate ?? 1;
     source.connect(gainNode);
     source.start();
 

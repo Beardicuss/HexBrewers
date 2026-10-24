@@ -96,6 +96,7 @@ function MarketItemCard({ item, round, canBuy, purchased, onBuy }: MarketItemCar
 
   return (
     <div
+      data-market-item-id={item.id}
       style={{
         ...styles.itemCard,
         ...(purchased ? styles.itemCardPurchased : {}),

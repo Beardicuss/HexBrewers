@@ -7,6 +7,8 @@ import type { LogEntry } from "./aiOverlayHelpers";
 import { buildEntry, getBullet } from "./aiOverlayHelpers";
 import { s } from "./aiOverlayStyles";
 import { useTranslation } from "../i18n/useTranslation";
+import { CORE_CHARACTER_PORTRAITS, CORE_INGREDIENT_ASSETS } from "../assets/coreAssets";
+import { MIREWROUGHT_ASSETS } from "../assets/mirewroughtAssets";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -54,15 +56,40 @@ export function AITurnOverlay({
   }, [log]);
 
   if (!visible) return null;
+  const latestEvent = events[events.length - 1];
+  const latestToken = latestEvent && (latestEvent.type === "draw" || latestEvent.type === "flask") ? latestEvent.token : null;
+  const tokenImage = latestToken
+    ? latestToken.color === "echo"
+      ? MIREWROUGHT_ASSETS.echoReed
+      : CORE_INGREDIENT_ASSETS[latestToken.color] ?? CORE_INGREDIENT_ASSETS.white
+    : null;
+  const draws = events.filter((event) => event.type === "draw").length;
 
   return (
     <div style={s.overlay}>
       <div style={s.panel}>
         {/* Header */}
         <div style={s.header}>
+          <img
+            src={CORE_CHARACTER_PORTRAITS[opponentName] ?? CORE_CHARACTER_PORTRAITS["The Shade"]}
+            alt=""
+            aria-hidden="true"
+            style={s.portrait}
+          />
           <div style={s.shade}>✦ {opponentName} ✦</div>
           <div style={s.subtitle}>{t.aiOverlay.brewing}</div>
           <BrewingDots />
+        </div>
+
+        <div style={s.focusRow} aria-live="polite">
+          <div style={{ ...s.focusToken, ...(latestToken ? { border: `1px solid #${getTokenVisual(latestToken.color).border.toString(16).padStart(6, "0")}` } : {}) }}>
+            {tokenImage ? <img src={tokenImage} alt="" style={s.focusTokenImage} /> : <span style={s.focusRune}>◈</span>}
+          </div>
+          <div style={s.focusCopy}>
+            <span style={s.focusLabel}>{latestToken ? getLocalizedTokenName(latestToken.color, t, latestToken.value) : t.aiOverlay.brewing}</span>
+            <strong style={s.focusValue}>{latestToken ? `+${latestToken.resolvedMovement ?? latestToken.value}` : "…"}</strong>
+            <span style={s.drawCount}>{draws} {t.brewing.drawToken.replace(/[✦]/g, "").trim().toLowerCase()}</span>
+          </div>
         </div>
 
         {/* Stats bar */}

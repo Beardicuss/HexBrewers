@@ -4,6 +4,7 @@ import { useTranslation } from "../i18n/useTranslation";
 interface BrewingControlsProps {
   canDraw: boolean;
   canUseFlask: boolean;
+  isDrawing?: boolean;
   onDraw: () => void;
   onStop: () => void;
   onUseFlask: () => void;
@@ -14,6 +15,7 @@ interface BrewingControlsProps {
 export function BrewingControls({
   canDraw,
   canUseFlask,
+  isDrawing = false,
   onDraw,
   onStop,
   onUseFlask,
@@ -61,13 +63,15 @@ export function BrewingControls({
           style={{
             ...styles.btn,
             ...styles.drawBtn,
-            opacity: canDraw ? 1 : 0.35,
-            cursor: canDraw ? "pointer" : "not-allowed",
+            opacity: canDraw || isDrawing ? 1 : 0.35,
+            cursor: canDraw || isDrawing ? "pointer" : "not-allowed",
+            filter: isDrawing ? "brightness(1.18)" : undefined,
           }}
           onClick={onDraw}
-          disabled={!canDraw}
+          disabled={!canDraw && !isDrawing}
+          aria-label={isDrawing ? t.brewing.accelerateDraw : t.brewing.drawToken}
         >
-          {t.brewing.drawToken}
+          {isDrawing ? t.brewing.accelerateDraw : t.brewing.drawToken}
         </button>
 
         <button

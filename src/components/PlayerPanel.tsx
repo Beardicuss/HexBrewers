@@ -42,6 +42,7 @@ export function PlayerPanel({ player, isActive, label, compact = false, status }
   return (
     <div
       className={compact ? "player-panel player-panel-compact" : "player-panel"}
+      data-player-id={player.id}
       data-layout={compact ? "compact" : "full"}
       data-state={visualState}
       style={{
@@ -80,13 +81,13 @@ export function PlayerPanel({ player, isActive, label, compact = false, status }
       {!compact && <div style={styles.divider} />}
 
       <div style={compact ? styles.compactStats : styles.fullStats}>
-        <Stat label={t.player.prestige} value={player.score} compact={compact} icon={CORE_ECONOMY_ASSETS.scoreMarker} />
-        <Stat label={t.player.rubies} value={player.rubies} compact={compact} accent="#cc88ff" icon={CORE_ECONOMY_ASSETS.ruby} />
-        <Stat label={t.player.bag} value={compact ? bagCount : `${bagCount} ${t.player.tokens}`} compact={compact} icon={CORE_ECONOMY_ASSETS.brewBag} />
+        <Stat kind="prestige" label={t.player.prestige} value={player.score} compact={compact} icon={CORE_ECONOMY_ASSETS.scoreMarker} />
+        <Stat kind="rubies" label={t.player.rubies} value={player.rubies} compact={compact} accent="#cc88ff" icon={CORE_ECONOMY_ASSETS.ruby} />
+        <Stat kind="bag" label={t.player.bag} value={compact ? bagCount : `${bagCount} ${t.player.tokens}`} compact={compact} icon={CORE_ECONOMY_ASSETS.brewBag} />
       </div>
 
       {/* White sum — danger meter */}
-      <div style={styles.dangerRow}>
+      <div data-player-stat="pressure" style={styles.dangerRow}>
         <span style={styles.statLabel}>{t.player.voidshards}</span>
         <div style={styles.dangerBar}>
           <div
@@ -110,7 +111,7 @@ export function PlayerPanel({ player, isActive, label, compact = false, status }
       </div>
 
       {/* Flask */}
-      <div style={{ ...styles.row, ...(compact ? styles.compactFooter : {}) }}>
+      <div data-player-stat="vial" style={{ ...styles.row, ...(compact ? styles.compactFooter : {}) }}>
         <span style={styles.iconLabel}><img src={player.flask ? CORE_ECONOMY_ASSETS.flaskFull : CORE_ECONOMY_ASSETS.flaskEmpty} alt="" style={styles.statIcon} />{t.player.cursedVial}</span>
         <span style={{
           ...styles.flaskStatus,
@@ -183,9 +184,9 @@ export function PlayerPanel({ player, isActive, label, compact = false, status }
   );
 }
 
-function Stat({ label, value, compact, accent, icon }: { label: string; value: React.ReactNode; compact: boolean; accent?: string; icon?: string }) {
+function Stat({ kind, label, value, compact, accent, icon }: { kind: "prestige" | "rubies" | "bag"; label: string; value: React.ReactNode; compact: boolean; accent?: string; icon?: string }) {
   return (
-    <div style={compact ? styles.compactStat : styles.row} title={label}>
+    <div data-player-stat={kind} style={compact ? styles.compactStat : styles.row} title={label}>
       <span style={{ ...styles.iconLabel, ...styles.statLabel, ...(compact ? styles.compactStatLabel : {}) }}>{icon && <img src={icon} alt="" style={styles.statIcon} />}{label}</span>
       <span style={{ ...styles.statValue, ...(compact ? styles.compactStatValue : {}), ...(accent ? { color: accent } : {}) }}>
         {value}
@@ -216,14 +217,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   panelQueued: {
     opacity: 0.78,
-    borderColor: "var(--scene-panel-border-muted, rgba(75, 47, 91, 0.62))",
+    border: "1px solid var(--scene-panel-border-muted, rgba(75, 47, 91, 0.62))",
   },
   panelFinished: {
-    borderColor: "rgba(69, 133, 105, 0.68)",
+    border: "1px solid rgba(69, 133, 105, 0.68)",
     boxShadow: "0 10px 28px rgba(0, 0, 0, 0.36), inset 3px 0 rgba(78, 181, 132, 0.7)",
   },
   panelShattered: {
-    borderColor: "rgba(184, 54, 42, 0.85)",
+    border: "1px solid rgba(184, 54, 42, 0.85)",
     boxShadow: "0 10px 30px rgba(80, 4, 4, 0.4), inset 3px 0 #c44738",
   },
   panelCompact: {
@@ -331,16 +332,16 @@ const styles: Record<string, React.CSSProperties> = {
   },
   statusBrewing: {
     color: "#edc76e",
-    borderColor: "#96713a",
+    border: "1px solid #96713a",
     boxShadow: "0 0 10px rgba(232, 184, 77, 0.2)",
   },
   statusFinished: {
     color: "#62d49a",
-    borderColor: "#356f55",
+    border: "1px solid #356f55",
   },
   statusShattered: {
     color: "#ff8b7c",
-    borderColor: "#9b392f",
+    border: "1px solid #9b392f",
   },
   divider: {
     height: 1,

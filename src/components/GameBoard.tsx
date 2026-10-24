@@ -33,7 +33,7 @@ import { GreenSpendChoicePanel } from "./GreenSpendChoicePanel";
 import { GreenMoveChoicePanel } from "./GreenMoveChoicePanel";
 import { RoundSummaryPanel } from "./RoundSummaryPanel";
 import { CovenantPanel } from "./CovenantPanel";
-import { prepareAICovenantForBrewing } from "../game/covenants";
+import { DEFAULT_COVENANTS, prepareAICovenantForBrewing } from "../game/covenants";
 import { RedReserveChoicePanel } from "./RedReserveChoicePanel";
 import { GreenRewardChoicePanel } from "./GreenRewardChoicePanel";
 import { PurpleChoicePanel } from "./PurpleChoicePanel";
@@ -48,20 +48,53 @@ import { AfflictionSelection } from "./AfflictionSelection";
 import { CovenantSelectionScreen } from "./CovenantSelection";
 import { prefersReducedMotion } from "../accessibility";
 import { ACTIVE_GAMEPLAY_SCENE_ID, GAMEPLAY_SCENES, getGameplaySceneCssVariables } from "../gameplaySceneThemes";
+import { drawToken } from "../game/bag";
+import { soundManager } from "../SoundManager";
+import { getTokenVisual } from "../pixi/tokenVisuals";
+import type { TokenColor } from "../game/tokenTypes";
+import { CORE_ECONOMY_ASSETS, CORE_INGREDIENT_ASSETS, CORE_OMEN_ASSETS } from "../assets/coreAssets";
+import { COVENANT_ACTIVATION_ASSETS, MIREWROUGHT_ASSETS } from "../assets/mirewroughtAssets";
+import type { RitualSession } from "../game/replayability";
+import type { ChroniclePage } from "./ChronicleScreen";
 
 // GameBoard rendering
 
 interface GameBoardProps {
   onReturnToMenu: () => void;
   onRestart: () => void;
+  onOpenChronicle: (page: ChroniclePage) => void;
+  session: RitualSession;
 }
 
-export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
+interface IngredientReaction {
+  id: number;
+  color: TokenColor;
+  name: string;
+  detail: string;
+  accent: string;
+  symbol: string;
+}
+
+interface RewardFlight {
+  id: number;
+  image: string;
+  label: string;
+  accent: string;
+  startX: number;
+  startY: number;
+  deltaX: number;
+  deltaY: number;
+  duration: number;
+  reduced: boolean;
+}
+
+export function GameBoard({ onReturnToMenu, onRestart, onOpenChronicle, session }: GameBoardProps) {
   const gameplayScene = GAMEPLAY_SCENES[ACTIVE_GAMEPLAY_SCENE_ID];
   const t = useTranslation();
   const quality = useSettingsStore((state) => state.quality);
   const masterVolume = useSettingsStore((state) => state.masterVolume);
   const sfxVolume = useSettingsStore((state) => state.sfxVolume);
+  const presentationSpeed = useSettingsStore((state) => state.presentationSpeed);
   const store = useGameStore();
   const human = useHumanPlayer();
   const aiPlayers = useAIPlayers();
@@ -93,9 +126,32 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
   const { running: aiRunning, events: aiEvents, aiWhiteSum, aiSpiral, runAITurn, fastForward, resetFastForward } = useAITurn();
   const resolvingAI = useRef(false);
   const drawingToken = useRef(false);
+  const drawSpeedMultiplier = useRef(1);
   const handVideoRef = useRef<HTMLVideoElement>(null);
   const backgroundVideoRef = useRef<HTMLVideoElement>(null);
   const [drawAnimating, setDrawAnimating] = useState(false);
+  const drawSettledAt = useRef(0);
+  const [voidshardImpact, setVoidshardImpact] = useState<"safe" | "danger" | "critical" | "burst" | null>(null);
+  const [ingredientReaction, setIngredientReaction] = useState<IngredientReaction | null>(null);
+  const ingredientReactionTimer = useRef<number | null>(null);
+  const [rewardFlights, setRewardFlights] = useState<RewardFlight[]>([]);
+  const rewardFlightTimers = useRef<Set<number>>(new Set());
+  const previousRewards = useRef({ prestige: human.score, rubies: human.rubies });
+  const rewardSourceOverride = useRef<DOMRect | undefined>(undefined);
+  const [roundOpening, setRoundOpening] = useState<number | null>(null);
+  const announcedRound = useRef(0);
+  const roundOpeningTimer = useRef<number | null>(null);
+  const [brewingHandoff, setBrewingHandoff] = useState(false);
+  const previousPhase = useRef(phase);
+  const brewingHandoffTimer = useRef<number | null>(null);
+  const [scoringPresentation, setScoringPresentation] = useState(false);
+  const presentedSummaryRound = useRef(0);
+  const scoringPresentationTimer = useRef<number | null>(null);
+  const [roundClosing, setRoundClosing] = useState(false);
+  const [shatterAftermath, setShatterAftermath] = useState(false);
+  const shatterAftermathTimer = useRef<number | null>(null);
+  const [covenantInvocation, setCovenantInvocation] = useState<"bone" | "moon" | "blood" | null>(null);
+  const covenantInvocationTimer = useRef<number | null>(null);
   const [activeAIName, setActiveAIName] = useState(aiPlayers[0]?.name ?? t.game.theShade);
   const [paused, setPaused] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -112,6 +168,132 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
   const needsCovenantSetup = phase === "setup" && store.state.setup.modules.patrons && !store.state.selectedCovenants;
   const needsAfflictionSetup = phase === "setup" && store.state.setup.modules.distillation && !needsCovenantSetup;
   const modalOpen = paused || settingsOpen || tutorialOpen || phase === "setup";
+
+  const launchRewardFlight = useCallback((
+    targetKind: "prestige" | "rubies" | "bag" | "pressure" | "vial" | "panel" | "crucible",
+    image: string,
+    label: string,
+    accent: string,
+    sourceRect?: DOMRect,
+    targetPlayerId = human.id,
+  ) => {
+    const target = targetKind === "crucible"
+      ? document.querySelector<HTMLElement>(".game-canvas")
+      : targetKind === "panel"
+        ? document.querySelector<HTMLElement>(`[data-player-id="${targetPlayerId}"]`)
+        : document.querySelector<HTMLElement>(`[data-player-id="${targetPlayerId}"] [data-player-stat="${targetKind}"]`);
+    if (!target) return;
+    const targetRect = target.getBoundingClientRect();
+    const canvasRect = document.querySelector<HTMLElement>(".game-canvas")?.getBoundingClientRect();
+    const fallback = canvasRect ?? new DOMRect(window.innerWidth / 2, window.innerHeight / 2, 0, 0);
+    const source = sourceRect ?? fallback;
+    const startX = source.left + source.width / 2;
+    const startY = source.top + source.height / 2;
+    const endX = targetRect.left + targetRect.width / 2;
+    const endY = targetRect.top + targetRect.height / 2;
+    const reduced = prefersReducedMotion();
+    const duration = reduced ? 260 : presentationSpeed === "fast" ? 470 : 760;
+    const id = performance.now() + Math.random();
+
+    setRewardFlights((current) => [...current, {
+      id, image, label, accent, startX, startY,
+      deltaX: endX - startX,
+      deltaY: endY - startY,
+      duration,
+      reduced,
+    }]);
+
+    const timer = window.setTimeout(() => {
+      setRewardFlights((current) => current.filter((flight) => flight.id !== id));
+      rewardFlightTimers.current.delete(timer);
+      if (!reduced && typeof target.animate === "function") {
+        target.animate(
+          [
+            { filter: "brightness(1)", transform: "scale(1)" },
+            { filter: `brightness(1.65) drop-shadow(0 0 9px ${accent})`, transform: "scale(1.08)" },
+            { filter: "brightness(1)", transform: "scale(1)" },
+          ],
+          { duration: 360, easing: "ease-out" },
+        );
+      }
+    }, duration + 40);
+    rewardFlightTimers.current.add(timer);
+  }, [human.id, presentationSpeed]);
+
+  useEffect(() => () => {
+    rewardFlightTimers.current.forEach((timer) => window.clearTimeout(timer));
+    rewardFlightTimers.current.clear();
+  }, []);
+
+  useEffect(() => {
+    if (phase !== "omen" || tutorialOpen || announcedRound.current === round) return;
+    announcedRound.current = round;
+    setRoundOpening(round);
+  }, [phase, round, tutorialOpen]);
+
+  useEffect(() => {
+    if (roundOpening === null) return;
+    if (roundOpeningTimer.current !== null) window.clearTimeout(roundOpeningTimer.current);
+    const duration = prefersReducedMotion() ? 520 : presentationSpeed === "fast" ? 920 : 1650;
+    roundOpeningTimer.current = window.setTimeout(() => {
+      setRoundOpening(null);
+      roundOpeningTimer.current = null;
+    }, duration);
+    return () => {
+      if (roundOpeningTimer.current !== null) {
+        window.clearTimeout(roundOpeningTimer.current);
+        roundOpeningTimer.current = null;
+      }
+    };
+  }, [presentationSpeed, roundOpening]);
+
+  useEffect(() => {
+    const priorPhase = previousPhase.current;
+    previousPhase.current = phase;
+    if (phase !== "brewing" || priorPhase === "brewing" || human.crucible.placements.length > 0) return;
+    setBrewingHandoff(true);
+    if (brewingHandoffTimer.current !== null) window.clearTimeout(brewingHandoffTimer.current);
+    const duration = prefersReducedMotion() ? 420 : presentationSpeed === "fast" ? 650 : 1050;
+    brewingHandoffTimer.current = window.setTimeout(() => {
+      setBrewingHandoff(false);
+      brewingHandoffTimer.current = null;
+    }, duration);
+  }, [human.crucible.placements.length, phase, presentationSpeed]);
+
+  useEffect(() => () => {
+    if (brewingHandoffTimer.current !== null) window.clearTimeout(brewingHandoffTimer.current);
+  }, []);
+
+  useEffect(() => {
+    const summaryRound = store.state.roundSummary?.round;
+    if (!summaryRound || presentedSummaryRound.current === summaryRound) return;
+    presentedSummaryRound.current = summaryRound;
+    setScoringPresentation(true);
+    if (scoringPresentationTimer.current !== null) window.clearTimeout(scoringPresentationTimer.current);
+    const duration = prefersReducedMotion() ? 700 : presentationSpeed === "fast" ? 1250 : 2350;
+    scoringPresentationTimer.current = window.setTimeout(() => {
+      setScoringPresentation(false);
+      scoringPresentationTimer.current = null;
+    }, duration);
+  }, [presentationSpeed, store.state.roundSummary]);
+
+  useEffect(() => () => {
+    if (scoringPresentationTimer.current !== null) window.clearTimeout(scoringPresentationTimer.current);
+  }, []);
+
+  useEffect(() => {
+    const previous = previousRewards.current;
+    const prestigeGain = human.score - previous.prestige;
+    const rubyGain = human.rubies - previous.rubies;
+    previousRewards.current = { prestige: human.score, rubies: human.rubies };
+    if (prestigeGain > 0) {
+      launchRewardFlight("prestige", CORE_ECONOMY_ASSETS.scoreMarker, `+${prestigeGain}`, "#e7c46b", rewardSourceOverride.current);
+    }
+    if (rubyGain > 0) {
+      launchRewardFlight("rubies", CORE_ECONOMY_ASSETS.ruby, `+${rubyGain}`, "#d16c72", rewardSourceOverride.current);
+    }
+    if (prestigeGain > 0 || rubyGain > 0) rewardSourceOverride.current = undefined;
+  }, [human.rubies, human.score, launchRewardFlight]);
 
   useEffect(() => {
     const backgroundVideo = backgroundVideoRef.current;
@@ -226,6 +408,39 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
     setPaused(false);
   }, []);
 
+  useEffect(() => () => {
+    if (ingredientReactionTimer.current !== null) window.clearTimeout(ingredientReactionTimer.current);
+  }, []);
+
+  const ingredientName = useCallback((color: TokenColor): string => ({
+    white: t.grimoire.voidshard,
+    orange: t.grimoire.brimstone,
+    green: t.grimoire.deathweave,
+    purple: t.grimoire.wraithbloom,
+    blue: t.grimoire.frostbile,
+    red: t.grimoire.bloodthorn,
+    yellow: t.grimoire.plaguedust,
+    black: t.grimoire.shadowmoss,
+    echo: t.grimoire.echoReed,
+  })[color], [t]);
+
+  const showIngredientReaction = useCallback((color: TokenColor, detail: string) => {
+    const visual = getTokenVisual(color);
+    if (ingredientReactionTimer.current !== null) window.clearTimeout(ingredientReactionTimer.current);
+    setIngredientReaction({
+      id: performance.now(),
+      color,
+      name: ingredientName(color),
+      detail,
+      accent: `#${visual.glow.toString(16).padStart(6, "0")}`,
+      symbol: visual.symbol,
+    });
+    ingredientReactionTimer.current = window.setTimeout(
+      () => setIngredientReaction(null),
+      presentationSpeed === "fast" ? 900 : 1450,
+    );
+  }, [ingredientName, presentationSpeed]);
+
   // Sync crucible visuals whenever human player state changes
   useEffect(() => {
     updateCrucible(human.crucible);
@@ -236,8 +451,18 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
   useEffect(() => {
     if (human.crucible.exploded) {
       playExplosion();
+      setShatterAftermath(true);
+      if (shatterAftermathTimer.current !== null) window.clearTimeout(shatterAftermathTimer.current);
+      shatterAftermathTimer.current = window.setTimeout(() => {
+        setShatterAftermath(false);
+        shatterAftermathTimer.current = null;
+      }, prefersReducedMotion() ? 520 : presentationSpeed === "fast" ? 1050 : 1750);
     }
-  }, [human.crucible.exploded, playExplosion]);
+  }, [human.crucible.exploded, playExplosion, presentationSpeed]);
+
+  useEffect(() => () => {
+    if (shatterAftermathTimer.current !== null) window.clearTimeout(shatterAftermathTimer.current);
+  }, []);
 
   // Reset pixi scene between rounds
   useEffect(() => {
@@ -284,10 +509,26 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
 
   // Handle draw — animate then update store
   const handleDraw = useCallback(async () => {
-    if (drawingToken.current) return;
+    if (drawingToken.current) {
+      drawSpeedMultiplier.current = 0.28;
+      const activeHand = handVideoRef.current;
+      if (activeHand && !activeHand.paused) activeHand.playbackRate = 3.25;
+      return;
+    }
+    // React may need one paint to replace the final "Accelerate" frame with
+    // "Draw Token" after the animation settles. Ignore a click caught in that
+    // tiny stale-label window so one gesture can never consume two tokens.
+    if (performance.now() - drawSettledAt.current < 220) return;
     drawingToken.current = true;
+    drawSpeedMultiplier.current = presentationSpeed === "fast" ? 0.62 : 1;
     setDrawAnimating(true);
     try {
+      // Select the result without publishing any game-state changes. The exact
+      // token is committed only on the visual impact frame below.
+      const prepared = drawToken(useGameStore.getState().state.players.find((player) => player.id === "human")!.bag);
+      if (!prepared) return;
+      soundManager.play("token_draw_anticipation");
+
       const handVideo = handVideoRef.current;
       let handFinished: Promise<void> | null = null;
       if (handVideo && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -296,21 +537,60 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
           handVideo.addEventListener("ended", () => resolve(), { once: true });
         });
         try {
-          await handVideo.play();
-          // The generated fingers open 1.1 seconds into the accelerated clip.
-          await new Promise((resolve) => window.setTimeout(resolve, 1080));
+          handVideo.playbackRate = presentationSpeed === "fast" ? 2.15 : 1.65;
+          void handVideo.play().catch(() => undefined);
         } catch {
           handFinished = null;
         }
       }
-      const result = store.humanDraw();
-      if (result) await animateDraw(result.token);
-      if (handFinished) await handFinished;
+      let committed = false;
+      const commitPreparedDraw = () => {
+        if (committed) return;
+        committed = true;
+        const stateBeforeImpact = useGameStore.getState().state;
+        const playerBeforeImpact = stateBeforeImpact.players.find((player) => player.id === "human")!;
+        store.humanDraw(prepared.token.id);
+        if (prepared.token.color === "white") {
+          const pressure = human.crucible.whiteSum + prepared.token.value;
+          const tier = pressure >= 8 ? "burst" : pressure >= 7 ? "critical" : pressure >= 5 ? "danger" : "safe";
+          setVoidshardImpact(tier);
+          launchRewardFlight("pressure", CORE_INGREDIENT_ASSETS.white, `+${prepared.token.value}`, tier === "safe" ? "#8ca6e8" : "#d7dfff");
+          window.setTimeout(() => setVoidshardImpact(null), tier === "burst" ? 900 : tier === "critical" ? 720 : 560);
+        } else {
+          const stateAfterImpact = useGameStore.getState().state;
+          const playerAfterImpact = stateAfterImpact.players.find((player) => player.id === "human")!;
+          const movement = Math.max(0, playerAfterImpact.crucible.filledUpTo - playerBeforeImpact.crucible.filledUpTo);
+          const movementBonus = Math.max(0, movement - prepared.token.value);
+          const rubyGain = Math.max(0, playerAfterImpact.rubies - playerBeforeImpact.rubies);
+          const requiresChoice = stateAfterImpact.phase !== "brewing" && stateAfterImpact.phase !== "end_of_round";
+          const detail = requiresChoice
+            ? t.game.decisionRequired
+            : rubyGain > 0
+              ? t.game.rubyGained.replace("{count}", String(rubyGain))
+              : movementBonus > 0
+                ? t.game.bonusMovement.replace("{count}", String(movementBonus))
+                : t.game.advancesSpaces.replace("{count}", String(movement));
+          showIngredientReaction(prepared.token.color, detail);
+        }
+      };
+      await animateDraw(prepared.token, commitPreparedDraw, () => drawSpeedMultiplier.current);
+      // Reduced motion commits synchronously in animateDraw; this is a safe
+      // fallback if the canvas is still initializing.
+      if (!committed) commitPreparedDraw();
+      // Keep the input locked until the hand has visibly completed its release.
+      // The timeout protects gameplay if a browser fails to dispatch `ended`.
+      if (handFinished) {
+        await Promise.race([
+          handFinished,
+          new Promise<void>((resolve) => window.setTimeout(resolve, 1400)),
+        ]);
+      }
     } finally {
       drawingToken.current = false;
+      drawSettledAt.current = performance.now();
       setDrawAnimating(false);
     }
-  }, [animateDraw, store]);
+  }, [animateDraw, human.crucible.whiteSum, launchRewardFlight, presentationSpeed, showIngredientReaction, store, t]);
 
   const handleStop = useCallback(() => {
     if (drawingToken.current) return;
@@ -321,6 +601,48 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
     store.dismissOmen();
   }, [store]);
 
+  const handleOmenPropagate = useCallback((source: DOMRect) => {
+    [human, ...aiPlayers].forEach((player, index) => {
+      window.setTimeout(() => {
+        launchRewardFlight("panel", CORE_OMEN_ASSETS.back, "OMEN", "#76d7c4", source, player.id);
+      }, index * 85);
+    });
+  }, [aiPlayers, human, launchRewardFlight]);
+
+  const handleUseCovenant = useCallback((kind: "bone" | "moon" | "blood", source: DOMRect) => {
+    const before = useGameStore.getState().state.players.find((player) => player.id === human.id);
+    rewardSourceOverride.current = source;
+    store.humanUseCovenant(kind);
+    const after = useGameStore.getState().state.players.find((player) => player.id === human.id);
+    if (!before || !after) return;
+    if (before.covenantSeals?.[kind] && !after.covenantSeals?.[kind]) {
+      setCovenantInvocation(kind);
+      if (covenantInvocationTimer.current !== null) window.clearTimeout(covenantInvocationTimer.current);
+      const duration = prefersReducedMotion() ? 520 : presentationSpeed === "fast" ? 760 : 1250;
+      covenantInvocationTimer.current = window.setTimeout(() => {
+        setCovenantInvocation(null);
+        covenantInvocationTimer.current = null;
+      }, duration);
+    }
+
+    const image = COVENANT_ACTIVATION_ASSETS[kind];
+    const accent = kind === "bone" ? "#d8d4bd" : kind === "moon" ? "#8fc8df" : "#c6534f";
+    if (!before.flask && after.flask) {
+      launchRewardFlight("vial", image, "RESTORED", accent, source);
+      rewardSourceOverride.current = undefined;
+    } else if (after.crucible.dropletPosition > before.crucible.dropletPosition) {
+      launchRewardFlight("crucible", image, `+${after.crucible.dropletPosition - before.crucible.dropletPosition}`, accent, source);
+      rewardSourceOverride.current = undefined;
+    } else if (after.score === before.score && after.rubies === before.rubies) {
+      launchRewardFlight("panel", image, (store.state.selectedCovenants ?? DEFAULT_COVENANTS)[kind].replace(/_/g, " ").toUpperCase(), accent, source);
+      rewardSourceOverride.current = undefined;
+    }
+  }, [human.id, launchRewardFlight, presentationSpeed, store]);
+
+  useEffect(() => () => {
+    if (covenantInvocationTimer.current !== null) window.clearTimeout(covenantInvocationTimer.current);
+  }, []);
+
   const handleExplodedChoice = useCallback(
     (choice: "vp" | "coins") => {
       store.humanExplodedChoice(choice);
@@ -330,18 +652,43 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
 
   const handleBuyItem = useCallback(
     (itemId: string) => {
+      const item = market.find((candidate) => candidate.id === itemId);
+      const sourceRect = document.querySelector<HTMLElement>(`[data-market-item-id="${CSS.escape(itemId)}"]`)?.getBoundingClientRect();
+      const previousBagCount = useGameStore.getState().state.players.find((player) => player.id === human.id)?.bag.tokens.length ?? human.bag.tokens.length;
       store.humanBuyItem(itemId);
+      const nextBagCount = useGameStore.getState().state.players.find((player) => player.id === human.id)?.bag.tokens.length ?? previousBagCount;
+      if (item && nextBagCount > previousBagCount) {
+        const image = item.token.color === "echo"
+          ? MIREWROUGHT_ASSETS.echoReed
+          : CORE_INGREDIENT_ASSETS[item.token.color] ?? CORE_INGREDIENT_ASSETS.white;
+        const visual = getTokenVisual(item.token.color);
+        launchRewardFlight(
+          "bag",
+          image,
+          item.token.color === "echo" ? "?" : String(item.token.value),
+          `#${visual.glow.toString(16).padStart(6, "0")}`,
+          sourceRect,
+        );
+      }
     },
-    [store]
+    [human.bag.tokens.length, launchRewardFlight, market, store]
   );
 
   const handleEndMarket = useCallback(async () => {
+    if (roundClosing) return;
+    setRoundClosing(true);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, prefersReducedMotion() ? 360 : presentationSpeed === "fast" ? 620 : 1050));
     store.humanEndMarket();
-  }, [store]);
+    setRoundClosing(false);
+  }, [presentationSpeed, roundClosing, store]);
 
   const handleRubyDone = useCallback(async () => {
+    if (roundClosing) return;
+    setRoundClosing(true);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, prefersReducedMotion() ? 360 : presentationSpeed === "fast" ? 620 : 1050));
     store.humanDoneRubySpend();
-  }, [store]);
+    setRoundClosing(false);
+  }, [presentationSpeed, roundClosing, store]);
 
   const handleRestart = useCallback(() => {
     if (!window.confirm(t.pause.confirmRestart)) return;
@@ -354,16 +701,111 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
     onReturnToMenu();
   }, [onReturnToMenu, t.pause.confirmMenu]);
 
+  const matchProgress = totalRounds > 1 ? (round - 1) / (totalRounds - 1) : 0;
+  const pressureRatio = Math.min(1, human.crucible.whiteSum / 7);
+  const isFinalRound = round === totalRounds;
+  const matchStage = isFinalRound ? "final" : matchProgress >= 0.7 ? "late" : matchProgress >= 0.35 ? "mid" : "early";
+  const atmosphereOpacity = Math.min(0.62, 0.08 + matchProgress * 0.28 + pressureRatio * 0.24);
+
   return (
     <div
       className="game-viewport"
       data-gameplay-scene={ACTIVE_GAMEPLAY_SCENE_ID}
-      style={{ ...styles.viewport, ...getGameplaySceneCssVariables(gameplayScene) }}
+      data-match-stage={matchStage}
+      data-pressure-tier={human.crucible.whiteSum >= 7 ? "critical" : human.crucible.whiteSum >= 5 ? "danger" : human.crucible.whiteSum >= 3 ? "rising" : "calm"}
+      style={{
+        ...styles.viewport,
+        ...getGameplaySceneCssVariables(gameplayScene),
+        "--match-progress": matchProgress,
+        "--pressure-ratio": pressureRatio,
+        "--atmosphere-opacity": atmosphereOpacity,
+      } as React.CSSProperties}
     >
+    <style>{`.round-opening{position:fixed;inset:0;z-index:130;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle at 50% 48%,rgba(7,35,39,.86),rgba(1,5,10,.97) 68%);animation:round-opening-veil var(--round-opening-duration) ease-in-out forwards}.round-opening::before,.round-opening::after{content:"";position:absolute;left:50%;width:min(760px,72vw);height:1px;background:linear-gradient(90deg,transparent,rgba(111,210,203,.78),#e0b85f,rgba(111,210,203,.78),transparent);transform:translateX(-50%) scaleX(0);animation:round-opening-line var(--round-opening-duration) ease-in-out forwards}.round-opening::before{top:calc(50% - 96px)}.round-opening::after{top:calc(50% + 102px)}.round-opening__copy{text-align:center;text-shadow:0 3px 18px #000}.round-opening__kicker{color:#79c9bd;font:600 12px/1.2 monospace;letter-spacing:.42em;text-transform:uppercase}.round-opening__number{margin:15px 0 11px;color:#efd07d;font:600 clamp(48px,7vw,92px)/1 Georgia,serif;letter-spacing:.08em;text-transform:uppercase}.round-opening__number.is-final{color:#f2c061;text-shadow:0 0 24px rgba(194,58,34,.42),0 3px 18px #000}.round-opening__omen{color:#c8c4bd;font:italic 18px/1.4 Georgia,serif;letter-spacing:.05em}@keyframes round-opening-veil{0%{opacity:0}14%,72%{opacity:1}100%{opacity:0}}@keyframes round-opening-line{0%,100%{opacity:0;transform:translateX(-50%) scaleX(0)}22%,70%{opacity:1;transform:translateX(-50%) scaleX(1)}}@media(prefers-reduced-motion:reduce){.round-opening{animation:round-opening-veil var(--round-opening-duration) linear forwards}.round-opening::before,.round-opening::after{animation:none;opacity:.65;transform:translateX(-50%) scaleX(1)}}`}</style>
+    <style>{`.brewing-handoff{position:fixed;inset:0;z-index:80;display:grid;place-items:center;pointer-events:none;background:radial-gradient(circle at 50% 53%,rgba(13,62,67,.2),transparent 48%);animation:brewing-handoff var(--brewing-handoff-duration) ease-in-out forwards}.brewing-handoff__copy{min-width:min(620px,74vw);padding:20px 42px;text-align:center;background:linear-gradient(90deg,transparent,rgba(1,12,17,.88) 20%,rgba(1,12,17,.88) 80%,transparent);border-top:1px solid rgba(118,215,196,.55);border-bottom:1px solid rgba(232,198,117,.38);box-shadow:0 0 40px rgba(34,143,155,.15)}.brewing-handoff__title{color:#efd07d;font:600 clamp(28px,3.2vw,48px)/1.1 Georgia,serif;letter-spacing:.13em;text-shadow:0 2px 12px #000}.brewing-handoff__hint{margin-top:9px;color:#bfcac6;font:italic 15px/1.4 Georgia,serif;letter-spacing:.03em}@keyframes brewing-handoff{0%{opacity:0;transform:scale(.98)}18%,72%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.01)}}@media(prefers-reduced-motion:reduce){.brewing-handoff{animation:brewing-handoff var(--brewing-handoff-duration) linear forwards}}`}</style>
+    <style>{`.scoring-presentation{position:fixed;inset:0;z-index:112;display:grid;place-items:center;padding:4vh 4vw;background:radial-gradient(circle at 50% 48%,rgba(3,28,34,.72),rgba(1,4,9,.94) 76%);backdrop-filter:blur(5px);animation:scoring-presentation-in .35s ease-out both}.round-closing{position:fixed;inset:0;z-index:135;display:grid;place-items:center;background:radial-gradient(circle at 50% 50%,rgba(4,31,35,.9),rgba(1,4,9,.98) 70%);animation:round-closing var(--round-closing-duration) ease-in-out forwards}.round-closing__copy{text-align:center}.round-closing__title{color:#efd07d;font:600 clamp(38px,5vw,70px)/1 Georgia,serif;letter-spacing:.16em;text-shadow:0 0 22px rgba(222,178,75,.26)}.round-closing__subtitle{margin-top:15px;color:#87c9c4;font:italic 17px/1.4 Georgia,serif;letter-spacing:.06em}@keyframes scoring-presentation-in{from{opacity:0}to{opacity:1}}@keyframes round-closing{0%{opacity:0}20%,72%{opacity:1}100%{opacity:0}}@media(prefers-reduced-motion:reduce){.scoring-presentation{animation:none}.round-closing{animation:round-closing var(--round-closing-duration) linear forwards}}`}</style>
+    <style>{`.match-atmosphere{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:var(--atmosphere-opacity);background:radial-gradient(circle at 50% 48%,transparent 28%,rgba(0,10,14,.2) 57%,rgba(0,2,7,.92) 100%),linear-gradient(180deg,rgba(12,66,72,.08),rgba(1,8,13,.28));transition:opacity .8s ease,background 1s ease}.match-atmosphere::after{content:"";position:absolute;inset:-12%;background:repeating-radial-gradient(ellipse at 50% 50%,transparent 0 34px,rgba(92,201,207,.025) 36px,transparent 39px);opacity:calc(.15 + var(--pressure-ratio));mix-blend-mode:screen;animation:atmosphere-breathe 5.5s ease-in-out infinite}.game-viewport[data-match-stage="late"] .match-atmosphere{background:radial-gradient(circle at 50% 48%,transparent 24%,rgba(8,24,27,.28) 55%,rgba(0,2,7,.96) 100%),linear-gradient(180deg,rgba(61,43,21,.11),rgba(2,9,14,.34))}.game-viewport[data-match-stage="final"] .match-atmosphere{opacity:max(var(--atmosphere-opacity),.48);background:radial-gradient(circle at 50% 48%,rgba(129,80,19,.07),transparent 31%,rgba(43,20,12,.3) 58%,rgba(2,1,5,.97) 100%),linear-gradient(180deg,rgba(112,49,21,.12),rgba(7,4,11,.4));animation:final-atmosphere 3.8s ease-in-out infinite}.game-viewport[data-pressure-tier="danger"] .match-atmosphere::after,.game-viewport[data-pressure-tier="critical"] .match-atmosphere::after{background:repeating-radial-gradient(ellipse at 50% 50%,transparent 0 29px,rgba(155,181,255,.055) 32px,transparent 37px);animation-duration:2.6s}.game-viewport[data-pressure-tier="critical"] .game-header{box-shadow:0 8px 24px rgba(0,0,0,.5),0 2px 22px rgba(159,178,255,.22),inset 0 -1px rgba(225,231,255,.15)}.game-viewport[data-match-stage="late"] .player-panel{box-shadow:0 14px 38px rgba(0,0,0,.52),inset 0 1px rgba(220,180,255,.04)}.final-round-sigil{position:fixed;left:50%;top:52%;z-index:0;width:min(46vw,680px);aspect-ratio:1;transform:translate(-50%,-50%);border:1px solid rgba(218,166,70,.13);border-radius:50%;pointer-events:none;box-shadow:inset 0 0 90px rgba(168,56,26,.07),0 0 90px rgba(197,112,35,.05);animation:final-sigil 7s linear infinite}.final-round-sigil::before,.final-round-sigil::after{content:"✦";position:absolute;left:50%;color:rgba(231,181,79,.24);font-size:20px;text-shadow:0 0 16px rgba(220,96,36,.35)}.final-round-sigil::before{top:-11px}.final-round-sigil::after{bottom:-11px;transform:rotate(180deg)}.shatter-aftermath{position:fixed;inset:0;z-index:75;pointer-events:none;background:radial-gradient(circle at 50% 52%,rgba(238,244,255,.18),transparent 32%),radial-gradient(circle at 50% 52%,transparent 34%,rgba(6,7,19,.55) 75%);animation:shatter-aftermath var(--shatter-duration) ease-out forwards}.shatter-aftermath::before,.shatter-aftermath::after{content:"";position:absolute;left:50%;top:50%;width:min(86vw,1200px);height:2px;transform-origin:center;background:linear-gradient(90deg,transparent 5%,rgba(214,225,255,.7) 35%,rgba(255,255,255,.9) 50%,rgba(149,166,234,.48) 72%,transparent 96%);filter:drop-shadow(0 0 7px rgba(189,203,255,.55))}.shatter-aftermath::before{transform:translate(-50%,-50%) rotate(17deg)}.shatter-aftermath::after{transform:translate(-50%,-50%) rotate(-31deg)}@keyframes atmosphere-breathe{0%,100%{transform:scale(1);opacity:.35}50%{transform:scale(1.025);opacity:.75}}@keyframes final-atmosphere{0%,100%{filter:saturate(1)}50%{filter:saturate(1.22) brightness(1.05)}}@keyframes final-sigil{to{transform:translate(-50%,-50%) rotate(360deg)}}@keyframes shatter-aftermath{0%{opacity:0;filter:saturate(.15) brightness(1.7)}8%{opacity:1}34%{filter:saturate(.35) brightness(.82)}100%{opacity:0;filter:none}}@media(prefers-reduced-motion:reduce){.match-atmosphere::after,.game-viewport[data-match-stage="final"] .match-atmosphere,.final-round-sigil{animation:none}.shatter-aftermath{animation:shatter-aftermath var(--shatter-duration) linear forwards}}`}</style>
+    <style>{`.covenant-invocation{--covenant-accent:#d8d4bd;position:fixed;inset:0;z-index:118;display:grid;place-items:center;pointer-events:none;overflow:hidden;animation:covenant-invocation-out 1.25s ease-in forwards}.covenant-invocation.is-moon{--covenant-accent:#8fc8df}.covenant-invocation.is-blood{--covenant-accent:#d85b56}.covenant-invocation__veil{position:absolute;inset:0;background:radial-gradient(circle at center,color-mix(in srgb,var(--covenant-accent) 13%,transparent),rgba(1,5,9,.74) 48%,rgba(0,2,5,.88));backdrop-filter:blur(2px);animation:covenant-veil-in .22s ease-out both}.covenant-invocation__art{position:absolute;width:min(540px,44vw);height:min(540px,66vh);object-fit:contain;mix-blend-mode:screen;filter:drop-shadow(0 0 30px color-mix(in srgb,var(--covenant-accent) 55%,transparent));animation:covenant-art-in .72s cubic-bezier(.18,.8,.2,1) both}.covenant-invocation__copy{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;width:min(680px,72vw);margin-top:min(430px,49vh);padding:12px 28px 15px;text-align:center;background:linear-gradient(90deg,transparent,rgba(1,9,13,.9) 18%,rgba(1,9,13,.9) 82%,transparent);border-top:1px solid color-mix(in srgb,var(--covenant-accent) 58%,transparent);border-bottom:1px solid color-mix(in srgb,var(--covenant-accent) 35%,transparent);animation:covenant-copy-in .35s ease-out .18s both}.covenant-invocation__copy span{color:var(--covenant-accent);font:700 10px/1.2 monospace;letter-spacing:.28em;text-transform:uppercase}.covenant-invocation__copy strong{margin-top:5px;color:#f2eadb;font:600 clamp(23px,2.3vw,34px)/1.1 Georgia,serif;text-shadow:0 0 22px color-mix(in srgb,var(--covenant-accent) 45%,transparent)}.covenant-invocation__copy small{max-width:570px;margin-top:6px;color:#d2cbc0;font:500 14px/1.4 Georgia,serif}@keyframes covenant-veil-in{from{opacity:0}to{opacity:1}}@keyframes covenant-art-in{0%{opacity:0;transform:scale(.7) rotate(-4deg);filter:blur(7px)}38%{opacity:1}100%{opacity:.82;transform:scale(1);filter:blur(0) drop-shadow(0 0 30px color-mix(in srgb,var(--covenant-accent) 55%,transparent))}}@keyframes covenant-copy-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}@keyframes covenant-invocation-out{0%,70%{opacity:1}100%{opacity:0}}@media(prefers-reduced-motion:reduce){.covenant-invocation,.covenant-invocation__veil,.covenant-invocation__art,.covenant-invocation__copy{animation:none}.covenant-invocation__art{opacity:.75}.covenant-invocation{opacity:1}}`}</style>
+    <style>{`.tutorial-nav{transition:color .18s,border-color .18s,text-shadow .18s,transform .18s}.tutorial-nav:hover,.tutorial-nav:focus-visible{color:#f4d88c!important;border-color:#d4a74c!important;text-shadow:0 0 14px rgba(224,175,79,.5);transform:translateY(-2px);outline:none}.reward-flight{position:fixed;z-index:160;display:flex;align-items:center;gap:5px;pointer-events:none;will-change:transform,opacity;filter:drop-shadow(0 0 9px var(--reward-accent));animation:reward-flight var(--reward-duration) cubic-bezier(.18,.78,.24,1) forwards}.reward-flight img{width:48px;height:48px;object-fit:contain}.reward-flight span{padding:3px 6px;color:#fff4d4;background:rgba(2,10,14,.78);border:1px solid var(--reward-accent);border-radius:10px;font:700 15px/1 Georgia,serif;text-shadow:0 1px 2px #000}.reward-flight.is-reduced{animation-name:reward-flight-reduced}.voidshard-impact{animation:voidshard-impact-jolt .42s ease-out}.voidshard-impact.is-danger{animation-duration:.52s}.voidshard-impact.is-critical,.voidshard-impact.is-burst{animation-name:voidshard-impact-critical;animation-duration:.66s}.voidshard-impact-flash{position:absolute;inset:0;z-index:2;pointer-events:none;background:radial-gradient(circle at 50% 52%,rgba(224,232,255,.2),rgba(103,111,177,.08) 28%,transparent 62%);mix-blend-mode:screen;animation:voidshard-impact-flash .56s ease-out forwards}.voidshard-impact-flash.is-danger{background:radial-gradient(circle at 50% 52%,rgba(239,244,255,.34),rgba(91,105,190,.14) 34%,transparent 68%)}.voidshard-impact-flash.is-critical,.voidshard-impact-flash.is-burst{background:radial-gradient(circle at 50% 52%,rgba(255,255,255,.48),rgba(120,132,224,.2) 38%,rgba(34,12,57,.12) 65%,transparent 78%);animation-duration:.74s}.ingredient-reaction{position:absolute;z-index:8;left:50%;bottom:14%;min-width:250px;max-width:min(440px,44vw);padding:10px 18px 11px;transform:translateX(-50%);text-align:center;pointer-events:none;color:#eee8dc;background:linear-gradient(90deg,transparent,rgba(3,12,17,.92) 16%,rgba(3,12,17,.92) 84%,transparent);border-top:1px solid color-mix(in srgb,var(--ingredient-accent) 66%,transparent);border-bottom:1px solid color-mix(in srgb,var(--ingredient-accent) 38%,transparent);box-shadow:0 0 28px color-mix(in srgb,var(--ingredient-accent) 18%,transparent);animation:ingredient-reaction-in .25s ease-out,ingredient-reaction-out .32s ease-in 1.08s forwards}.ingredient-reaction__eyebrow{font:600 10px/1.2 monospace;letter-spacing:.22em;color:var(--ingredient-accent);text-transform:uppercase}.ingredient-reaction__name{margin-top:4px;font:600 20px/1.15 Georgia,serif;color:#f4ead6;text-shadow:0 0 15px color-mix(in srgb,var(--ingredient-accent) 42%,transparent)}.ingredient-reaction__detail{margin-top:4px;font:500 13px/1.35 Georgia,serif;color:#cfc8bd}@keyframes reward-flight{0%{opacity:0;transform:translate(-50%,-50%) scale(.5) rotate(-8deg)}14%{opacity:1;transform:translate(-50%,-58%) scale(1.14) rotate(3deg)}78%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--reward-dx)),calc(-50% + var(--reward-dy))) scale(.68) rotate(8deg)}}@keyframes reward-flight-reduced{0%{opacity:0;transform:translate(calc(-50% + var(--reward-dx)),calc(-50% + var(--reward-dy))) scale(.88)}35%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--reward-dx)),calc(-50% + var(--reward-dy))) scale(1)}}@keyframes ingredient-reaction-in{from{opacity:0;transform:translate(-50%,8px) scale(.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}@keyframes ingredient-reaction-out{to{opacity:0;transform:translate(-50%,-5px) scale(.985)}}@keyframes voidshard-impact-jolt{0%,100%{transform:translate(0);filter:none}12%{transform:translate(-2px,1px);filter:saturate(.25) brightness(1.1)}28%{transform:translate(2px,-1px);filter:saturate(.55)}50%{transform:translate(-1px,0);filter:none}}@keyframes voidshard-impact-critical{0%,100%{transform:translate(0);filter:none}9%{transform:translate(-4px,2px);filter:saturate(.08) brightness(1.18) contrast(1.08)}22%{transform:translate(4px,-2px);filter:saturate(.32)}38%{transform:translate(-2px,1px);filter:saturate(.72)}62%{transform:translate(1px,0);filter:none}}@keyframes voidshard-impact-flash{0%{opacity:0}14%{opacity:1}100%{opacity:0}}@media(prefers-reduced-motion:reduce){.voidshard-impact{animation:none}.voidshard-impact-flash{animation:none;opacity:.12}.ingredient-reaction{animation:none}}`}</style>
+    {roundOpening !== null && (
+      <div
+        className="round-opening"
+        role="status"
+        aria-live="polite"
+        onAnimationEnd={(event) => {
+          if (event.animationName === "round-opening-veil") setRoundOpening(null);
+        }}
+        style={{ "--round-opening-duration": `${prefersReducedMotion() ? 520 : presentationSpeed === "fast" ? 920 : 1650}ms`, pointerEvents: "none" } as React.CSSProperties}
+      >
+        <div className="round-opening__copy">
+          <div className="round-opening__kicker">✦ {t.game.title.replace(/✦/g, "").trim()} ✦</div>
+          <div className={`round-opening__number${roundOpening === totalRounds ? " is-final" : ""}`}>
+            {roundOpening === totalRounds
+              ? t.game.finalRound
+              : t.game.roundOpening.replace("{round}", String(roundOpening))}
+          </div>
+          <div className="round-opening__omen">{t.game.omenAwaits}</div>
+        </div>
+      </div>
+    )}
+    {brewingHandoff && (
+      <div
+        className="brewing-handoff"
+        role="status"
+        aria-live="polite"
+        style={{ "--brewing-handoff-duration": `${prefersReducedMotion() ? 420 : presentationSpeed === "fast" ? 650 : 1050}ms` } as React.CSSProperties}
+      >
+        <div className="brewing-handoff__copy">
+          <div className="brewing-handoff__title">✦ {t.game.yourBrewBegins} ✦</div>
+          <div className="brewing-handoff__hint">{t.game.brewDecision}</div>
+        </div>
+      </div>
+    )}
+    {scoringPresentation && store.state.roundSummary && (
+      <div className="scoring-presentation" role="status" aria-live="polite">
+        <RoundSummaryPanel
+          summary={store.state.roundSummary}
+          cinematic
+          afflictions={Object.fromEntries(store.state.players.map((player) => [player.id, player.affliction]))}
+        />
+      </div>
+    )}
+    {covenantInvocation && (
+      <div className={`covenant-invocation is-${covenantInvocation}`} role="status" aria-live="polite">
+        <div className="covenant-invocation__veil" />
+        <img
+          className="covenant-invocation__art"
+          src={COVENANT_ACTIVATION_ASSETS[covenantInvocation]}
+          alt=""
+          aria-hidden="true"
+        />
+        <div className="covenant-invocation__copy">
+          <span>{t.covenants.kindNames[covenantInvocation]}</span>
+          <strong>{t.covenants.names[(store.state.selectedCovenants ?? DEFAULT_COVENANTS)[covenantInvocation]]}</strong>
+          <small>{t.covenants.effects[(store.state.selectedCovenants ?? DEFAULT_COVENANTS)[covenantInvocation]]}</small>
+        </div>
+      </div>
+    )}
+    {roundClosing && (
+      <div
+        className="round-closing"
+        role="status"
+        aria-live="polite"
+        style={{ "--round-closing-duration": `${prefersReducedMotion() ? 360 : presentationSpeed === "fast" ? 620 : 1050}ms` } as React.CSSProperties}
+      >
+        <div className="round-closing__copy">
+          <div className="round-closing__title">✦ {t.roundSummary.sealed} ✦</div>
+          <div className="round-closing__subtitle">{round < totalRounds ? t.roundSummary.nextRound : t.game.gameOver}</div>
+        </div>
+      </div>
+    )}
     <video
       ref={backgroundVideoRef}
       className="game-background-video"
-      style={styles.backgroundVideo}
+      style={{
+        ...styles.backgroundVideo,
+        filter: `brightness(${1 - matchProgress * 0.06}) saturate(${1 + matchProgress * 0.1 + pressureRatio * 0.08}) contrast(${1 + pressureRatio * 0.045})`,
+      }}
       autoPlay={!prefersReducedMotion()}
       loop
       playsInline
@@ -373,6 +815,16 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
     >
       <source src={gameplayScene.video} type="video/mp4" />
     </video>
+    <div className="match-atmosphere" aria-hidden="true" />
+    {isFinalRound && <div className="final-round-sigil" aria-hidden="true" />}
+    {shatterAftermath && (
+      <div
+        className="shatter-aftermath"
+        aria-hidden="true"
+        style={{ "--shatter-duration": `${prefersReducedMotion() ? 520 : presentationSpeed === "fast" ? 1050 : 1750}ms` } as React.CSSProperties}
+      />
+    )}
+    {voidshardImpact && <div className={`voidshard-impact-flash is-${voidshardImpact}`} aria-hidden="true" />}
     <div
       className="game-stage"
       style={styles.stage}
@@ -390,9 +842,23 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
       />
       <div
         ref={gameContentRef}
+        className={voidshardImpact ? `voidshard-impact is-${voidshardImpact}` : undefined}
         style={styles.gameContent}
         aria-hidden={modalOpen ? true : undefined}
       >
+      {ingredientReaction && (
+        <div
+          key={ingredientReaction.id}
+          className="ingredient-reaction"
+          style={{ "--ingredient-accent": ingredientReaction.accent } as React.CSSProperties}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="ingredient-reaction__eyebrow">{ingredientReaction.symbol} {t.game.ingredientReaction} {ingredientReaction.symbol}</div>
+          <div className="ingredient-reaction__name">{ingredientReaction.name}</div>
+          <div className="ingredient-reaction__detail">{ingredientReaction.detail}</div>
+        </div>
+      )}
       {/* Round header */}
       <div className="game-header" style={styles.header}>
         <div className="game-title" style={styles.gameTitle}>{t.game.title}</div>
@@ -422,7 +888,7 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
               player={human}
               phase={phase}
               selection={store.state.selectedCovenants}
-              onUse={(kind) => store.humanUseCovenant(kind)}
+              onUse={handleUseCovenant}
             />
           )}
 
@@ -430,6 +896,7 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
             <BrewingControls
               canDraw={canDraw && !drawAnimating}
               canUseFlask={canUseFlask && !drawAnimating}
+              isDrawing={drawAnimating}
               onDraw={handleDraw}
               onStop={handleStop}
               onUseFlask={() => {
@@ -535,7 +1002,10 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
           )}
 
           {store.state.roundSummary && ["scoring", "green_choice", "market"].includes(phase) && (
-            <RoundSummaryPanel summary={store.state.roundSummary} />
+            <RoundSummaryPanel
+              summary={store.state.roundSummary}
+              afflictions={Object.fromEntries(store.state.players.map((player) => [player.id, player.affliction]))}
+            />
           )}
 
           {/* Ruby spend phase */}
@@ -591,9 +1061,10 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
         card={omen}
         visible={phase === "omen"}
         onDismiss={handleOmenDismiss}
+        onPropagate={handleOmenPropagate}
       />
 
-      {phase === "market" && (
+      {phase === "market" && !scoringPresentation && (
         <BlackMarket
           market={market}
           player={human}
@@ -609,6 +1080,11 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
           players={[human, ...aiPlayers]}
           winners={winners}
           onRestart={handleRestart}
+          onReturnToMenu={onReturnToMenu}
+          onOpenChronicle={onOpenChronicle}
+          session={session}
+          setup={store.state.setup}
+          difficulty={store.state.aiDifficulty}
         />
       )}
 
@@ -620,6 +1096,24 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
         onFastForward={fastForward}
         opponentName={activeAIName}
       />
+      {rewardFlights.map((flight) => (
+        <div
+          key={flight.id}
+          className={`reward-flight${flight.reduced ? " is-reduced" : ""}`}
+          aria-hidden="true"
+          style={{
+            left: flight.startX,
+            top: flight.startY,
+            "--reward-dx": `${flight.deltaX}px`,
+            "--reward-dy": `${flight.deltaY}px`,
+            "--reward-duration": `${flight.duration}ms`,
+            "--reward-accent": flight.accent,
+          } as React.CSSProperties}
+        >
+          <img src={flight.image} alt="" />
+          <span>{flight.label}</span>
+        </div>
+      ))}
       </div>
 
       {needsCovenantSetup && store.state.covenantOffer && (
@@ -683,7 +1177,6 @@ export function GameBoard({ onReturnToMenu, onRestart }: GameBoardProps) {
               </button>
             </div>
           </div>
-          <style>{`.tutorial-nav{transition:color .18s,border-color .18s,text-shadow .18s,transform .18s}.tutorial-nav:hover,.tutorial-nav:focus-visible{color:#f4d88c!important;border-color:#d4a74c!important;text-shadow:0 0 14px rgba(224,175,79,.5);transform:translateY(-2px);outline:none}`}</style>
         </div>
       )}
     </div>
@@ -750,6 +1243,8 @@ const styles: Record<string, React.CSSProperties> = {
     top: "50%",
     zIndex: 8,
     width: "min(460px, 34cqw)",
+    maxHeight: "64cqh",
+    objectFit: "contain",
     height: "auto",
     transform: "translate(-50%, -50%)",
     WebkitMaskImage: "linear-gradient(135deg, #000 0%, #000 52%, rgba(0,0,0,.92) 60%, rgba(0,0,0,.48) 72%, transparent 88%)",

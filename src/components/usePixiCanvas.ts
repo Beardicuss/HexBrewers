@@ -12,7 +12,7 @@ interface UsePixiCanvasOptions {
 interface UsePixiCanvasReturn {
   containerRef: React.RefObject<HTMLDivElement>;
   updateCrucible: (crucible: Crucible) => void;
-  animateDraw: (token: Token) => Promise<void>;
+  animateDraw: (token: Token, onImpact?: () => void, getSpeedMultiplier?: () => number) => Promise<void>;
   updateBagCount: (count: number) => void;
   playExplosion: () => Promise<void>;
   resetRound: () => void;
@@ -57,8 +57,8 @@ export function usePixiCanvas({ explosionLabel, renderScale, mirewroughtEnabled 
     canvasRef.current?.updateCrucible(crucible);
   }, []);
 
-  const animateDraw = useCallback(async (token: Token) => {
-    await canvasRef.current?.animateDraw(token);
+  const animateDraw = useCallback(async (token: Token, onImpact?: () => void, getSpeedMultiplier?: () => number) => {
+    await canvasRef.current?.animateDraw(token, onImpact, getSpeedMultiplier);
   }, []);
 
   const updateBagCount = useCallback((count: number) => {

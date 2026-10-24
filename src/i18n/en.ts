@@ -33,6 +33,7 @@ export const en: Translations = {
         title: "Forbidden Additions",
         subtitle: "Choose which chronicles may enter your next match.",
         backToMenu: "Back to Main Menu",
+        returnToReliquary: "Return to the Reliquary",
         statusEnabled: "Enabled",
         statusDisabled: "Disabled",
         enable: "Enable DLC",
@@ -113,6 +114,16 @@ export const en: Translations = {
         omenChoice: "OMEN CHOICE",
         omenStrongChoice: "OMEN INGREDIENT",
         omenRestartChoice: "SECOND CHANCE",
+        ingredientReaction: "RECIPE RESPONSE",
+        advancesSpaces: "Advances {count} spaces",
+        bonusMovement: "+{count} bonus movement",
+        rubyGained: "+{count} ruby",
+        decisionRequired: "Your decision is required",
+        roundOpening: "ROUND {round}",
+        finalRound: "THE FINAL BREW",
+        omenAwaits: "The next omen stirs beneath the veil",
+        yourBrewBegins: "YOUR BREW BEGINS",
+        brewDecision: "Draw from the bag—or seal the brew before the Void answers",
     },
 
     afflictions: {
@@ -188,6 +199,7 @@ export const en: Translations = {
 
     brewing: {
         drawToken: "✦ Draw Token",
+        accelerateDraw: "✦ Accelerate",
         stopBrewing: "✦ Stop Brewing",
         bagRemaining: "tokens remaining in bag",
         whiteSum: "Voidshard pressure",
@@ -331,6 +343,9 @@ export const en: Translations = {
         rubyExplanation: "The scoring space shows a ruby, awarded even after shattering.",
         doubleRubyExplanation: "The scoring-space ruby is doubled by this round's Omen.",
         dieExplanation: "Highest stable scoring space earned the bonus-die reward shown below.",
+        calculating: "The crucibles yield their account",
+        sealed: "ROUND SEALED",
+        nextRound: "The vessels are cleansed for the next omen",
     },
     aiOverlay: {
         brewing: "is brewing", spiral: "Spiral", voidshards: "Voidshards", shardSum: "Shard Σ", fastForward: "Fast-forward all opponents",
@@ -356,6 +371,9 @@ export const en: Translations = {
         qualityLow: "Low",
         qualityMedium: "Medium",
         qualityHigh: "High",
+        presentationSpeed: "Presentation Speed",
+        presentationNormal: "Normal",
+        presentationFast: "Fast",
         fullscreen: "Enter Fullscreen",
         exitFullscreen: "Exit Fullscreen",
         masterVolume: "Master Volume",
@@ -370,6 +388,7 @@ export const en: Translations = {
     grimoire: {
         title: "Grimoire of Ashenveil",
         tabIngredients: "◈ Ingredients",
+        tabCharacters: "✦ Veiled Concordance",
         tabRules: "✦ Rules",
         tabOmens: "✦ Omen Cards",
         footer: "✦ Hexbrewers of Ashenveil — Grimoire v1.0 ✦",

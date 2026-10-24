@@ -7,6 +7,7 @@ export interface SettingsState {
     // Video
     resolution: string;
     quality: "low" | "medium" | "high";
+    presentationSpeed: "normal" | "fast";
 
     // Audio (0–100)
     masterVolume: number;
@@ -21,6 +22,7 @@ export interface SettingsState {
     // Actions
     setResolution: (r: string) => void;
     setQuality: (q: "low" | "medium" | "high") => void;
+    setPresentationSpeed: (speed: "normal" | "fast") => void;
     setMasterVolume: (v: number) => void;
     setMusicVolume: (v: number) => void;
     setSfxVolume: (v: number) => void;
@@ -34,6 +36,7 @@ export const useSettingsStore = create<SettingsState>()(
         (set) => ({
             resolution: "1920x1080",
             quality: "high",
+            presentationSpeed: "normal",
             masterVolume: 80,
             musicVolume: 60,
             sfxVolume: 80,
@@ -43,6 +46,7 @@ export const useSettingsStore = create<SettingsState>()(
 
             setResolution: (resolution) => set({ resolution }),
             setQuality: (quality) => set({ quality }),
+            setPresentationSpeed: (presentationSpeed) => set({ presentationSpeed }),
             setMasterVolume: (masterVolume) => set({ masterVolume }),
             setMusicVolume: (musicVolume) => set({ musicVolume }),
             setSfxVolume: (sfxVolume) => set({ sfxVolume }),

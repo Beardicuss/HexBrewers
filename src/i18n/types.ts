@@ -35,6 +35,7 @@ export interface Translations {
         title: string;
         subtitle: string;
         backToMenu: string;
+        returnToReliquary: string;
         statusEnabled: string;
         statusDisabled: string;
         enable: string;
@@ -88,6 +89,16 @@ export interface Translations {
         omenChoice: string;
         omenStrongChoice: string;
         omenRestartChoice: string;
+        ingredientReaction: string;
+        advancesSpaces: string;
+        bonusMovement: string;
+        rubyGained: string;
+        decisionRequired: string;
+        roundOpening: string;
+        finalRound: string;
+        omenAwaits: string;
+        yourBrewBegins: string;
+        brewDecision: string;
     };
 
     afflictions: {
@@ -158,6 +169,7 @@ export interface Translations {
     // ── Brewing Controls ──
     brewing: {
         drawToken: string;
+        accelerateDraw: string;
         stopBrewing: string;
         bagRemaining: string;
         whiteSum: string;
@@ -267,6 +279,7 @@ export interface Translations {
         runoff: string; runoffExplanation: string;
         bothExplanation: string; choiceExplanation: string; protectedExplanation: string;
         rubyExplanation: string; doubleRubyExplanation: string; dieExplanation: string;
+        calculating: string; sealed: string; nextRound: string;
     };
 
     aiOverlay: {
@@ -290,6 +303,9 @@ export interface Translations {
         qualityLow: string;
         qualityMedium: string;
         qualityHigh: string;
+        presentationSpeed: string;
+        presentationNormal: string;
+        presentationFast: string;
         fullscreen: string;
         exitFullscreen: string;
         masterVolume: string;
@@ -305,6 +321,7 @@ export interface Translations {
     grimoire: {
         title: string;
         tabIngredients: string;
+        tabCharacters: string;
         tabRules: string;
         tabOmens: string;
         footer: string;

@@ -6,6 +6,7 @@ import type { Crucible } from "../game/crucibleTypes";
 import type { Token } from "../game/tokenTypes";
 import { MIREWROUGHT_ASSETS } from "../assets/mirewroughtAssets";
 import { CORE_ECONOMY_ASSETS, CORE_INGREDIENT_ASSETS } from "../assets/coreAssets";
+import { getSpiralPoint } from "./spiralMath";
 
 export interface GameCanvasOptions {
   container: HTMLElement;
@@ -20,6 +21,7 @@ export class GameCanvas {
   private crucibleScene: CrucibleScene;
   private bagAnimation: BagAnimation;
   private explosionOverlay: ExplosionOverlay;
+  private currentCrucible: Crucible | null = null;
 
   private constructor(app: PIXI.Application, container: HTMLElement, explosionLabel: string) {
     this.app = app;
@@ -73,7 +75,6 @@ export class GameCanvas {
 
     // --- PRELOAD ASSETS ---
     const assets = [
-      "/images/cauldron_bg.jpg",
       CORE_ECONOMY_ASSETS.brewBag,
       ...Object.values(CORE_INGREDIENT_ASSETS),
     ];
@@ -89,16 +90,22 @@ export class GameCanvas {
 
   // Sync crucible visuals to game state
   updateCrucible(crucible: Crucible): void {
+    this.currentCrucible = crucible;
     this.crucibleScene.update(crucible);
   }
 
   // Animate a token draw
-  async animateDraw(token: Token): Promise<void> {
+  async animateDraw(token: Token, onImpact?: () => void, getSpeedMultiplier?: () => number): Promise<void> {
+    const destinationPosition = Math.min(
+      (this.currentCrucible?.filledUpTo ?? 0) + token.value,
+      32,
+    );
+    const spiralPoint = getSpiralPoint(destinationPosition);
     const target = {
-      x: this.crucibleScene.x,
-      y: this.crucibleScene.y,
+      x: this.crucibleScene.x + spiralPoint.x * this.crucibleScene.scale.x,
+      y: this.crucibleScene.y + spiralPoint.y * this.crucibleScene.scale.y,
     };
-    await this.bagAnimation.animateDraw(token, target.x, target.y);
+    await this.bagAnimation.animateDraw(token, target.x, target.y, onImpact, getSpeedMultiplier);
   }
 
   // Update bag token count display

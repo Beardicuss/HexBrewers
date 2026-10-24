@@ -6,6 +6,20 @@ Preserve the clarity and strategic depth of the board-game foundation while maki
 
 > Do not add complexity until the existing mechanics feel alive.
 
+## Rules-fidelity boundary
+
+The default game remains mechanically compatible with the established board-game foundation. Presentation may reveal, clarify, animate, and celebrate an outcome, but it must never change that outcome.
+
+- Base-mode rules, bag contents, draw odds, pressure, shattering, scoring, market costs, rat-tail catch-up, and round count remain authoritative in the game-state layer.
+- Random results are selected once by the rules layer. Animation reads the prepared result; it never rerolls, substitutes, or delays computation in a way that changes play.
+- Fast presentation and reduced motion must resolve to exactly the same state as normal presentation.
+- Mechanical state becomes visible at the established impact beat, keeping audiovisual cause and result synchronized without moving authority into the renderer.
+- New ingredients, balance changes, permanent upgrades, or other outcome-changing systems belong in clearly labeled expansion or alternate modes and require dedicated balance simulation.
+- The current sequential presentation of multiplayer brewing, including round nine, remains a known digital adaptation. True simultaneous multiplayer is a future networking feature, not a presentation-layer shortcut.
+- Hexbrewers-specific Covenants, afflictions, and other expansion systems remain isolated from the faithful base rules so players can understand which ruleset they are entering.
+
+This boundary is an implementation rule, not only a design preference: game logic determines **what happened**; presentation determines **how it feels**.
+
 ## Presentation language
 
 Every meaningful action should use an appropriate combination of:
@@ -346,25 +360,47 @@ Prefer cosmetic, narrative, and strategic unlocks. Avoid permanent stat inflatio
 
 Implement bag anticipation, emergence, travel, spiral movement, impact, pressure, crucible reaction, sound, input locking, fast mode, and reduced-motion support. Do not expand the system until this interaction establishes the quality bar.
 
+**Local status:** complete. The draw is input-locked, may be accelerated, commits at impact, has a dedicated Voidshard response, and respects reduced motion.
+
 ### Milestone 2 — Complete ingredient language
 
 Apply the presentation system to every ingredient and reward.
+
+**Active scope:** give each colored ingredient a restrained, deterministic impact signature while preserving the Milestone 1 draw timing. Ingredient identity comes from motion and shape as well as color. The first audio pass uses restrained pitch and level variations of the shared placement sound through the existing SFX bus; dedicated recordings can replace these voices later without changing gameplay code.
+
+**Local status:** complete. Colored impact silhouettes, per-color shared-SFX voices, and impact-time recipe responses report movement, bonus movement, immediate ruby gain, or a required decision. The response survives reduced-motion and canvas-initialization fallback paths. Ruby and prestige rewards travel into their matching counters, successful market purchases carry the acquired ingredient into the bag, Voidshards feed the pressure meter, Omen effects propagate to affected players, and Covenant energy travels from its seal to the state it changed. Destination counters acknowledge arrival, presentation speed is respected, and reduced motion replaces travel with a brief destination reveal.
+
+**Next:** begin Milestone 3 with the round-opening sequence, then unify Omen reveal, human brewing, AI turns, scoring, summary, and the transition into the next round.
 
 ### Milestone 3 — One polished round
 
 Upgrade the round opening, Omen reveal, player turn, AI turns, scoring, summary, and transition.
 
+**Local status:** complete. Each new round receives a short localized chapter beat before the Omen reveal, with dedicated final-round treatment, fast-mode timing, reduced-motion behavior, and click shielding during the transition. The Omen hands off through a localized “your brew begins” beat rather than dropping abruptly into controls. AI turns preserve more of the gameplay scene, identify the active opponent with their portrait, spotlight the current ingredient and movement, count draws, retain detailed event history, and keep fast-forward available. Scoring now resolves through a cinematic, staggered multiplayer accounting before the market or reward decision becomes available; finishing the economy phase seals the round before handing control to the next opener or final outcome.
+
+**Next:** Milestone 4 is complete locally. Continue with Milestone 5 after reviewing the escalation pass in live gameplay.
+
 ### Milestone 4 — Full-match escalation
 
 Add round-driven scene evolution, critical pressure, shattering, and final-round treatment.
+
+**Local status:** complete. The gameplay scene now escalates continuously with round progress and the human brewer's Voidshard pressure: later rounds tighten the grade and vignette, rising pressure accelerates a restrained spectral pulse, critical pressure energizes the header, and late-game panels settle more heavily into the scene. The final round receives a distinct amber ritual field and rotating sigil without replacing the selected environment. Shattering now leaves a timed full-screen desaturated fracture afterimage, with reduced-motion fallbacks and no additional media assets.
+
+**Next:** Milestone 5 — give the DLC mechanics the same audiovisual clarity and consequence established by the core loop.
 
 ### Milestone 5 — DLC mechanics
 
 Upgrade Covenants, afflictions, and distillation through the same audiovisual framework.
 
+**Local status:** complete. Covenant use now expands from its HUD seal into a short, color-specific invocation with the selected pact's localized name and mechanical effect, while the existing Bone, Moon, and Blood sounds remain routed through the SFX bus. Distillation now resolves as a readable multiplayer sequence inside the scoring cinematic: each brewer's bound Affliction, animated eight-step retort gain, marker, and earned amount are shown before the ordinary reward accounting. Existing retort-fill, remedy-complete, and contract-binding audio remain state-change driven. Reduced-motion paths remove travel and fill animation without hiding results, and the compact persistent HUD remains available after the cinematic.
+
+**Next:** Milestone 6 — broaden replayability through presentation-safe challenges, statistics, and mode framing without altering base-mode outcomes.
+
 ### Milestone 6 — Ending and progression
 
 Build final scoring, outcome presentation, and persistent unlocks.
+
+**Local status:** complete locally. Replayability now includes a configurable Standard Ritual, deterministic Daily Omen, three seeded Named Trials, and a shared Turning Trial that rotates by ISO week; every variant is built entirely from legal base-game setup combinations. The versioned Brewer's Chronicle records placement, score margin, challenge attempts and victories, Daily and weekly participation, prestige records, recent results, and both cadence streaks. Six persistent Honors unlock equippable Chronicle titles only; they grant no power, alter no ingredient, and do not affect multiplayer fairness. The old game-over modal has been replaced by a staged final reckoning that reveals standings, personal records, completed Trials, cadence participation, and newly unsealed Honors before offering replay, Chronicle, Trials, and hall routes.
 
 ---
 

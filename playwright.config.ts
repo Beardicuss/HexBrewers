@@ -23,7 +23,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run preview -- --host 127.0.0.1 --port 4173",
+    // Browser QA needs the checked-out local assets. Production builds rewrite
+    // large media URLs to R2, which would make deterministic local tests depend
+    // on network transfer and the remote bucket. Wrangler also couples this
+    // suite to deploy metadata. A plain Vite server keeps E2E local and stable.
+    command: "node scripts/start-e2e-server.mjs",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,

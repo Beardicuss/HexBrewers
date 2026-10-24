@@ -682,7 +682,7 @@ interface GameStore {
   dismissOmen: () => void;
 
   // Brewing
-  humanDraw: () => { token: Token; exploded: boolean } | null;
+  humanDraw: (preparedTokenId?: string) => { token: Token; exploded: boolean } | null;
   humanStop: () => void;
   humanUseFlask: () => void;
   humanUseCovenant: (kind: CovenantKind) => void;
@@ -959,7 +959,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 
-  humanDraw: () => {
+  humanDraw: (preparedTokenId?: string) => {
     let result: { token: Token; exploded: boolean } | null = null;
 
     set((s) => {
@@ -969,10 +969,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (human.crucible.exploded || human.bag.tokens.length === 0) return s;
       if (!human.crucible.overflowEnabled && human.crucible.filledUpTo >= 33) return s;
 
-      const drawn = drawToken(human.bag);
+      const preparedIndex = preparedTokenId
+        ? human.bag.tokens.findIndex((token) => token.id === preparedTokenId)
+        : -1;
+      const drawn = preparedIndex >= 0
+        ? {
+            token: human.bag.tokens[preparedIndex],
+            bag: { tokens: human.bag.tokens.filter((_, index) => index !== preparedIndex) },
+          }
+        : drawToken(human.bag);
       if (!drawn) return s;
 
-      soundManager.play("token_draw");
+      // Prepared draws play the draw cue during presentation. Legacy/direct
+      // callers retain the immediate sound and rules behavior used by tests.
+      if (!preparedTokenId) soundManager.play("token_draw");
 
       const previousToken = human.crucible.lastDrawnToken;
       const enteringOverflow = human.crucible.overflowEnabled && human.crucible.filledUpTo >= 33;
@@ -1010,9 +1020,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const updatedCrucible = updatedHuman.crucible;
 
       if (drawn.token.color === "white") {
-        soundManager.play("token_place_white");
+        soundManager.play(preparedTokenId ? "voidshard_impact" : "token_place_white");
       } else {
-        soundManager.play("token_place");
+        soundManager.playIngredientImpact(drawn.token.color);
       }
 
       if (updatedCrucible.exploded) {
@@ -1154,7 +1164,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           if (kept.color === "white") {
             soundManager.play("token_place_white");
           } else {
-            soundManager.play("token_place");
+            soundManager.playIngredientImpact(kept.color);
           }
           if (newCrucible.exploded) {
             soundManager.play("explosion");

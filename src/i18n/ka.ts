@@ -33,6 +33,7 @@ export const ka: Translations = {
         title: "აკრძალული დამატებები",
         subtitle: "აირჩიეთ, რომელი ქრონიკა შევა თქვენს შემდეგ თამაშში.",
         backToMenu: "მთავარ მენიუში დაბრუნება",
+        returnToReliquary: "რელიკვარიუმში დაბრუნება",
         statusEnabled: "ჩართულია",
         statusDisabled: "გამორთულია",
         enable: "DLC-ის ჩართვა",
@@ -99,6 +100,16 @@ export const ka: Translations = {
         omenChoice: "ნიშნის არჩევანი",
         omenStrongChoice: "ნიშნის ინგრედიენტი",
         omenRestartChoice: "მეორე შანსი",
+        ingredientReaction: "რეცეპტის გამოძახილი",
+        advancesSpaces: "წინსვლა {count} უჯრით",
+        bonusMovement: "+{count} ბონუს მოძრაობა",
+        rubyGained: "+{count} ლალი",
+        decisionRequired: "საჭიროა თქვენი არჩევანი",
+        roundOpening: "რაუნდი {round}",
+        finalRound: "უკანასკნელი ხარშვა",
+        omenAwaits: "შემდეგი ნიშანი ფარდის მიღმა იღვიძებს",
+        yourBrewBegins: "თქვენი ხარშვა იწყება",
+        brewDecision: "ამოიღეთ ტომრიდან — ან მოხარშული სიცარიელის პასუხამდე დალუქეთ",
     },
 
     afflictions: {
@@ -174,6 +185,7 @@ export const ka: Translations = {
 
     brewing: {
         drawToken: "✦ ჟეტონის ამოღება",
+        accelerateDraw: "✦ აჩქარება",
         stopBrewing: "✦ ხარშვის შეწყვეტა",
         bagRemaining: "ჟეტონი დარჩა ტომარაში",
         whiteSum: "ნატეხების წნევა",
@@ -317,6 +329,9 @@ export const ka: Translations = {
         rubyExplanation: "შეფასების უჯრა ლალს აჩვენებს; იგი დამსხვრევის შემთხვევაშიც გაიცემა.",
         doubleRubyExplanation: "შეფასების უჯრის ლალი ამ რაუნდის ნიშნით გაორმაგდა.",
         dieExplanation: "უმაღლესმა სტაბილურმა პოზიციამ ქვემოთ ნაჩვენები კამათლის ჯილდო მიიღო.",
+        calculating: "ქვაბები საკუთარ ანგარიშს ავლენენ",
+        sealed: "რაუნდი დალუქულია",
+        nextRound: "ჭურჭელი შემდეგი ნიშნისთვის იწმინდება",
     },
     aiOverlay: {
         brewing: "ხარშავს", spiral: "სპირალი", voidshards: "ნატეხები", shardSum: "ჯამი", fastForward: "ყველა მეტოქის დაჩქარება",
@@ -342,6 +357,9 @@ export const ka: Translations = {
         qualityLow: "დაბალი",
         qualityMedium: "საშუალო",
         qualityHigh: "მაღალი",
+        presentationSpeed: "ანიმაციის სიჩქარე",
+        presentationNormal: "ჩვეულებრივი",
+        presentationFast: "სწრაფი",
         fullscreen: "სრულ ეკრანზე გადასვლა",
         exitFullscreen: "სრული ეკრანიდან გამოსვლა",
         masterVolume: "საერთო ხმა",
@@ -356,6 +374,7 @@ export const ka: Translations = {
     grimoire: {
         title: "ფერფლისველის გრიმუარი",
         tabIngredients: "◈ ინგრედიენტები",
+        tabCharacters: "✦ დაფარული კონკორდანსი",
         tabRules: "✦ წესები",
         tabOmens: "✦ ნიშნის ბარათები",
         footer: "✦ ჯადოქრები ფერფლისველიდან — გრიმუარი v1.0 ✦",

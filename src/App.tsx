@@ -10,7 +10,11 @@ import { normalizeContentPacks, type ContentPackId } from "./game/contentPacks";
 import { useSettingsStore } from "./store/settingsStore";
 import type { MusicSoundId } from "./SoundManager";
 import { IntroSequence } from "./components/IntroSequence";
-import { LoadingScreen, preloadGamePresentation } from "./components/LoadingScreen";
+import { LoadingScreen, preloadGamePresentation, type GameplayLoadingKind } from "./components/LoadingScreen";
+import { ChronicleScreen, type ChroniclePage } from "./components/ChronicleScreen";
+import { createChallenge, createDailyChallenge, createStandardSession, createWeeklyChallenge, type ChallengeId, type RitualMode, type RitualSession } from "./game/replayability";
+import { createSeededRandom, resetGameplayRandomSource, setGameplayRandomSource } from "./game/random";
+import { DLC_ACTIVATION_AVAILABLE } from "./config/features";
 
 const GameBoard = lazy(() => import("./components/GameBoard").then((module) => ({ default: module.GameBoard })));
 const Grimoire = lazy(() => import("./components/Grimoire").then((module) => ({ default: module.Grimoire })));
@@ -135,23 +139,49 @@ const globalStyle = `
 
 `;
 
-type Screen = "intro" | "menu" | "loading" | "game" | "grimoire" | "dlcs" | "settings";
+type Screen = "intro" | "menu" | "loading" | "game" | "grimoire" | "dlcs" | "settings" | "chronicle";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("intro");
   const [aiDifficulty, setAIDifficulty] = useState<AIDifficulty>("skilled");
   const [gameSetup, setGameSetup] = useState<GameSetup>(() => createGameSetup());
+  const [ritualSession, setRitualSession] = useState<RitualSession>(() => createStandardSession());
+  const [chroniclePage, setChroniclePage] = useState<ChroniclePage>("record");
   const [canContinue, setCanContinue] = useState(() => hasSavedGame());
+  const [loadingKind, setLoadingKind] = useState<GameplayLoadingKind>("new");
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const enabledPacks = useSettingsStore((state) => state.enabledPacks);
   const setEnabledPacks = useSettingsStore((state) => state.setEnabledPacks);
   const { ready } = useSoundManager(); // Initializes audio on first click
   const currentRound = useGameStore((store) => store.state.currentRound);
 
-  const enterGame = async (setup: GameSetup, initialise: () => void) => {
+  const releasePacks: ContentPackId[] = DLC_ACTIVATION_AVAILABLE ? enabledPacks : ["base"];
+
+  useEffect(() => {
+    if (!DLC_ACTIVATION_AVAILABLE && (enabledPacks.length !== 1 || enabledPacks[0] !== "base")) {
+      setEnabledPacks(["base"]);
+    }
+  }, [enabledPacks, setEnabledPacks]);
+
+  const enterGame = async (setup: GameSetup, initialise: () => void, kind: GameplayLoadingKind) => {
+    setLoadingKind(kind);
+    setLoadingProgress(0);
     setScreen("loading");
     initialise();
-    await Promise.all([preloadGamePresentation(setup), import("./components/GameBoard")]);
+    const minimumPresentation = new Promise((resolve) => window.setTimeout(resolve, 700));
+    await Promise.all([preloadGamePresentation(setup, setLoadingProgress), import("./components/GameBoard"), minimumPresentation]);
+    setLoadingProgress(100);
     setScreen("game");
+  };
+
+  const beginRitual = (setup: GameSetup, difficulty: AIDifficulty, session: RitualSession) => {
+    if (session.seed === undefined) resetGameplayRandomSource();
+    else setGameplayRandomSource(createSeededRandom(session.seed));
+    setRitualSession(session);
+    setAIDifficulty(difficulty);
+    setGameSetup(setup);
+    setCanContinue(true);
+    void enterGame(setup, () => useGameStore.getState().initGameWithSetup(setup, difficulty), "new");
   };
 
   useEffect(() => {
@@ -171,7 +201,7 @@ export default function App() {
       <style>{globalStyle}</style>
 
       {screen === "intro" && <IntroSequence onComplete={() => setScreen("menu")} />}
-      {screen === "loading" && <LoadingScreen />}
+      {screen === "loading" && <LoadingScreen kind={loadingKind} progress={loadingProgress} />}
 
       {screen === "menu" && (
         <MainMenu
@@ -184,18 +214,23 @@ export default function App() {
             }
             setAIDifficulty(saved.aiDifficulty);
             setGameSetup(saved.setup);
-            void enterGame(saved.setup, () => useGameStore.getState().restoreGame(saved));
+            void enterGame(saved.setup, () => useGameStore.getState().restoreGame(saved), "continue");
           }}
-          onNewGame={(setup: GameSetup, selectedDifficulty: AIDifficulty = "skilled") => {
-            setAIDifficulty(selectedDifficulty);
-            setGameSetup(setup);
-            setCanContinue(true);
-            void enterGame(setup, () => useGameStore.getState().initGameWithSetup(setup, selectedDifficulty));
+          onNewGame={(setup: GameSetup, selectedDifficulty: AIDifficulty = "skilled", mode: RitualMode = "standard") => {
+            const daily = mode === "daily" ? createDailyChallenge() : null;
+            const resolvedSetup = daily?.setup ?? setup;
+            const resolvedDifficulty = daily?.difficulty ?? selectedDifficulty;
+            const session = daily?.session ?? createStandardSession();
+            beginRitual(resolvedSetup, resolvedDifficulty, session);
+          }}
+          onChronicle={() => {
+            setChroniclePage("record");
+            setScreen("chronicle");
           }}
           onGrimoire={() => setScreen("grimoire")}
           onDlcs={() => setScreen("dlcs")}
           onSettings={() => setScreen("settings")}
-          enabledPacks={enabledPacks}
+          enabledPacks={releasePacks}
         />
       )}
 
@@ -206,12 +241,21 @@ export default function App() {
               setCanContinue(hasSavedGame());
               setScreen("menu");
             }}
-            onRestart={() => useGameStore.getState().initGameWithSetup(gameSetup, aiDifficulty)}
+            onRestart={() => {
+              if (ritualSession.seed === undefined) resetGameplayRandomSource();
+              else setGameplayRandomSource(createSeededRandom(ritualSession.seed));
+              useGameStore.getState().initGameWithSetup(gameSetup, aiDifficulty);
+            }}
+            onOpenChronicle={(page) => {
+              setChroniclePage(page);
+              setScreen("chronicle");
+            }}
+            session={ritualSession}
           />
         )}
 
         {screen === "grimoire" && (
-          <Grimoire onBack={() => setScreen("menu")} enabledPacks={enabledPacks} />
+          <Grimoire onBack={() => setScreen("menu")} enabledPacks={releasePacks} />
         )}
 
         {screen === "settings" && (
@@ -220,7 +264,8 @@ export default function App() {
 
         {screen === "dlcs" && (
           <DlcScreen
-            enabledPacks={enabledPacks}
+            enabledPacks={releasePacks}
+            activationAvailable={DLC_ACTIVATION_AVAILABLE}
             onToggle={(id: Exclude<ContentPackId, "base">) => {
               setEnabledPacks(normalizeContentPacks(
                 enabledPacks.includes(id)
@@ -231,6 +276,19 @@ export default function App() {
             onBack={() => setScreen("menu")}
           />
         )}
+
+        {screen === "chronicle" && <ChronicleScreen
+          initialPage={chroniclePage}
+          onBack={() => setScreen("menu")}
+          onStartWeekly={() => {
+            const weekly = createWeeklyChallenge();
+            beginRitual(weekly.setup, weekly.difficulty, weekly.session);
+          }}
+          onStartChallenge={(id: ChallengeId) => {
+            const challenge = createChallenge(id);
+            beginRitual(challenge.setup, challenge.difficulty, challenge.session);
+          }}
+        />}
       </Suspense>
     </>
   );

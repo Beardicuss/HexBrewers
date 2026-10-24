@@ -33,6 +33,7 @@ export const ru: Translations = {
         title: "Запретные дополнения",
         subtitle: "Выберите, какие хроники войдут в следующую партию.",
         backToMenu: "Вернуться в главное меню",
+        returnToReliquary: "Вернуться в реликварий",
         statusEnabled: "Включено",
         statusDisabled: "Выключено",
         enable: "Включить дополнение",
@@ -99,6 +100,16 @@ export const ru: Translations = {
         omenChoice: "ВЫБОР ЗНАМЕНИЯ",
         omenStrongChoice: "ИНГРЕДИЕНТ ЗНАМЕНИЯ",
         omenRestartChoice: "ВТОРОЙ ШАНС",
+        ingredientReaction: "ОТКЛИК РЕЦЕПТА",
+        advancesSpaces: "Продвижение на {count}",
+        bonusMovement: "+{count} бонусного движения",
+        rubyGained: "+{count} рубин",
+        decisionRequired: "Требуется ваше решение",
+        roundOpening: "РАУНД {round}",
+        finalRound: "ПОСЛЕДНЯЯ ВАРКА",
+        omenAwaits: "Следующее знамение шевелится за Завесой",
+        yourBrewBegins: "ВАША ВАРКА НАЧИНАЕТСЯ",
+        brewDecision: "Тяните из мешка — или запечатайте варево до ответа Пустоты",
     },
 
     afflictions: {
@@ -174,6 +185,7 @@ export const ru: Translations = {
 
     brewing: {
         drawToken: "✦ Тянуть Жетон",
+        accelerateDraw: "✦ Ускорить",
         stopBrewing: "✦ Прекратить Варку",
         bagRemaining: "жетонов осталось в мешке",
         whiteSum: "Давление Осколков",
@@ -317,6 +329,9 @@ export const ru: Translations = {
         rubyExplanation: "На клетке есть рубин; он выдаётся даже после разрушения.",
         doubleRubyExplanation: "Рубин с клетки удвоен Знамением этого раунда.",
         dieExplanation: "Лучшая стабильная позиция получила указанную ниже награду кубика.",
+        calculating: "Котлы предъявляют свой счёт",
+        sealed: "РАУНД ЗАПЕЧАТАН",
+        nextRound: "Сосуды очищаются для следующего знамения",
     },
     aiOverlay: {
         brewing: "варит зелье", spiral: "Спираль", voidshards: "Осколки", shardSum: "Сумма", fastForward: "Ускорить всех противников",
@@ -342,6 +357,9 @@ export const ru: Translations = {
         qualityLow: "Низкое",
         qualityMedium: "Среднее",
         qualityHigh: "Высокое",
+        presentationSpeed: "Скорость анимации",
+        presentationNormal: "Обычная",
+        presentationFast: "Быстрая",
         fullscreen: "Полноэкранный режим",
         exitFullscreen: "Выйти из полноэкранного режима",
         masterVolume: "Общая Громкость",
@@ -356,6 +374,7 @@ export const ru: Translations = {
     grimoire: {
         title: "Гримуар Пеплограда",
         tabIngredients: "◈ Ингредиенты",
+        tabCharacters: "✦ Сокрытый Конкорданс",
         tabRules: "✦ Правила",
         tabOmens: "✦ Карты Знамений",
         footer: "✦ Ведьмовары из Пеплограда — Гримуар v1.0 ✦",

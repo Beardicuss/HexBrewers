@@ -11,7 +11,9 @@ const limits = {
   introVideo: 24 * 1024 * 1024,
   loadingPoster: 850 * 1024,
   criticalLogo: 150 * 1024,
-  total: 128 * 1024 * 1024,
+  // The checked-out media library is the lossless local QA source. Production
+  // builds serve these files from R2 and omit them from the Worker bundle.
+  total: 132 * 1024 * 1024,
   openingSequence: 30 * 1024 * 1024,
   gamePresentation: 5 * 1024 * 1024,
   basePixiTextures: 4 * 1024 * 1024,

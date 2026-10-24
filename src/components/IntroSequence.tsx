@@ -37,7 +37,7 @@ export function IntroSequence({ onComplete }: { onComplete: () => void }) {
       soundUnlockedRef.current = true;
       setSoundUnlocked(true);
       const video = softcurseRef.current;
-      if (stage === "softcurse" && video) { video.muted = false; video.volume = 0.82; void video.play(); }
+      if (stage === "softcurse" && video) { video.muted = false; video.volume = 0.82; void video.play().catch(() => undefined); }
     };
     window.addEventListener("pointerdown", unlock, { once: true });
     window.addEventListener("keydown", unlock, { once: true });
@@ -82,13 +82,13 @@ export function IntroSequence({ onComplete }: { onComplete: () => void }) {
       video.playbackRate = 1;
       video.muted = !soundUnlockedRef.current;
       video.volume = 0.58;
-      void video.play();
+      void video.play().catch(() => undefined);
     }
     if (narration) {
       narration.currentTime = 0;
       narration.muted = !soundUnlockedRef.current;
       narration.volume = 0.92;
-      narrationTimer = window.setTimeout(() => void narration.play(), 1000);
+      narrationTimer = window.setTimeout(() => void narration.play().catch(() => undefined), 1000);
     }
     return () => window.clearTimeout(narrationTimer);
   }, [stage]);
@@ -101,7 +101,7 @@ export function IntroSequence({ onComplete }: { onComplete: () => void }) {
       choirTail.currentTime = 0;
       choirTail.muted = !soundUnlockedRef.current;
       choirTail.volume = 0.52;
-      void choirTail.play();
+      void choirTail.play().catch(() => undefined);
     }
     const started = performance.now();
     const trailerVolume = trailer?.volume ?? 0;
@@ -232,8 +232,8 @@ const styles: Record<string, React.CSSProperties> = {
   shade: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.72)),radial-gradient(circle,transparent,rgba(0,0,0,.56))" },
   posterShade: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.66)),radial-gradient(circle,transparent 30%,rgba(0,0,0,.62))" },
   soundPrompt: { position: "absolute", zIndex: 3, left: "50%", bottom: "5vh", transform: "translateX(-50%)", fontFamily: "monospace", fontSize: 10, letterSpacing: 3, color: "#9b8968", animation: "pulse 1.8s ease-in-out infinite", textShadow: "0 2px 8px #000", whiteSpace: "nowrap" },
-  loadingContent: { position: "relative", alignSelf: "end", width: "min(54vw,520px)", marginBottom: "8vh", display: "grid", gap: 12 },
-  loadingText: { margin: 0, textAlign: "center", fontFamily: "monospace", fontSize: 11, letterSpacing: 4, color: "#c6ad80", textShadow: "0 2px 8px #000" },
+  loadingContent: { position: "relative", alignSelf: "end", width: "min(72vw,680px)", marginBottom: "8vh", display: "grid", gap: 16 },
+  loadingText: { margin: 0, textAlign: "center", fontFamily: "monospace", fontSize: "clamp(16px,1.35vw,22px)", fontWeight: 700, letterSpacing: "clamp(2px,.45vw,6px)", color: "#dfc485", textShadow: "0 2px 10px #000,0 0 18px rgba(211,174,91,.28)" },
   track: { height: 2, overflow: "hidden", background: "rgba(216,189,131,.18)" },
   fill: { display: "block", height: "100%", background: "linear-gradient(90deg,#765436,#dfc17f)", boxShadow: "0 0 12px #d5af68", transition: "width .24s ease" },
   logo: { position: "relative", width: "min(64vw,640px)", height: "auto", transform: "translateY(-8vh)", filter: "drop-shadow(0 12px 34px #000) drop-shadow(0 0 26px rgba(133,65,184,.3))" },

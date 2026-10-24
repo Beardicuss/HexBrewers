@@ -14,7 +14,7 @@ const QUALITIES = ["low", "medium", "high"] as const;
 
 export function VideoSettings() {
     const t = useTranslation();
-    const { resolution, quality, setResolution, setQuality } = useSettingsStore();
+    const { resolution, quality, presentationSpeed, setResolution, setQuality, setPresentationSpeed } = useSettingsStore();
     const [fullscreen, setFullscreen] = useState(Boolean(document.fullscreenElement));
 
     useEffect(() => {
@@ -62,6 +62,22 @@ export function VideoSettings() {
                         onClick={() => setQuality(q)}
                     >
                         {qualityLabels[q]}
+                    </button>
+                ))}
+            </div>
+
+            <div style={{ height: 20 }} />
+
+            <div style={ss.sectionTitle}>{t.settings.presentationSpeed}</div>
+            <div className="quality-rail" style={styles.qualityRow}>
+                {(["normal", "fast"] as const).map((speed) => (
+                    <button
+                        key={speed}
+                        className={presentationSpeed === speed ? "is-active" : ""}
+                        style={styles.qualityBtn}
+                        onClick={() => setPresentationSpeed(speed)}
+                    >
+                        {speed === "normal" ? t.settings.presentationNormal : t.settings.presentationFast}
                     </button>
                 ))}
             </div>

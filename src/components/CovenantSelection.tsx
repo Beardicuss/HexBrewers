@@ -71,7 +71,7 @@ const styles: Record<string, CSSProperties> = {
   card: { position: "relative", overflow: "hidden", minHeight: 176, padding: 10, display: "grid", gridTemplateColumns: "112px minmax(0,1fr)", alignItems: "stretch", gap: 15, textAlign: "left", border: "1px solid rgba(91,119,119,.45)", borderRadius: 8, background: "linear-gradient(135deg,rgba(10,19,22,.92),rgba(5,5,12,.98))", color: "#b8c7c4", cursor: "pointer" },
   cardArt: { width: 112, height: 150, alignSelf: "center", objectFit: "contain", objectPosition: "center", borderRadius: 6, background: "rgba(1,4,7,.72)", boxShadow: "0 0 14px rgba(0,0,0,.5)" },
   cardCopy: { minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 11 },
-  selected: { borderColor: "#e8b84d", background: "rgba(79,55,15,.34)", boxShadow: "0 0 18px rgba(232,184,77,.15)" },
+  selected: { border: "1px solid #e8b84d", background: "rgba(79,55,15,.34)", boxShadow: "0 0 18px rgba(232,184,77,.15)" },
   name: { color: "#f0dfc1", fontFamily: "Georgia,serif", fontSize: 21, lineHeight: 1.2 },
   effect: { color: "#c9ded9", fontFamily: "monospace", fontSize: 15, lineHeight: 1.55 },
   confirm: { display: "block", margin: "26px auto 0", padding: "14px 38px", border: "1px solid #e8b84d", borderRadius: 7, background: "rgba(80,54,13,.34)", color: "#f2d783", fontFamily: "Georgia,serif", fontSize: 18, cursor: "pointer" },

@@ -5,14 +5,16 @@ import type { AIDifficulty } from "../game/aiStrategy";
 import type { ContentPackId, GameSetup } from "../game/contentPacks";
 import { createGameSetup } from "../game/contentPacks";
 import { MenuRoomBackground } from "./MenuRoomBackground";
+import { createDailyChallenge, type RitualMode } from "../game/replayability";
 
 interface MainMenuProps {
-    onNewGame: (setup: GameSetup, aiDifficulty?: AIDifficulty) => void;
+    onNewGame: (setup: GameSetup, aiDifficulty?: AIDifficulty, mode?: RitualMode) => void;
     onContinue: () => void;
     canContinue: boolean;
     onGrimoire: () => void;
     onDlcs: () => void;
     onSettings: () => void;
+    onChronicle: () => void;
     enabledPacks: ContentPackId[];
 }
 
@@ -64,7 +66,7 @@ const CONFIG_CONTROL_TUNING: ConfigTuningMap = {
 type OrbTuning = { x: number; y: number; scale: number };
 const ORB_TUNING: OrbTuning = { x: 3.3, y: -23.2, scale: 1.2 };
 
-export function MainMenu({ onNewGame, onContinue, canContinue, onGrimoire, onDlcs, onSettings, enabledPacks }: MainMenuProps) {
+export function MainMenu({ onNewGame, onContinue, canContinue, onGrimoire, onDlcs, onSettings, onChronicle, enabledPacks }: MainMenuProps) {
     const t = useTranslation();
     const [view, setView] = React.useState<"main" | "setup">("main");
     const [recipeMode, setRecipeMode] = React.useState<RecipeMode>(1);
@@ -72,6 +74,8 @@ export function MainMenu({ onNewGame, onContinue, canContinue, onGrimoire, onDlc
     const [aiDifficulty, setAIDifficulty] = React.useState<AIDifficulty>("skilled");
     const [echoRecipe, setEchoRecipe] = React.useState<EchoRecipe>("retort_resonance");
     const [recipeOpen, setRecipeOpen] = React.useState(false);
+    const [ritualMode, setRitualMode] = React.useState<RitualMode>("standard");
+    const daily = React.useMemo(() => createDailyChallenge(), []);
     const mireEnabled = enabledPacks.includes("covenants_of_the_mire");
     const veilglassEnabled = enabledPacks.includes("distillers_of_the_veil");
     const recipeModes = [1, 2, 3, 4, ...(mireEnabled ? [5, 6] : []), "random"] as RecipeMode[];
@@ -109,6 +113,7 @@ export function MainMenu({ onNewGame, onContinue, canContinue, onGrimoire, onDlc
                 <nav className="main-menu-nav main-menu-primary" style={s.nav} aria-label="Main menu">
                     <MenuButton label={t.menu.continueGame} icon="continue" onClick={onContinue} accent="#76d7c4" disabled={!canContinue} />
                     <MenuButton label={t.menu.newGame} icon="new-game" onClick={() => setView("setup")} accent="#e8b84d" />
+                    <MenuButton label="Brewer’s Chronicle" icon="chronicle" onClick={onChronicle} accent="#76d7c4" />
                     <MenuButton label={t.menu.grimoire} icon="grimoire" onClick={onGrimoire} accent="#e8b84d" />
                     <MenuButton label={t.menu.dlcs} icon="dlcs" onClick={onDlcs} accent="#76d7c4" />
                     <MenuButton label={t.menu.settings} icon="settings" onClick={onSettings} accent="#e8b84d" />
@@ -147,6 +152,15 @@ export function MainMenu({ onNewGame, onContinue, canContinue, onGrimoire, onDlc
                             {veilglassEnabled && <span><b>Echo</b>{echoRecipe === "retort_resonance" ? t.menu.retortResonance : t.menu.deepResonance}</span>}
                         </aside>
                         <button type="button" className="ritual-back ashen-route-button" onClick={() => setView("main")} style={s.ritualBack}>← Main Menu</button>
+
+                        <div className="ritual-mode-strip" role="group" aria-label="Ritual mode">
+                            <button className={ritualMode === "standard" ? "is-active" : ""} onClick={() => setRitualMode("standard")}>
+                                <b>Standard Ritual</b><small>Your chosen instruments</small>
+                            </button>
+                            <button className={ritualMode === "daily" ? "is-active" : ""} onClick={() => setRitualMode("daily")}>
+                                <b>The Daily Omen</b><small>{daily.session.dateKey} · Set {daily.setup.recipeMode} · Skilled</small>
+                            </button>
+                        </div>
 
                         {veilglassEnabled && (
                             <fieldset className="ritual-group ritual-echo" style={{ ...s.ritualGroup, ...s.ritualEcho }}>
@@ -226,8 +240,8 @@ export function MainMenu({ onNewGame, onContinue, canContinue, onGrimoire, onDlc
                             </div>}
                         </div>
 
-                        <button type="button" autoFocus className="ritual-begin" onClick={() => onNewGame(createGameSetup({ recipeMode, totalPlayers, enabledPacks, echoRecipe }), aiDifficulty)} style={s.ritualBegin}>
-                            <strong>Begin Brewing</strong><small>Seal this configuration</small>
+                        <button type="button" autoFocus className="ritual-begin" onClick={() => onNewGame(createGameSetup({ recipeMode, totalPlayers, enabledPacks, echoRecipe }), aiDifficulty, ritualMode)} style={s.ritualBegin}>
+                            <strong>{ritualMode === "daily" ? "Answer the Omen" : "Begin Brewing"}</strong><small>{ritualMode === "daily" ? "One shared ritual · base rules unchanged" : "Seal this configuration"}</small>
                         </button>
                     </div>
                 </section>
@@ -235,7 +249,7 @@ export function MainMenu({ onNewGame, onContinue, canContinue, onGrimoire, onDlc
 
                 {/* Footer */}
                 {view === "main" && <div className="main-menu-footer" style={s.footer}>
-                    <img src="/images/ui/softcurse-mark.webp" alt="" aria-hidden="true" style={s.studioMark} />
+                    <span className="studio-mark-aura"><img src="/images/ui/softcurse-mark.webp" alt="Softcurse Systems" style={s.studioMark} /></span>
                     <span style={s.footerText}>© Softcurse Systems</span>
                 </div>}
             </div>
@@ -400,7 +414,7 @@ function MenuButton({
     disabled = false,
 }: {
     label: string;
-    icon: "continue" | "new-game" | "grimoire" | "dlcs" | "settings";
+    icon: "continue" | "new-game" | "grimoire" | "dlcs" | "settings" | "chronicle";
     onClick: () => void;
     accent: string;
     disabled?: boolean;
@@ -415,19 +429,21 @@ function MenuButton({
             aria-disabled={disabled}
             onMouseEnter={(e) => {
                 if (disabled) return;
-                (e.currentTarget as HTMLButtonElement).style.borderColor = accent + "88";
                 (e.currentTarget as HTMLButtonElement).style.color = accent;
-                (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 0 24px ${accent}15`;
+                (e.currentTarget as HTMLButtonElement).style.background = `linear-gradient(90deg, ${accent}18, ${accent}08 62%, transparent)`;
+                (e.currentTarget as HTMLButtonElement).style.textShadow = `0 0 14px ${accent}70`;
+                (e.currentTarget as HTMLButtonElement).style.filter = "brightness(1.16)";
             }}
             onMouseLeave={(e) => {
                 if (disabled) return;
-                (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent";
                 (e.currentTarget as HTMLButtonElement).style.color = "#c9a86c"; // C.amber
-                (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                (e.currentTarget as HTMLButtonElement).style.textShadow = "none";
+                (e.currentTarget as HTMLButtonElement).style.filter = "none";
             }}
         >
             <span style={s.menuFlourish} aria-hidden="true" />
-            <img src={`/images/ui/menu/menu-icon-${icon}.webp`} alt="" style={{ ...s.menuIcon, filter: `drop-shadow(0 0 8px ${accent}66)` }} aria-hidden="true" />
+            <img src={`/images/ui/menu/menu-icon-${icon === "chronicle" ? "continue" : icon}.webp`} alt="" style={{ ...s.menuIcon, filter: `brightness(1.22) saturate(1.12) drop-shadow(0 0 5px ${accent}88) drop-shadow(0 0 12px ${accent}35)` }} aria-hidden="true" />
             <span style={s.menuLabel}>{label}</span>
         </button>
     );
@@ -522,11 +538,8 @@ const s: Record<string, React.CSSProperties> = {
         display: "flex",
         alignItems: "center",
         gap: 16,
-        background: "linear-gradient(90deg,rgba(2,7,10,.68),rgba(3,8,12,.25) 72%,transparent)",
-        borderWidth: 1,
-        borderStyle: "solid",
-        borderColor: "transparent",
-        borderRadius: 4,
+        background: "transparent",
+        border: 0,
         padding: "10px 24px 10px 14px",
         color: "#c9a86c", // Match settings text color
         fontFamily: "Georgia, 'Times New Roman', serif",
@@ -534,7 +547,7 @@ const s: Record<string, React.CSSProperties> = {
         letterSpacing: 2,
         cursor: "pointer",
         textAlign: "left",
-        transition: "border-color 0.25s, color 0.25s, box-shadow 0.25s",
+        transition: "color 0.25s, background 0.25s, text-shadow 0.25s, filter 0.25s",
         width: "100%",
         maxWidth: 400,
     },
@@ -551,7 +564,7 @@ const s: Record<string, React.CSSProperties> = {
         width: 44,
         height: 44,
         objectFit: "contain",
-        opacity: 0.92,
+        opacity: 1,
         flexShrink: 0,
     },
     menuLabel: {
@@ -564,19 +577,19 @@ const s: Record<string, React.CSSProperties> = {
         paddingTop: 18,
         display: "flex",
         alignItems: "center",
-        gap: 8,
+        gap: 11,
     },
     studioMark: {
-        width: 28,
-        height: 28,
+        width: 38,
+        height: 38,
         objectFit: "contain",
-        opacity: 0.58,
-        filter: "grayscale(1) sepia(.5) brightness(.88)",
+        opacity: 0.96,
+        filter: "sepia(.18) brightness(1.18) contrast(1.08) drop-shadow(0 0 7px rgba(103,210,204,.52))",
     },
     footerText: {
         fontFamily: "monospace",
-        fontSize: 12,
-        color: "#8a7656", // Bronze
+        fontSize: 13,
+        color: "#b99b61", // Bronze
         letterSpacing: 2,
     },
     ritualOverlay: {
@@ -954,6 +967,19 @@ const s: Record<string, React.CSSProperties> = {
 };
 
 const menuAtmosphereCss = `
+  .studio-mark-aura { position:relative;display:grid;place-items:center;width:46px;height:46px;border:1px solid rgba(207,171,91,.3);border-radius:50%;background:radial-gradient(circle,rgba(72,184,181,.2),rgba(18,52,58,.08) 48%,transparent 72%);box-shadow:0 0 16px rgba(74,190,191,.18),inset 0 0 11px rgba(220,179,91,.1); }
+  .studio-mark-aura::after { content:"";position:absolute;inset:-5px;border:1px solid rgba(92,198,196,.12);border-radius:50%; }
+  .ritual-mode-strip {
+    position:absolute; left:50%; top:2.2%; z-index:15; transform:translateX(-50%);
+    display:flex; gap:7px; padding:6px; border:1px solid rgba(72,157,162,.34); background:rgba(1,9,13,.86); backdrop-filter:blur(10px);
+    box-shadow:0 12px 32px rgba(0,0,0,.42),inset 0 0 22px rgba(60,158,164,.05);
+  }
+  .ritual-mode-strip button { min-width:clamp(190px,13vw,270px); padding:11px 18px 10px; border:1px solid transparent; background:transparent; color:#918570; cursor:pointer; }
+  .ritual-mode-strip b,.ritual-mode-strip small { display:block; }
+  .ritual-mode-strip b { font:clamp(16px,1.05vw,21px)/1.1 Georgia,serif; font-weight:400; letter-spacing:.7px; }
+  .ritual-mode-strip small { margin-top:5px; font:clamp(9px,.56vw,12px)/1.25 monospace; letter-spacing:.8px; }
+  .ritual-mode-strip button.is-active { border-color:rgba(211,174,92,.62); color:#ecd08b; background:linear-gradient(90deg,rgba(26,105,111,.16),rgba(96,55,23,.15)); box-shadow:inset 0 0 20px rgba(75,177,182,.11),0 0 14px rgba(211,174,92,.08); }
+  @media(max-width:720px){.ritual-mode-strip{top:1%;gap:3px;padding:4px}.ritual-mode-strip button{min-width:42vw;padding:8px 5px}.ritual-mode-strip b{font-size:14px}.ritual-mode-strip small{font-size:8px;letter-spacing:.3px}}
   @keyframes menuBackdropIn {
     from { opacity: 0; }
     to { opacity: 1; }
