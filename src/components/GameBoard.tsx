@@ -146,7 +146,6 @@ export function GameBoard({ onReturnToMenu, onRestart, onOpenChronicle, session 
   const brewingHandoffTimer = useRef<number | null>(null);
   const [scoringPresentation, setScoringPresentation] = useState(false);
   const presentedSummaryRound = useRef(0);
-  const scoringPresentationTimer = useRef<number | null>(null);
   const [roundClosing, setRoundClosing] = useState(false);
   const [shatterAftermath, setShatterAftermath] = useState(false);
   const shatterAftermathTimer = useRef<number | null>(null);
@@ -269,17 +268,7 @@ export function GameBoard({ onReturnToMenu, onRestart, onOpenChronicle, session 
     if (!summaryRound || presentedSummaryRound.current === summaryRound) return;
     presentedSummaryRound.current = summaryRound;
     setScoringPresentation(true);
-    if (scoringPresentationTimer.current !== null) window.clearTimeout(scoringPresentationTimer.current);
-    const duration = prefersReducedMotion() ? 700 : presentationSpeed === "fast" ? 1250 : 2350;
-    scoringPresentationTimer.current = window.setTimeout(() => {
-      setScoringPresentation(false);
-      scoringPresentationTimer.current = null;
-    }, duration);
-  }, [presentationSpeed, store.state.roundSummary]);
-
-  useEffect(() => () => {
-    if (scoringPresentationTimer.current !== null) window.clearTimeout(scoringPresentationTimer.current);
-  }, []);
+  }, [store.state.roundSummary]);
 
   useEffect(() => {
     const previous = previousRewards.current;
@@ -762,11 +751,12 @@ export function GameBoard({ onReturnToMenu, onRestart, onOpenChronicle, session 
       </div>
     )}
     {scoringPresentation && store.state.roundSummary && (
-      <div className="scoring-presentation" role="status" aria-live="polite">
+      <div className="scoring-presentation" role="dialog" aria-modal="true" aria-label={t.roundSummary.title.replace("{round}", String(store.state.roundSummary.round))}>
         <RoundSummaryPanel
           summary={store.state.roundSummary}
           cinematic
           afflictions={Object.fromEntries(store.state.players.map((player) => [player.id, player.affliction]))}
+          onContinue={() => setScoringPresentation(false)}
         />
       </div>
     )}

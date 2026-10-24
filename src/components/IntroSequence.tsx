@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { soundManager } from "../SoundManager";
 
-type IntroStage = "softcurse" | "loading" | "trailerPrelude" | "trailer" | "trailerFade" | "darkNarration" | "postNarrationBlack" | "posterReveal" | "posterHold" | "poster";
+type IntroStage = "entry" | "softcurseReveal" | "softcurse" | "loading" | "trailerPrelude" | "trailer" | "trailerFade" | "darkNarration" | "postNarrationBlack" | "posterReveal" | "posterHold" | "poster";
+const ENTRY_ART = "/images/loading/entry-ashenveil-portal.webp";
+const INITIAL_LOADING_ART = "/images/loading/loading-ashen-bell.webp";
+const SOFTCURSE_VIDEO = "/videos/intro/softcurse-systems.mp4";
 const OPENING_ASSETS = [
   "/videos/intro/ashenveil-trailer-original.webm", "/audio/intro/ashenveil-trailer-narration.mp3?v=2",
   "/audio/intro/ashenveil-trailer-choir-tail.ogg?v=2", "/music/music-ashenveil-theme.ogg",
@@ -16,8 +19,10 @@ const OPENING_ASSETS = [
 ];
 
 export function IntroSequence({ onComplete }: { onComplete: () => void }) {
-  const [stage, setStage] = useState<IntroStage>("softcurse");
+  const [stage, setStage] = useState<IntroStage>("entry");
   const [progress, setProgress] = useState(0);
+  const [entryReady, setEntryReady] = useState(false);
+  const [entryDeparting, setEntryDeparting] = useState(false);
   const [soundUnlocked, setSoundUnlocked] = useState(false);
   const soundUnlockedRef = useRef(false);
   const softcurseRef = useRef<HTMLVideoElement>(null);
@@ -34,17 +39,58 @@ export function IntroSequence({ onComplete }: { onComplete: () => void }) {
   }, [stage, onComplete]);
 
   useEffect(() => {
-    if (stage === "poster" || soundUnlocked) return;
-    const unlock = () => {
-      soundUnlockedRef.current = true;
-      setSoundUnlocked(true);
-      const video = softcurseRef.current;
-      if (stage === "softcurse" && video) { video.muted = false; video.volume = 0.82; void video.play().catch(() => undefined); }
+    if (stage !== "entry") return;
+    let cancelled = false;
+    const image = new Image();
+    image.src = ENTRY_ART;
+    const imageReady = image.decode();
+    const video = softcurseRef.current;
+    const videoReady = !video || video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA
+      ? Promise.resolve()
+      : new Promise<void>((resolve, reject) => {
+        video.addEventListener("canplaythrough", () => resolve(), { once: true });
+        video.addEventListener("error", () => reject(new Error("Unable to prepare the Softcurse ident.")), { once: true });
+      });
+    void Promise.all([imageReady, videoReady])
+      .catch(() => undefined)
+      .finally(() => { if (!cancelled) setEntryReady(true); });
+    return () => { cancelled = true; };
+  }, [stage]);
+
+  useEffect(() => {
+    if (stage !== "softcurseReveal") return;
+    const preload = new Image();
+    preload.src = INITIAL_LOADING_ART;
+    void preload.decode().catch(() => undefined);
+    const video = softcurseRef.current;
+    let frame = 0;
+    const started = performance.now();
+    if (video) {
+      video.currentTime = 0;
+      video.muted = false;
+      video.volume = 0;
+      void video.play().catch(() => undefined);
+      const fadeAudio = (now: number) => {
+        video.volume = Math.min(0.82, 0.82 * ((now - started) / 900));
+        if (now - started < 900) frame = requestAnimationFrame(fadeAudio);
+      };
+      frame = requestAnimationFrame(fadeAudio);
+    }
+    const revealTimer = window.setTimeout(() => {
+      if (video) video.volume = 0.82;
+      setStage("softcurse");
+    }, 900);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(revealTimer);
     };
-    window.addEventListener("pointerdown", unlock, { once: true });
-    window.addEventListener("keydown", unlock, { once: true });
-    return () => { window.removeEventListener("pointerdown", unlock); window.removeEventListener("keydown", unlock); };
-  }, [stage, soundUnlocked]);
+  }, [stage]);
+
+  useEffect(() => {
+    if (!entryDeparting) return;
+    const timer = window.setTimeout(() => setStage("softcurseReveal"), 4000);
+    return () => window.clearTimeout(timer);
+  }, [entryDeparting]);
 
   useEffect(() => {
     if (stage !== "loading") return;
@@ -164,17 +210,58 @@ export function IntroSequence({ onComplete }: { onComplete: () => void }) {
     setStage("poster");
   };
 
+  const enterAshenveil = () => {
+    if (!entryReady || entryDeparting) return;
+    soundUnlockedRef.current = true;
+    setSoundUnlocked(true);
+    void soundManager.init();
+    setEntryDeparting(true);
+    const video = softcurseRef.current;
+    if (video) {
+      video.currentTime = 0;
+      video.muted = false;
+      video.volume = 0;
+      void video.play().then(() => video.pause()).catch(() => undefined);
+    }
+  };
+
   return (
     <main style={styles.root} aria-label="Hexbrewers of Ashenveil opening sequence">
       <style>{`
+        @keyframes entry-breathe {
+          0%, 100% { box-shadow: 0 0 20px rgba(78,198,203,.12), inset 0 0 18px rgba(78,198,203,.06); }
+          50% { box-shadow: 0 0 42px rgba(78,198,203,.28), inset 0 0 26px rgba(78,198,203,.1); }
+        }
+        @keyframes entry-camera-rush {
+          0% { transform: translate3d(0,0,0) scale(1); }
+          40% { transform: translate3d(0,0,0) scale(1.6); }
+          100% { transform: translate3d(0,0,0) scale(6); }
+        }
+        @keyframes entry-through-veil {
+          0%, 35% { opacity: 0; }
+          100% { opacity: 1; }
+        }
+        @keyframes entry-color-journey {
+          0% { background-color: #087987; }
+          20% { background-color: #1799a4; }
+          40% { background-color: #36b4bc; }
+          60% { background-color: #6dced0; }
+          78% { background-color: #a9e5e2; }
+          90% { background-color: #d7f3ef; }
+          100% { background-color: #ffffff; }
+        }
+        @keyframes entry-release {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
         @keyframes poster-reveal {
           0% { opacity: 0; filter: brightness(.35) blur(7px); transform: scale(1.018); }
           55% { opacity: 1; filter: brightness(.82) blur(1px); }
           100% { opacity: 1; filter: brightness(1) blur(0); transform: scale(1); }
         }
       `}</style>
-      <video ref={softcurseRef} src="/videos/intro/softcurse-systems.mp4" autoPlay muted={!soundUnlocked} playsInline preload="auto"
-        onEnded={() => setStage("loading")} style={{ ...styles.video, opacity: stage === "softcurse" ? 1 : 0 }} />
+      <video ref={softcurseRef} src={SOFTCURSE_VIDEO} muted={!soundUnlocked} playsInline preload="auto"
+        onEnded={() => setStage("loading")} style={{ ...styles.video, opacity: stage === "softcurseReveal" || stage === "softcurse" ? 1 : 0 }} />
       <video ref={trailerRef} src="/videos/intro/ashenveil-trailer-original.webm" playsInline preload="auto"
         onTimeUpdate={(event) => {
           const video = event.currentTarget;
@@ -191,8 +278,30 @@ export function IntroSequence({ onComplete }: { onComplete: () => void }) {
         }} />
       <audio ref={narrationRef} src="/audio/intro/ashenveil-trailer-narration.mp3?v=2" crossOrigin="anonymous" preload="auto" onEnded={() => setStage("postNarrationBlack")} />
       <audio ref={choirTailRef} src="/audio/intro/ashenveil-trailer-choir-tail.ogg?v=2" crossOrigin="anonymous" preload="auto" />
+      {(stage === "entry" || stage === "softcurseReveal") && (
+        <div className={stage === "softcurseReveal" ? "entry-screen is-revealing" : "entry-screen"} style={styles.artScreen}>
+          <div className={entryDeparting ? "entry-rush is-departing" : "entry-rush"} style={styles.entryRush}>
+            <img src={ENTRY_ART} alt="" aria-hidden="true" draggable={false} style={styles.entryImage} />
+            <div style={styles.entryShade} />
+            <div style={styles.entryContent}>
+              <p style={styles.entryLine}>Ashenveil waits in silence.</p>
+              <button type="button" style={styles.entryButton} onClick={enterAshenveil} disabled={!entryReady || entryDeparting}>
+                {entryReady ? "ENTER ASHENVEIL" : "PREPARING ASHENVEIL…"}
+              </button>
+            </div>
+          </div>
+          <div className={entryDeparting ? "entry-veil is-departing" : "entry-veil"} style={styles.entryVeil} />
+          <style>{`
+            .entry-rush.is-departing{pointer-events:none;animation:entry-camera-rush 1400ms cubic-bezier(.4,0,1,1) forwards}
+            .entry-veil.is-departing{animation:entry-through-veil 1400ms ease-in forwards,entry-color-journey 1600ms linear 1400ms forwards}
+            .entry-screen.is-revealing{pointer-events:none;animation:entry-release 900ms cubic-bezier(.22,.61,.36,1) forwards}
+            @media(max-width:768px){@keyframes entry-camera-rush{0%{transform:translate3d(0,0,0) scale(1)}40%{transform:translate3d(0,0,0) scale(1.3)}100%{transform:translate3d(0,0,0) scale(3)}}}
+            @media(prefers-reduced-motion:reduce){.entry-rush.is-departing{animation:none}.entry-veil.is-departing{animation:entry-through-veil .5s ease-in forwards,entry-color-journey 1600ms linear 1400ms forwards}}
+          `}</style>
+        </div>
+      )}
       {stage === "loading" && (
-        <div style={{ ...styles.artScreen, backgroundImage: "url('/images/loading/loading-initial.webp')" }}>
+        <div style={{ ...styles.artScreen, backgroundImage: `url('${INITIAL_LOADING_ART}')` }}>
           <div style={styles.shade} /><div style={styles.loadingContent}>
             <p style={styles.loadingText}>OPENING THE WAY TO ASHENVEIL</p>
             <div style={styles.track}><span style={{ ...styles.fill, width: `${progress}%` }} /></div>
@@ -205,7 +314,6 @@ export function IntroSequence({ onComplete }: { onComplete: () => void }) {
           {stage === "poster" && <p style={styles.continue}>PRESS ANY KEY TO CONTINUE</p>}
         </div>
       )}
-      {stage === "softcurse" && !soundUnlocked && <div style={styles.soundPrompt}>CLICK OR PRESS A KEY FOR SOUND</div>}
       {(stage === "softcurse" || stage === "trailerPrelude" || stage === "trailer") && <button type="button" className="cinematic-skip" onClick={skip} style={styles.skip}>Skip</button>}
     </main>
   );
@@ -232,10 +340,16 @@ const styles: Record<string, React.CSSProperties> = {
   root: { position: "fixed", inset: 0, zIndex: 1000, overflow: "hidden", background: "#000", color: "#d8bd83" },
   video: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", background: "#000", transition: "opacity .45s ease" },
   artScreen: { position: "absolute", inset: 0, display: "grid", placeItems: "center", backgroundPosition: "center", backgroundSize: "cover" },
+  entryRush: { position: "absolute", inset: 0, overflow: "hidden", display: "grid", placeItems: "center", transformOrigin: "50% 47%", willChange: "transform", backfaceVisibility: "hidden", contain: "strict" },
+  entryImage: { position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", objectFit: "cover", userSelect: "none", pointerEvents: "none" },
+  entryShade: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(0,5,8,.2),rgba(0,4,7,.68)),radial-gradient(circle at 50% 45%,transparent 16%,rgba(0,0,0,.62) 78%)" },
+  entryVeil: { position: "absolute", inset: 0, zIndex: 5, opacity: 0, background: "#087987", pointerEvents: "none", willChange: "opacity" },
+  entryContent: { position: "relative", alignSelf: "end", width: "min(88vw,640px)", marginBottom: "clamp(54px,9vh,112px)", display: "grid", justifyItems: "center", gap: 22, textAlign: "center" },
+  entryLine: { margin: 0, color: "#dfd2b5", font: "italic clamp(18px,1.55vw,25px)/1.45 Georgia,serif", letterSpacing: ".04em", textShadow: "0 3px 14px #000,0 0 22px rgba(63,185,193,.18)" },
+  entryButton: { minWidth: "min(78vw,340px)", minHeight: 56, padding: "15px 30px", border: "1px solid rgba(102,211,216,.72)", borderRadius: 3, background: "linear-gradient(180deg,rgba(6,27,32,.88),rgba(2,12,17,.94))", color: "#ead29a", font: "700 clamp(14px,1.1vw,17px)/1.2 Georgia,serif", letterSpacing: ".17em", cursor: "pointer", textShadow: "0 2px 8px #000", animation: "entry-breathe 2.4s ease-in-out infinite" },
   posterReveal: { animation: "poster-reveal 2.5s cubic-bezier(.22,.61,.36,1) both" },
   shade: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.72)),radial-gradient(circle,transparent,rgba(0,0,0,.56))" },
   posterShade: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.66)),radial-gradient(circle,transparent 30%,rgba(0,0,0,.62))" },
-  soundPrompt: { position: "absolute", zIndex: 3, left: "50%", bottom: "5vh", transform: "translateX(-50%)", fontFamily: "monospace", fontSize: 10, letterSpacing: 3, color: "#9b8968", animation: "pulse 1.8s ease-in-out infinite", textShadow: "0 2px 8px #000", whiteSpace: "nowrap" },
   loadingContent: { position: "relative", alignSelf: "end", width: "min(72vw,680px)", marginBottom: "8vh", display: "grid", gap: 16 },
   loadingText: { margin: 0, textAlign: "center", fontFamily: "monospace", fontSize: "clamp(16px,1.35vw,22px)", fontWeight: 700, letterSpacing: "clamp(2px,.45vw,6px)", color: "#dfc485", textShadow: "0 2px 10px #000,0 0 18px rgba(211,174,91,.28)" },
   track: { height: 2, overflow: "hidden", background: "rgba(216,189,131,.18)" },

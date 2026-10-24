@@ -332,6 +332,7 @@ export const ka: Translations = {
         calculating: "ქვაბები საკუთარ ანგარიშს ავლენენ",
         sealed: "რაუნდი დალუქულია",
         nextRound: "ჭურჭელი შემდეგი ნიშნისთვის იწმინდება",
+        continueRitual: "რიტუალის გაგრძელება",
     },
     aiOverlay: {
         brewing: "ხარშავს", spiral: "სპირალი", voidshards: "ნატეხები", shardSum: "ჯამი", fastForward: "ყველა მეტოქის დაჩქარება",

@@ -346,6 +346,7 @@ export const en: Translations = {
         calculating: "The crucibles yield their account",
         sealed: "ROUND SEALED",
         nextRound: "The vessels are cleansed for the next omen",
+        continueRitual: "Continue the Ritual",
     },
     aiOverlay: {
         brewing: "is brewing", spiral: "Spiral", voidshards: "Voidshards", shardSum: "Shard Σ", fastForward: "Fast-forward all opponents",

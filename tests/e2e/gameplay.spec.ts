@@ -3,6 +3,9 @@ import { expect, test, type Page } from "@playwright/test";
 const SETTINGS_KEY = "hexbrewers-settings";
 
 async function dismissOpening(page: Page) {
+  const enter = page.getByRole("button", { name: "ENTER ASHENVEIL" });
+  await expect(enter).toBeEnabled({ timeout: 15_000 });
+  await enter.click();
   const skip = page.getByRole("button", { name: /Skip/i });
   const loading = page.getByText("OPENING THE WAY TO ASHENVEIL", { exact: true });
   await expect(skip.or(loading)).toBeVisible({ timeout: 15_000 });
@@ -73,9 +76,10 @@ async function finishAiTurn(page: Page) {
   const fastForward = page.getByRole("button", { name: "Fast-forward all opponents" });
   const market = page.getByText("✦ Black Market ✦", { exact: true });
   const omenChoice = page.getByRole("group", { name: "The omen offers a choice." });
+  const roundSummary = page.getByRole("button", { name: /Continue the Ritual/ });
   for (let decision = 0; decision < 24; decision += 1) {
-    await expect(fastForward.or(market).or(omenChoice)).toBeVisible();
-    if (await market.isVisible()) return;
+    await expect(fastForward.or(market).or(omenChoice).or(roundSummary)).toBeVisible();
+    if (await market.isVisible() || await roundSummary.isVisible()) return;
     if (await fastForward.isVisible()) {
       try {
         await fastForward.click({ timeout: 2_000 });
@@ -134,6 +138,10 @@ async function completeNineRounds(page: Page) {
     await stopBrewing.click();
     await resolvePostBrewChoiceIfOffered(page);
     await finishAiTurn(page);
+    const continueRitual = page.getByRole("button", { name: /Continue the Ritual/ });
+    if (await continueRitual.isVisible()) {
+      await continueRitual.click();
+    }
     await page.getByRole("button", { name: "✦ Leave Market ✦" }).click();
     await page.getByRole("button", { name: "✦ End Round ✦" }).click();
   }

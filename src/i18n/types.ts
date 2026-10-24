@@ -279,7 +279,7 @@ export interface Translations {
         runoff: string; runoffExplanation: string;
         bothExplanation: string; choiceExplanation: string; protectedExplanation: string;
         rubyExplanation: string; doubleRubyExplanation: string; dieExplanation: string;
-        calculating: string; sealed: string; nextRound: string;
+        calculating: string; sealed: string; nextRound: string; continueRitual: string;
     };
 
     aiOverlay: {

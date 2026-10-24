@@ -32,4 +32,15 @@ foreach ($file in $distFiles) {
 
 $softcurseSource = "D:/Dev/Assets/videos/Videos Intro/softcurse-systems.mp4"
 Publish-File $softcurseSource "$MediaPrefix/videos/intro/softcurse-systems.mp4"
-Write-Host "Published $($distFiles.Count) app files and the original Softcurse video to R2."
+$requiredMediaAssets = @(
+    "images/loading/entry-ashenveil-portal.webp",
+    "images/loading/loading-ashen-bell.webp"
+)
+foreach ($relativePath in $requiredMediaAssets) {
+    $sourcePath = Join-Path (Join-Path $projectRoot "public") $relativePath
+    if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+        throw "Required release media is missing locally: $relativePath"
+    }
+    Publish-File $sourcePath "$MediaPrefix/$relativePath"
+}
+Write-Host "Published $($distFiles.Count) app files, required entry/loading art, and the original Softcurse video to R2."

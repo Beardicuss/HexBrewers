@@ -6,16 +6,17 @@ import { AFFLICTION_EMBLEMS, REMEDY_SYMBOLS, VEILGLASS_ASSETS } from "../assets/
 import { REMEDY_TRACK_MAX } from "../game/distillation";
 import type { AfflictionState } from "../game/distillation";
 
-export function RoundSummaryPanel({ summary, cinematic = false, afflictions = {} }: {
+export function RoundSummaryPanel({ summary, cinematic = false, afflictions = {}, onContinue }: {
   summary: RoundSummary;
   cinematic?: boolean;
   afflictions?: Record<string, AfflictionState | undefined>;
+  onContinue?: () => void;
 }) {
   const t = useTranslation();
   const hasDistillation = summary.players.some((player) => player.distillationProgress !== undefined);
   return (
-    <div style={{ ...styles.panel, ...(cinematic ? styles.panelCinematic : {}) }}>
-      <style>{`@keyframes scoring-player-reveal{from{opacity:0;transform:translateY(14px);filter:blur(3px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}@keyframes scoring-title-reveal{from{opacity:0;letter-spacing:.35em}to{opacity:1;letter-spacing:.08em}}@keyframes distill-cell-fill{0%{opacity:.12;transform:scale(.55);filter:brightness(.6)}55%{opacity:1;transform:scale(1.18);filter:brightness(1.7)}100%{opacity:1;transform:scale(1);filter:brightness(1)}}@keyframes distill-marker-rise{from{opacity:0;transform:translateY(10px) scale(.7)}to{opacity:1;transform:translateY(0) scale(1)}}@media(prefers-reduced-motion:reduce){.scoring-player,.scoring-title,.distillation-cell,.distillation-marker{animation:none!important;opacity:1!important}}`}</style>
+    <div className={cinematic ? "round-summary-panel is-cinematic" : "round-summary-panel"} style={{ ...styles.panel, ...(cinematic ? styles.panelCinematic : {}) }}>
+      <style>{`@keyframes scoring-player-reveal{from{opacity:0;transform:translateY(14px);filter:blur(3px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}@keyframes scoring-title-reveal{from{opacity:0;letter-spacing:.35em}to{opacity:1;letter-spacing:.08em}}@keyframes distill-cell-fill{0%{opacity:.12;transform:scale(.55);filter:brightness(.6)}55%{opacity:1;transform:scale(1.18);filter:brightness(1.7)}100%{opacity:1;transform:scale(1);filter:brightness(1)}}@keyframes distill-marker-rise{from{opacity:0;transform:translateY(10px) scale(.7)}to{opacity:1;transform:translateY(0) scale(1)}}.round-summary-continue{align-self:center;min-width:min(320px,80vw);margin-top:10px;padding:14px 28px;border:1px solid var(--scene-cool-accent,#76d7c4);border-radius:4px;background:linear-gradient(180deg,rgba(35,121,128,.34),rgba(6,33,40,.72));color:#f3dfaa;font:700 15px/1.2 Georgia,serif;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;box-shadow:0 0 24px rgba(77,199,207,.14),inset 0 0 18px rgba(90,204,211,.08);transition:filter .18s ease,transform .18s ease,box-shadow .18s ease}.round-summary-continue:hover,.round-summary-continue:focus-visible{filter:brightness(1.24);transform:translateY(-1px);box-shadow:0 0 34px rgba(77,199,207,.28),inset 0 0 22px rgba(90,204,211,.14);outline:2px solid rgba(232,184,77,.8);outline-offset:3px}@media(max-width:900px){.round-summary-panel.is-cinematic{width:94vw!important;padding:22px!important}.round-summary-players{grid-template-columns:repeat(2,minmax(0,1fr))!important}}@media(max-width:600px){.round-summary-players{grid-template-columns:1fr!important}.round-summary-continue{min-width:80%}}@media(prefers-reduced-motion:reduce){.scoring-player,.scoring-title,.distillation-cell,.distillation-marker{animation:none!important;opacity:1!important}.round-summary-continue{transition:none}}`}</style>
       {hasDistillation && (
         <div style={styles.distillationVisual}>
           <img src={VEILGLASS_ASSETS.distillationBanner} alt="" aria-hidden="true" style={styles.distillationBanner} />
@@ -62,7 +63,7 @@ export function RoundSummaryPanel({ summary, cinematic = false, afflictions = {}
           })}
         </div>
       )}
-      <div style={cinematic ? styles.playersCinematic : undefined}>
+      <div className={cinematic ? "round-summary-players" : undefined} style={cinematic ? styles.playersCinematic : undefined}>
       {summary.players.map((player, index) => (
         <div className="scoring-player" key={player.playerId} style={{ ...styles.playerBlock, ...(cinematic ? styles.playerBlockCinematic : {}), animationDelay: cinematic ? `${180 + index * 150}ms` : undefined }}>
           <div style={styles.nameRow}>
@@ -113,6 +114,11 @@ export function RoundSummaryPanel({ summary, cinematic = false, afflictions = {}
         </div>
       ))}
       </div>
+      {cinematic && onContinue && (
+        <button className="round-summary-continue" type="button" onClick={onContinue} autoFocus>
+          ✦ {t.roundSummary.continueRitual} ✦
+        </button>
+      )}
     </div>
   );
 }
@@ -170,18 +176,18 @@ const styles: Record<string, React.CSSProperties> = {
     animation: "fadeInUp 0.24s ease-out",
   },
   panelCinematic: {
-    width: "min(1040px, 90vw)",
-    maxHeight: "86vh",
-    padding: "28px 34px 32px",
-    gap: 14,
+    width: "min(1520px, 94vw)",
+    maxHeight: "90vh",
+    padding: "clamp(28px,3vw,46px)",
+    gap: 20,
     background: "linear-gradient(155deg,var(--scene-panel-top,rgba(3,22,27,.97)),var(--scene-panel-bottom,rgba(2,9,15,.98)))",
     borderColor: "var(--scene-panel-border,rgba(91,194,199,.55))",
     boxShadow: "0 24px 90px rgba(0,0,0,.7),0 0 70px var(--scene-panel-glow,rgba(45,150,166,.16))",
   },
-  kicker: { color: "var(--scene-cool-accent,#76d7c4)", textAlign: "center", fontFamily: "monospace", fontSize: 11, letterSpacing: 3, textTransform: "uppercase" },
-  titleCinematic: { fontSize: 28, animation: "scoring-title-reveal .5s ease-out both" },
-  playersCinematic: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 },
-  playerBlockCinematic: { padding: 14, border: "1px solid rgba(91,194,199,.22)", borderRadius: 8, background: "rgba(1,9,14,.55)", opacity: 0, animation: "scoring-player-reveal .48s ease-out both" },
+  kicker: { color: "var(--scene-cool-accent,#76d7c4)", textAlign: "center", fontFamily: "monospace", fontSize: 13, letterSpacing: 3.4, textTransform: "uppercase" },
+  titleCinematic: { fontSize: "clamp(34px,3vw,48px)", animation: "scoring-title-reveal .5s ease-out both" },
+  playersCinematic: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(270px,1fr))", gap: 18 },
+  playerBlockCinematic: { padding: 20, gap: 10, border: "1px solid rgba(91,194,199,.28)", borderRadius: 8, background: "rgba(1,9,14,.62)", opacity: 0, animation: "scoring-player-reveal .48s ease-out both" },
   title: {
     color: "#e8b84d",
     fontFamily: "Georgia, serif",
@@ -226,7 +232,7 @@ const styles: Record<string, React.CSSProperties> = {
   name: {
     color: "#e8d5b5",
     fontFamily: "Georgia, serif",
-    fontSize: 13,
+    fontSize: 18,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -234,7 +240,7 @@ const styles: Record<string, React.CSSProperties> = {
   safe: {
     color: "#66cc88",
     fontFamily: "monospace",
-    fontSize: 11,
+    fontSize: 12,
     border: "1px solid #356f55",
     borderRadius: 4,
     padding: "2px 6px",
@@ -243,7 +249,7 @@ const styles: Record<string, React.CSSProperties> = {
   burst: {
     color: "#ff8888",
     fontFamily: "monospace",
-    fontSize: 11,
+    fontSize: 12,
     border: "1px solid #8f392f",
     borderRadius: 4,
     padding: "2px 6px",
@@ -252,7 +258,7 @@ const styles: Record<string, React.CSSProperties> = {
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 5,
+    gap: 8,
   },
   rewardTile: {
     minWidth: 0,
@@ -260,7 +266,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     alignItems: "center",
     gap: 2,
-    padding: "5px 4px",
+    padding: "9px 6px",
     border: "1px solid rgba(96, 59, 122, 0.48)",
     borderRadius: 5,
     background: "rgba(9, 3, 17, 0.58)",
@@ -271,14 +277,14 @@ const styles: Record<string, React.CSSProperties> = {
     textOverflow: "ellipsis",
     color: "#9f8aba",
     fontFamily: "monospace",
-    fontSize: 9,
+    fontSize: 11,
     whiteSpace: "nowrap",
     textTransform: "uppercase",
   },
   rewardValue: {
     color: "#e5d9ec",
     fontFamily: "Georgia, serif",
-    fontSize: 14,
+    fontSize: 19,
   },
   rewardGold: {
     color: "#edc76e",
@@ -291,18 +297,18 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid #443300",
     background: "rgba(80, 40, 0, 0.2)",
     borderRadius: 5,
-    padding: "4px 6px",
+    padding: "7px 9px",
     fontFamily: "monospace",
-    fontSize: 11,
+    fontSize: 13,
     textAlign: "center",
   },
   explanation: {
     display: "flex",
     flexDirection: "column",
-    gap: 3,
+    gap: 5,
     color: "#b8a6c8",
     fontFamily: "monospace",
-    fontSize: 10,
-    lineHeight: 1.35,
+    fontSize: 13,
+    lineHeight: 1.5,
   },
 };

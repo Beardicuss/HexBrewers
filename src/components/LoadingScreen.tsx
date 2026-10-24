@@ -9,8 +9,14 @@ import { ACTIVE_GAMEPLAY_SCENE_ID, GAMEPLAY_SCENES } from "../gameplaySceneTheme
 export type GameplayLoadingKind = "new" | "continue";
 
 const POSTERS: Record<GameplayLoadingKind, string[]> = {
-  new: ["/images/loading/loading-01.webp", "/images/loading/loading-02.webp", "/images/loading/loading-03.webp"],
-  continue: ["/images/loading/loading-04.webp", "/images/loading/loading-05.webp", "/images/loading/loading-06.webp"],
+  new: [
+    "/images/loading/loading-01.webp", "/images/loading/loading-02.webp", "/images/loading/loading-03.webp",
+    "/images/loading/entry-ashenveil-portal.webp", "/images/loading/loading-ashen-bell.webp",
+  ],
+  continue: [
+    "/images/loading/loading-04.webp", "/images/loading/loading-05.webp", "/images/loading/loading-06.webp",
+    "/images/loading/entry-ashenveil-portal.webp", "/images/loading/loading-ashen-bell.webp",
+  ],
 };
 
 const COPY: Record<GameplayLoadingKind, { label: string; detail: string }> = {

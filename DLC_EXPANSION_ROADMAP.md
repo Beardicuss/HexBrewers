@@ -2,6 +2,62 @@
 
 Status: implementation started locally; no expansion code has been deployed or published.
 
+## Major DLC update plan
+
+The public DLC release should feel like a substantial game update rather than two isolated
+content switches. Package it in three layers while keeping the Standard Ritual mechanically
+pure and ensuring that progression rewards remain cosmetic or narrative-only.
+
+### Free update for every player
+
+- **Chronicle 2.0:** detailed match history, ingredient statistics, rival records, shatter
+  rate, recipe performance, and personal bests.
+- **Weekly Rituals:** curated fixed seeds with cosmetic rewards.
+- **Expanded AI personalities:** distinct risk tolerance, market priorities, tactical
+  identities, and atmospheric reactions for every rival.
+- **Match highlights:** preserve the decisive draws, shatters, purchases, cures, and
+  Covenant invocations from each completed ritual.
+- **Custom Ritual mode:** optional modifiers that do not alter the authoritative Standard
+  Ritual rules.
+- **Improved accessibility:** animation-speed presets, stronger contrast options, optional
+  probability assistance, and faster rematches.
+- **Additional gameplay environments:** randomized scenes with matching HUD palettes,
+  music, and ambient-sound profiles.
+- **Expanded brewer profile:** selectable portrait, titles, borders, and cosmetic unlocks.
+
+### Mirewrought Pacts release features
+
+- Covenant-focused challenge scenarios.
+- Hollow story encounters.
+- Covenant mastery records and themed achievements.
+- Mire cosmetics, profile frames, and titles.
+- Specialized Weekly Rituals using the fifth seat and recipe sets 5–6.
+
+### Veilglass Afflictions release features
+
+- An **Affliction Casebook** recording completed treatments.
+- Remedy Path challenge scenarios.
+- Distillation statistics and cure-history tracking.
+- Veilglass-themed cosmetics and titles.
+- Weekly Rituals built around unusual Affliction and Omen combinations.
+
+### Ashenveil Cases — the flagship video-game feature
+
+Build a dedicated single-player campaign that uses systems a physical board game cannot:
+
+- Curated matches with unusual starting conditions.
+- Short narrative introductions and conclusions.
+- Named patients, investigations, and supernatural incidents.
+- Branching choices that alter later scenarios.
+- Boss-like rival configurations.
+- Cosmetic and lore rewards without permanent gameplay advantages.
+
+### Separate PvP update
+
+PvP remains its own major release. Networking, matchmaking, reconnection, ranking, and
+anti-cheat make it a substantially larger production and QA commitment than either DLC.
+It should not delay the free update, Ashenveil Cases, or the two expansion launches.
+
 ## Implementation status — 2026-10-18
 
 - [x] Content-pack IDs, dependencies, module flags, and base-safe defaults.

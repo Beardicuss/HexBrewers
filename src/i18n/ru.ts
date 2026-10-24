@@ -332,6 +332,7 @@ export const ru: Translations = {
         calculating: "Котлы предъявляют свой счёт",
         sealed: "РАУНД ЗАПЕЧАТАН",
         nextRound: "Сосуды очищаются для следующего знамения",
+        continueRitual: "Продолжить ритуал",
     },
     aiOverlay: {
         brewing: "варит зелье", spiral: "Спираль", voidshards: "Осколки", shardSum: "Сумма", fastForward: "Ускорить всех противников",
