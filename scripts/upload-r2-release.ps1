@@ -1,7 +1,7 @@
 param(
     [string]$Bucket = "hexbrewers-assets",
     [string]$AppPrefix = "releases/current/app",
-    [string]$MediaPrefix = "releases/b9d0faa"
+    [string]$MediaPrefix = "releases/20261024-complete"
 )
 
 $ErrorActionPreference = "Stop"

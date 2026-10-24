@@ -1,6 +1,6 @@
 param(
     [string]$Bucket = "hexbrewers-assets",
-    [string]$Release = "b9d0faa"
+    [string]$Release = "20261024-complete"
 )
 
 $ErrorActionPreference = "Stop"
@@ -28,8 +28,9 @@ $files = foreach ($directory in $mediaDirectories) {
     }
 }
 
+$publicRoot = (Resolve-Path (Join-Path $projectRoot "public")).Path
 foreach ($file in $files) {
-    $relative = [IO.Path]::GetRelativePath((Join-Path $projectRoot "public"), $file.FullName).Replace("\", "/")
+    $relative = $file.FullName.Substring($publicRoot.Length).TrimStart("\", "/").Replace("\", "/")
     $key = "releases/$Release/$relative"
     $contentType = $contentTypes[$file.Extension.ToLowerInvariant()]
     if (-not $contentType) { $contentType = "application/octet-stream" }

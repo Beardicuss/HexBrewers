@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 
-const DEFAULT_ASSET_ORIGIN = "https://pub-7b92547fbe944d259e437d18c1c425d4.r2.dev/releases/b9d0faa";
+const DEFAULT_ASSET_ORIGIN = "https://pub-7b92547fbe944d259e437d18c1c425d4.r2.dev/releases/20261024-complete";
 const MEDIA_DIRECTORIES = ["images", "videos", "music", "sounds", "audio"] as const;
 const LOCAL_SOFTCURSE_VIDEO = "D:/Dev/Assets/videos/Videos Intro/softcurse-systems.mp4";
 
