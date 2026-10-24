@@ -87,12 +87,28 @@ export async function preloadGamePresentation(setup: GameSetup, onProgress?: (pr
   const assets = assetsForSetup(setup);
   let complete = 0;
   onProgress?.(0);
-  const results = await Promise.allSettled(assets.map(async (url) => {
-    try { await preloadPresentationAsset(url); }
-    finally { complete += 1; onProgress?.((complete / assets.length) * 100); }
-  }));
+  const results: PromiseSettledResult<void>[] = new Array(assets.length);
+  let nextIndex = 0;
+  const worker = async () => {
+    while (nextIndex < assets.length) {
+      const index = nextIndex++;
+      try {
+        await preloadPresentationAsset(assets[index]);
+        results[index] = { status: "fulfilled", value: undefined };
+      } catch (reason) {
+        results[index] = { status: "rejected", reason };
+      } finally {
+        complete += 1;
+        onProgress?.((complete / assets.length) * 100);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(6, assets.length) }, worker));
   const failed = results.flatMap((result, index) => result.status === "rejected" ? [assets[index]] : []);
-  if (failed.length > 0) throw new Error(`Unable to prepare ${failed.length} gameplay asset${failed.length === 1 ? "" : "s"}. Please check your connection and try again.`);
+  if (failed.length > 0) {
+    console.error("Gameplay presentation assets failed to preload:", failed);
+    throw new Error(`Unable to prepare ${failed.length} gameplay asset${failed.length === 1 ? "" : "s"}. Please check your connection and try again.`);
+  }
 }
 
 function preloadPresentationAsset(url: string): Promise<void> {
@@ -104,17 +120,11 @@ function preloadPresentationAsset(url: string): Promise<void> {
     image.src = url;
     return image.decode();
   }
-  return new Promise((resolve, reject) => {
-    const media = document.createElement(/\.(?:mp3|wav|ogg)(?:\?|$)/i.test(url) ? "audio" : "video");
-    const timeout = window.setTimeout(() => reject(new Error(`Timed out preloading ${url}`)), 20000);
-    const finish = () => { window.clearTimeout(timeout); media.removeEventListener("canplaythrough", finish); media.removeEventListener("error", fail); resolve(); };
-    const fail = () => { window.clearTimeout(timeout); reject(new Error(`Unable to preload ${url}`)); };
-    // Music is later routed through Web Audio, which requires a CORS-clean
-    // cached response rather than an opaque media-element preload.
-    media.crossOrigin = "anonymous";
-    media.preload = "auto"; media.muted = true;
-    media.addEventListener("canplaythrough", finish, { once: true }); media.addEventListener("error", fail, { once: true });
-    media.src = url; media.load();
+  return fetch(url, { mode: "cors", cache: "force-cache" }).then(async (response) => {
+    if (!response.ok) throw new Error(`Unable to preload ${url}: HTTP ${response.status}`);
+    // Consume the full response so the browser cache contains the complete
+    // media body before gameplay begins. Later audio/video elements reuse it.
+    await response.arrayBuffer();
   });
 }
 
