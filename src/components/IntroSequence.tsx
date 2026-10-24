@@ -6,6 +6,8 @@ const OPENING_ASSETS = [
   "/videos/intro/ashenveil-trailer-original.webm", "/audio/intro/ashenveil-trailer-narration.mp3",
   "/audio/intro/ashenveil-trailer-choir-tail.ogg", "/music/music-ashenveil-theme.ogg",
   "/images/intro/ashenveil-poster.webp", "/images/core/rooms/central-laboratory.webp",
+  "/images/core/rooms/new-game-ritual-chamber.webp", "/images/core/rooms/grimoire-scriptorium.webp",
+  "/images/core/rooms/dlc-reliquary.webp", "/images/core/rooms/settings-astrolabe.webp",
   "/videos/menu/central-laboratory.webm?v=2", "/videos/menu/new-game-ritual-chamber.webm?v=2",
   "/videos/menu/grimoire-scriptorium.webm?v=2", "/videos/menu/dlc-reliquary.webm?v=2",
   "/videos/menu/settings-astrolabe.webm?v=2", "/images/title/title-en.webp",
@@ -51,6 +53,7 @@ export function IntroSequence({ onComplete }: { onComplete: () => void }) {
     void Promise.allSettled(OPENING_ASSETS.map(async (url) => {
       if (/\.(?:webp|png|jpe?g|avif)(?:\?|$)/i.test(url)) {
         const preload = new Image();
+        preload.crossOrigin = "anonymous";
         preload.src = url;
         await preload.decode();
       } else {
@@ -215,6 +218,7 @@ function preloadTimedMedia(url: string): Promise<void> {
     const finish = () => { window.clearTimeout(timeout); media.src = ""; resolve(); };
     const fail = () => { window.clearTimeout(timeout); reject(new Error(`Unable to preload ${url}`)); };
     if (url.includes("/music/")) media.crossOrigin = "anonymous";
+    media.crossOrigin = "anonymous";
     media.preload = "auto";
     media.muted = true;
     media.addEventListener("canplaythrough", finish, { once: true });

@@ -18,7 +18,7 @@ const COPY: Record<GameplayLoadingKind, { label: string; detail: string }> = {
   continue: { label: "REKINDLING THE INTERRUPTED BREW", detail: "Ash remembers where every ingredient fell." },
 };
 
-export function LoadingScreen({ kind, progress }: { kind: GameplayLoadingKind; progress: number }) {
+export function LoadingScreen({ kind, progress, error, onReturn }: { kind: GameplayLoadingKind; progress: number; error?: string | null; onReturn?: () => void }) {
   const [poster] = React.useState(() => {
     const pool = POSTERS[kind];
     return pool[Math.floor(Math.random() * pool.length)];
@@ -30,12 +30,13 @@ export function LoadingScreen({ kind, progress }: { kind: GameplayLoadingKind; p
       <div style={styles.content}>
         <img src="/images/title/title-en.webp" alt="Hexbrewers from Ashenveil" style={styles.logo} />
         <div style={styles.ornament}><i style={styles.ornamentLine} /><span style={styles.ornamentGem} /><i style={styles.ornamentLine} /></div>
-        <p style={styles.loading}>{copy.label}</p>
-        <p style={styles.detail}>{copy.detail}</p>
+        <p style={styles.loading}>{error ? "ASSET RITUAL INTERRUPTED" : copy.label}</p>
+        <p style={styles.detail}>{error ?? copy.detail}</p>
         <div style={styles.track} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)}>
           <span style={{ ...styles.fill, width: `${Math.max(4, progress)}%` }} />
         </div>
         <small style={styles.percent}>{Math.round(progress)}%</small>
+        {error && <button type="button" className="ashen-route-button" style={styles.returnButton} onClick={onReturn}>◆ RETURN TO THE HALL ◆</button>}
       </div>
     </main>
   );
@@ -80,21 +81,31 @@ export async function preloadGamePresentation(setup: GameSetup, onProgress?: (pr
   const assets = assetsForSetup(setup);
   let complete = 0;
   onProgress?.(0);
-  await Promise.allSettled(assets.map(async (url) => {
+  const results = await Promise.allSettled(assets.map(async (url) => {
     try { await preloadPresentationAsset(url); }
     finally { complete += 1; onProgress?.((complete / assets.length) * 100); }
   }));
+  const failed = results.flatMap((result, index) => result.status === "rejected" ? [assets[index]] : []);
+  if (failed.length > 0) throw new Error(`Unable to prepare ${failed.length} gameplay asset${failed.length === 1 ? "" : "s"}. Please check your connection and try again.`);
 }
 
 function preloadPresentationAsset(url: string): Promise<void> {
   if (/\.(?:webp|png|jpe?g|avif)(?:\?|$)/i.test(url)) {
-    const image = new Image(); image.src = url; return image.decode();
+    const image = new Image();
+    // Keep the cached response reusable by Pixi. A non-CORS image preload can
+    // poison the browser cache with an opaque response that fetch() rejects.
+    image.crossOrigin = "anonymous";
+    image.src = url;
+    return image.decode();
   }
   return new Promise((resolve, reject) => {
     const media = document.createElement(/\.(?:mp3|wav|ogg)(?:\?|$)/i.test(url) ? "audio" : "video");
     const timeout = window.setTimeout(() => reject(new Error(`Timed out preloading ${url}`)), 20000);
     const finish = () => { window.clearTimeout(timeout); media.removeEventListener("canplaythrough", finish); media.removeEventListener("error", fail); resolve(); };
     const fail = () => { window.clearTimeout(timeout); reject(new Error(`Unable to preload ${url}`)); };
+    // Music is later routed through Web Audio, which requires a CORS-clean
+    // cached response rather than an opaque media-element preload.
+    media.crossOrigin = "anonymous";
     media.preload = "auto"; media.muted = true;
     media.addEventListener("canplaythrough", finish, { once: true }); media.addEventListener("error", fail, { once: true });
     media.src = url; media.load();
@@ -114,4 +125,5 @@ const styles: Record<string, React.CSSProperties> = {
   track: { width: "min(62vw,470px)", height: 5, overflow: "hidden", border: "1px solid rgba(199,165,96,.36)", background: "rgba(10,5,16,.66)", boxShadow: "0 0 18px rgba(155,119,55,.12)" },
   fill: { display: "block", height: "100%", background: "linear-gradient(90deg,#73542b,#e0c06f,#77cbd0)", boxShadow: "0 0 15px rgba(224,192,111,.55)", transition: "width .18s ease-out" },
   percent: { color: "#bca36d", font: "600 13px/1 monospace", letterSpacing: 2 },
+  returnButton: { marginTop: 4, padding: "12px 20px", color: "#e2c47c", borderColor: "rgba(218,181,104,.64)" },
 };

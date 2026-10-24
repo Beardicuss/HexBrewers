@@ -79,7 +79,9 @@ export class GameCanvas {
       ...Object.values(CORE_INGREDIENT_ASSETS),
     ];
     if (options.mirewroughtEnabled) assets.push(MIREWROUGHT_ASSETS.echoReed, MIREWROUGHT_ASSETS.embercore);
-    await PIXI.Assets.load(assets);
+    // A single optional texture must never prevent the entire Pixi canvas from
+    // mounting. Missing textures retain the existing vector fallbacks.
+    await Promise.allSettled(assets.map((asset) => PIXI.Assets.load(asset)));
 
     options.container.appendChild(app.canvas);
 

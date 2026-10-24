@@ -150,6 +150,7 @@ export default function App() {
   const [canContinue, setCanContinue] = useState(() => hasSavedGame());
   const [loadingKind, setLoadingKind] = useState<GameplayLoadingKind>("new");
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
   const enabledPacks = useSettingsStore((state) => state.enabledPacks);
   const setEnabledPacks = useSettingsStore((state) => state.setEnabledPacks);
   const { ready } = useSoundManager(); // Initializes audio on first click
@@ -166,12 +167,18 @@ export default function App() {
   const enterGame = async (setup: GameSetup, initialise: () => void, kind: GameplayLoadingKind) => {
     setLoadingKind(kind);
     setLoadingProgress(0);
+    setLoadingError(null);
     setScreen("loading");
     initialise();
     const minimumPresentation = new Promise((resolve) => window.setTimeout(resolve, 700));
-    await Promise.all([preloadGamePresentation(setup, setLoadingProgress), import("./components/GameBoard"), minimumPresentation]);
-    setLoadingProgress(100);
-    setScreen("game");
+    try {
+      await Promise.all([preloadGamePresentation(setup, setLoadingProgress), import("./components/GameBoard"), minimumPresentation]);
+      setLoadingProgress(100);
+      setScreen("game");
+    } catch (error) {
+      console.error("Gameplay presentation preload failed", error);
+      setLoadingError(error instanceof Error ? error.message : "The gameplay assets could not be prepared.");
+    }
   };
 
   const beginRitual = (setup: GameSetup, difficulty: AIDifficulty, session: RitualSession) => {
@@ -201,7 +208,7 @@ export default function App() {
       <style>{globalStyle}</style>
 
       {screen === "intro" && <IntroSequence onComplete={() => setScreen("menu")} />}
-      {screen === "loading" && <LoadingScreen kind={loadingKind} progress={loadingProgress} />}
+      {screen === "loading" && <LoadingScreen kind={loadingKind} progress={loadingProgress} error={loadingError} onReturn={() => setScreen("menu")} />}
 
       {screen === "menu" && (
         <MainMenu
