@@ -93,7 +93,7 @@ export async function preloadGamePresentation(setup: GameSetup, onProgress?: (pr
     while (nextIndex < assets.length) {
       const index = nextIndex++;
       try {
-        await preloadPresentationAsset(assets[index]);
+        await preloadPresentationAssetWithRetry(assets[index]);
         results[index] = { status: "fulfilled", value: undefined };
       } catch (reason) {
         results[index] = { status: "rejected", reason };
@@ -111,21 +111,46 @@ export async function preloadGamePresentation(setup: GameSetup, onProgress?: (pr
   }
 }
 
-function preloadPresentationAsset(url: string): Promise<void> {
+const PRELOAD_ATTEMPTS = 3;
+
+async function preloadPresentationAssetWithRetry(url: string): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < PRELOAD_ATTEMPTS; attempt += 1) {
+    try {
+      await preloadPresentationAsset(url, attempt);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < PRELOAD_ATTEMPTS - 1) {
+        // R2/CDN connections can briefly fail while many large gameplay files
+        // are being prepared together. A short staggered retry prevents one
+        // transient request from blocking an otherwise valid ritual.
+        await new Promise((resolve) => window.setTimeout(resolve, 250 * (attempt + 1)));
+      }
+    }
+  }
+  throw lastError;
+}
+
+function preloadPresentationAsset(url: string, attempt = 0): Promise<void> {
   if (/\.(?:webp|png|jpe?g|avif)(?:\?|$)/i.test(url)) {
     const image = new Image();
     // Keep the cached response reusable by Pixi. A non-CORS image preload can
     // poison the browser cache with an opaque response that fetch() rejects.
     image.crossOrigin = "anonymous";
-    image.src = url;
+    image.src = attempt === 0 ? url : appendRetryQuery(url, attempt);
     return image.decode();
   }
-  return fetch(url, { mode: "cors", cache: "force-cache" }).then(async (response) => {
+  return fetch(url, { mode: "cors", cache: attempt === 0 ? "force-cache" : "reload" }).then(async (response) => {
     if (!response.ok) throw new Error(`Unable to preload ${url}: HTTP ${response.status}`);
     // Consume the full response so the browser cache contains the complete
     // media body before gameplay begins. Later audio/video elements reuse it.
     await response.arrayBuffer();
   });
+}
+
+function appendRetryQuery(url: string, attempt: number): string {
+  return `${url}${url.includes("?") ? "&" : "?"}hb-preload-retry=${attempt}`;
 }
 
 const styles: Record<string, React.CSSProperties> = {

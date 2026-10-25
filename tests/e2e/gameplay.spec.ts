@@ -443,6 +443,22 @@ test("Brewer's Chronicle exposes records, weekly trials, and honors", async ({ p
   await expect(page.getByRole("button", { name: "Locked" }).first()).toBeDisabled();
 });
 
+for (const [trialName, buttonIndex] of [
+  ["The Shade’s Measure", 0],
+  ["Council of Four", 1],
+  ["The Wandering Grimoire", 2],
+] as const) {
+  test(`Named Trial launches into gameplay: ${trialName}`, async ({ page }) => {
+    const browserErrors = await prepareDeterministicGame(page, 0x6a20 + buttonIndex);
+    await page.getByRole("button", { name: "Brewer’s Chronicle", exact: true }).click();
+    await page.getByRole("button", { name: "Named Trials" }).click();
+    await page.getByRole("button", { name: "Begin Trial" }).nth(buttonIndex).click();
+
+    await expect(page.getByText(/Round 1 \/ 9/)).toBeVisible({ timeout: 45_000 });
+    expect(browserErrors).toEqual([]);
+  });
+}
+
 test("Brewer's Chronicle migrates a version 2 record", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("hexbrewers-chronicle", JSON.stringify({
