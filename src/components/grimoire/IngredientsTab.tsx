@@ -7,6 +7,8 @@ import { useGameStore } from "../../store/gameStore";
 import type { RecipeColor } from "../../game/recipeBooks";
 import { getLocalizedTokenName } from "../../i18n/tokenNames";
 import { MIREWROUGHT_ASSETS } from "../../assets/mirewroughtAssets";
+import { getRecipeRuling } from "../../game/recipeGuidance";
+import { BASE_SET_STRATEGIES, type BaseRecipeSet } from "../../game/strategyBalance";
 
 // ─── Ingredients tab ──────────────────────────────────────────────────────────
 
@@ -62,6 +64,9 @@ function IngredientDetail({ ingredient: i }: { ingredient: Ingredient }) {
     const recipeSet = (["blue", "red", "yellow", "green", "purple"] as string[]).includes(i.color)
         ? recipeBooks[i.color as RecipeColor]
         : null;
+    const strategyPaths = recipeSet !== null && recipeSet <= 4
+        ? BASE_SET_STRATEGIES[recipeSet as BaseRecipeSet]
+        : [];
 
     return (
         <div className="grimoire-card ingredient-detail-card" style={det.root}>
@@ -132,13 +137,28 @@ function IngredientDetail({ ingredient: i }: { ingredient: Ingredient }) {
 
             {t.grimoireRecipeSets[i.name] && (
                 <div style={det.section}>
+                    {strategyPaths.length > 0 && (
+                        <section className="recipe-strategy-guide" aria-label={`Set ${recipeSet} strategy paths`}>
+                            <div className="recipe-strategy-guide__eyebrow">CURRENT SET · THREE VIABLE PATHS</div>
+                            <div className="recipe-strategy-guide__grid">
+                                {strategyPaths.map((strategy) => (
+                                    <article key={strategy.id}>
+                                        <h4>{strategy.name}</h4>
+                                        <p>{strategy.thesis}</p>
+                                        <small><b>COUNTERWEIGHT</b> {strategy.counterweight}</small>
+                                    </article>
+                                ))}
+                            </div>
+                        </section>
+                    )}
                     {t.grimoireRecipeSets[i.name].map((recipe, index) => (
-                        <div key={index} style={{ ...det.effectBox, border: `1px solid ${i.border}33`, marginBottom: 9 }}>
+                        <div key={index} className={`recipe-ruling-card${recipeSet === index + 1 ? " is-active" : ""}`} style={{ ...det.effectBox, border: `1px solid ${i.border}33`, marginBottom: 9 }}>
                             <div style={{ ...det.sectionTitle, color: i.border }}>
-                                {t.grimoire.recipeSet.replace("{set}", String(index + 1))}
+                                {t.grimoire.recipeSet.replace("{set}", String(index + 1))}{recipeSet === index + 1 ? " · ACTIVE" : ""}
                             </div>
                             <p style={{ ...det.body, color: "#f0d8a7", marginBottom: 6 }}>{recipe.effect}</p>
                             <div style={{ fontFamily: "monospace", fontSize: 12, color: "#b9a78d" }}>{recipe.costs}</div>
+                            <RecipeRulingDetails color={i.color as RecipeColor} set={index + 1} open={recipeSet === index + 1} />
                         </div>
                     ))}
                 </div>
@@ -167,6 +187,28 @@ function IngredientDetail({ ingredient: i }: { ingredient: Ingredient }) {
                 <p style={det.lore}>{iData?.lore ?? i.lore}</p>
             </div>
         </div>
+    );
+}
+
+function RecipeRulingDetails({ color, set, open }: { color: RecipeColor; set: number; open: boolean }) {
+    const guidance = getRecipeRuling(color, set);
+    if (!guidance) return null;
+    return (
+        <details className="recipe-ruling" open={open}>
+            <summary>Exact ruling</summary>
+            <div className="recipe-ruling__meta">
+                <span><b>TIMING</b>{guidance.timing}</span>
+                <span><b>RESOLUTION</b>{guidance.choice}</span>
+            </div>
+            <dl>
+                <div><dt>Trigger</dt><dd>{guidance.trigger}</dd></div>
+                <div><dt>Resolve</dt><dd>{guidance.resolution}</dd></div>
+                <div><dt>Multiple copies</dt><dd>{guidance.multiple}</dd></div>
+                <div><dt>Example</dt><dd>{guidance.example}</dd></div>
+                <div><dt>Works well with</dt><dd>{guidance.worksWellWith}</dd></div>
+                <div><dt>Tradeoff</dt><dd>{guidance.tradeoff}</dd></div>
+            </dl>
+        </details>
     );
 }
 

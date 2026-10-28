@@ -18,6 +18,7 @@ describe("AI difficulty population benchmark", () => {
       aiScore: Number(row.averageAIScore.toFixed(2)),
       humanExplosions: Number(row.averageHumanExplosions.toFixed(2)),
       aiExplosions: Number(row.averageAIExplosions.toFixed(2)),
+      humanPurchases: Number(row.averageHumanPurchases.toFixed(2)),
       aiPurchases: Number(row.averageAIPurchases.toFixed(2)),
       aiDraws: Number(row.averageAIDraws.toFixed(2)),
       aiBagQuality: Number(row.averageAIBagQuality.toFixed(3)),

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { GameState, GamePhase, GreenRewardChoice, OmenChoice } from "../game/gameState";
+import type { GameState, GamePhase, GreenRewardChoice, OmenChoice, RitualRuleset } from "../game/gameState";
 import type { Player } from "../game/playerTypes";
 import type { Token, TokenColor } from "../game/tokenTypes";
 import type { ExplodedChoice } from "../game/scoring";
@@ -8,12 +8,13 @@ import { soundManager } from "../SoundManager";
 
 import { moveLastPlacedTokenExtra, placeToken } from "../game/crucible";
 import { drawToken } from "../game/bag";
-import { applyRoundReward, calculateRoundScore } from "../game/scoring";
+import { applyRoundReward, calculateRoundScore, calculateRoundScoreForDifficulty } from "../game/scoring";
 import { canUseFlask, useFlask } from "../game/flask";
 import { purchaseItem } from "../game/bazaar";
 import { applyRatStones } from "../game/ratTail";
 import { drawBlueBonus, applyEndOfRoundEffects, applyYellowSetOneBonus, greenSetFourSpendMax, applyGreenSetFourSpend, greenSetThreeMoveAmount, applyGreenSetThreeMove, greenSetTwoRewards, purpleChoices, applyPurpleChoice, applyBlackSetOneBonus, applyBlackMultiplayerBonus } from "../game/chipEffects";
 import { applyBonusDieResult, rollBonusDie } from "../game/bonusDie";
+import { applyIntentionAfterPlacement, applyIntentionRoundReward, chooseAIIntention, type BrewingIntentionId } from "../game/brewingIntentions";
 import { spendRubiesForDroplet, spendRubiesForFlask, canAdvanceDroplet, canRefillFlask } from "../game/rubyActions";
 import { decideAIRubyAction, decideExplodedChoice, decideGreenRewardChoice, decideMarketTurn, decidePurpleChoice } from "../game/ai";
 import { getRecipeSetForColor } from "../game/recipeBooks";
@@ -24,7 +25,7 @@ import type { RecipeMode } from "../game/recipeBooks";
 import type { AIDifficulty } from "../game/aiStrategy";
 import type { GameSetup } from "../game/contentPacks";
 import { placeTokenForActiveBooks } from "../game/brewingRules";
-import { applyOmenScoringEffect, applyOmenStartEffect, rubyRewardForResult } from "../game/omenResolver";
+import { applyOmenScoringEffect, applyOmenStartEffect, resolveOmen, rubyRewardForResult } from "../game/omenResolver";
 import { restartBrew, shouldOfferSecondChance } from "../game/omenSecondChance";
 import { applyPurpleChoiceStock, legalPurpleChoices } from "../game/purpleMarket";
 import type { MarketItem } from "../game/bazaarTypes";
@@ -33,6 +34,9 @@ import type { CovenantKind, CovenantSelection } from "../game/covenants";
 import { canUseCovenant, covenantMarketCoinBonus, DEFAULT_COVENANTS, isValidCovenantSelection, prepareAICovenantForMarket, restoreAIFlaskWithCovenant, useCovenant } from "../game/covenants";
 import type { AfflictionId } from "../game/distillation";
 import { chooseAIAffliction, createAfflictionState, resolveDistillationRound } from "../game/distillation";
+import { analyzeRoundCausality } from "../game/roundInsights";
+import { applyRoundObjectiveReward } from "../game/roundObjectives";
+import { bankEmber } from "../game/preparation";
 
 function makeFreeOrangeToken(playerId: string): Token {
   return makeFreeToken(playerId, "orange", 1, "bonus");
@@ -673,7 +677,8 @@ function resolveAIMarketPlayers(state: GameState, playerIds: string[]): GameStat
 interface GameStore {
   state: GameState;
   initGame: (recipeMode?: RecipeMode, aiCount?: number, aiDifficulty?: AIDifficulty) => void;
-  initGameWithSetup: (setup: GameSetup, aiDifficulty?: AIDifficulty) => void;
+  initGameWithSetup: (setup: GameSetup, aiDifficulty?: AIDifficulty, ritualRuleset?: RitualRuleset) => void;
+  selectBrewingIntention: (intention: BrewingIntentionId) => void;
   restoreGame: (state: GameState) => void;
 
   // Phase transitions
@@ -683,6 +688,8 @@ interface GameStore {
 
   // Brewing
   humanDraw: (preparedTokenId?: string) => { token: Token; exploded: boolean } | null;
+  humanBeginScry: () => void;
+  humanResolveScry: (tokenId: string) => void;
   humanStop: () => void;
   humanUseFlask: () => void;
   humanUseCovenant: (kind: CovenantKind) => void;
@@ -733,12 +740,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ state: createInitialState(recipeMode, aiCount, aiDifficulty) });
   },
 
-  initGameWithSetup: (setup: GameSetup, aiDifficulty: AIDifficulty = "skilled") => {
+  initGameWithSetup: (setup: GameSetup, aiDifficulty: AIDifficulty = "skilled", ritualRuleset: RitualRuleset = "standard") => {
     soundManager.play("omen_reveal");
-    set({ state: createInitialStateWithSetup(setup, aiDifficulty) });
+    set({ state: createInitialStateWithSetup(setup, aiDifficulty, ritualRuleset) });
   },
 
   restoreGame: (state: GameState) => set({ state }),
+
+  selectBrewingIntention: (intention: BrewingIntentionId) => {
+    set((s) => {
+      const state = s.state;
+      if (state.phase !== "intention" || state.ritualRuleset !== "ashenveil") return s;
+      const choices: Record<string, BrewingIntentionId> = { ...(state.roundIntentions ?? {}), human: intention };
+      for (const player of state.players) {
+        if (player.kind === "ai") choices[player.id] = chooseAIIntention(player, state.currentRound, state);
+      }
+      soundManager.play("round_start");
+      return { state: { ...state, roundIntentions: choices, intentionRound: state.currentRound, phase: "brewing" } };
+    });
+  },
 
   selectCovenants: (selection: CovenantSelection) => {
     set((s) => {
@@ -858,7 +878,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       for (const player of orderedPlayers.slice(Math.max(0, humanIndex + 1))) {
         if (player.kind === "ai") state = resolveAIChoice(state, getPlayer(state, player.id));
       }
-      return { state: { ...state, pendingOmenChoices: undefined, phase: "brewing" } };
+      return { state: { ...state, pendingOmenChoices: undefined, phase: state.ritualRuleset === "ashenveil" ? "intention" : "brewing" } };
     });
   },
 
@@ -908,7 +928,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
       }
 
-      return { state: { ...state, pendingOmenChoices: undefined, phase: "brewing" } };
+      return { state: { ...state, pendingOmenChoices: undefined, phase: state.ritualRuleset === "ashenveil" ? "intention" : "brewing" } };
     });
   },
 
@@ -1017,6 +1037,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           useYellowSetFourBonus: movementChoice?.source !== "yellow",
         }
       );
+      updatedHuman = applyIntentionAfterPlacement(updatedHuman, state);
       const updatedCrucible = updatedHuman.crucible;
 
       if (drawn.token.color === "white") {
@@ -1034,6 +1055,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         return {
           state: {
             ...updatePlayer(state, "human", () => updatedHuman),
+            scryPreparedTokenId: preparedTokenId === state.scryPreparedTokenId ? undefined : state.scryPreparedTokenId,
             phase: "yellow_choice" as GamePhase,
             pendingYellowPreviousToken: previousToken,
           },
@@ -1044,6 +1066,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         return {
           state: {
             ...updatePlayer(state, "human", () => updatedHuman),
+            scryPreparedTokenId: preparedTokenId === state.scryPreparedTokenId ? undefined : state.scryPreparedTokenId,
             phase: "movement_choice" as GamePhase,
             pendingMovementChoice: movementChoice,
           },
@@ -1059,6 +1082,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         return {
           state: {
             ...updatePlayer(state, "human", () => updatedHuman),
+            scryPreparedTokenId: preparedTokenId === state.scryPreparedTokenId ? undefined : state.scryPreparedTokenId,
             phase: "blue_choice" as GamePhase,
             pendingBlueTokens: blueBonusResult.drawn,
           },
@@ -1066,7 +1090,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
 
       const stateAfterDraw = updatePlayer(state, "human", () => updatedHuman);
-      const secondChance = offerSecondChance(stateAfterDraw, updatedHuman);
+      const stateAfterPreparedDraw = {
+        ...stateAfterDraw,
+        scryPreparedTokenId: preparedTokenId === state.scryPreparedTokenId ? undefined : state.scryPreparedTokenId,
+      };
+      const secondChance = offerSecondChance(stateAfterPreparedDraw, updatedHuman);
       if (secondChance) return { state: secondChance };
 
       const phase = updatedHuman.crucible.exploded
@@ -1075,7 +1103,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       return {
         state: {
-          ...stateAfterDraw,
+          ...stateAfterPreparedDraw,
           phase: phase as GamePhase,
           pendingRedTokens: phase === "red_choice" ? updatedHuman.redReserve : undefined,
         },
@@ -1083,6 +1111,37 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
 
     return result;
+  },
+
+  humanBeginScry: () => {
+    set((s) => {
+      const state = s.state;
+      const human = getPlayer(state, "human");
+      if (state.ritualRuleset !== "ashenveil" || state.phase !== "brewing" || human.rubies < 1 ||
+          human.scryUsedRound === state.currentRound || state.scryPreparedTokenId || human.bag.tokens.length < 2) return s;
+      const first = drawToken(human.bag);
+      const second = first ? drawToken(first.bag) : null;
+      if (!first || !second) return s;
+      soundManager.play("omen_reveal");
+      return { state: { ...state, phase: "scry_choice", pendingScryTokens: [first.token, second.token] } };
+    });
+  },
+
+  humanResolveScry: (tokenId: string) => {
+    set((s) => {
+      const state = s.state;
+      if (state.phase !== "scry_choice" || !state.pendingScryTokens?.some((token) => token.id === tokenId)) return s;
+      const human = getPlayer(state, "human");
+      if (human.rubies < 1) return s;
+      return {
+        state: {
+          ...updatePlayer(state, human.id, () => ({ ...human, rubies: human.rubies - 1, scryUsedRound: state.currentRound })),
+          phase: "brewing",
+          pendingScryTokens: undefined,
+          scryPreparedTokenId: tokenId,
+        },
+      };
+    });
   },
 
   humanStop: () => {
@@ -1099,7 +1158,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       const secondChance = offerSecondChance(s.state, human);
       if (secondChance) return { state: secondChance };
-      return { state: { ...s.state, phase: "end_of_round" } };
+      return {
+        state: {
+          ...updatePlayer(s.state, human.id, () => bankEmber(human, s.state)),
+          phase: "end_of_round",
+        },
+      };
     });
   },
 
@@ -1159,7 +1223,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (keepTokenId) {
         const kept = pendingTokens.find((t) => t.id === keepTokenId);
         if (kept) {
-          updatedHuman = placeTokenForActiveBooks(updatedHuman, kept, state);
+          updatedHuman = applyIntentionAfterPlacement(placeTokenForActiveBooks(updatedHuman, kept, state), state);
           const newCrucible = updatedHuman.crucible;
           if (kept.color === "white") {
             soundManager.play("token_place_white");
@@ -1424,9 +1488,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const state = s.state;
       const human = getPlayer(state, "human");
       if (state.phase !== "scoring" || !human.crucible.exploded) return s;
-      const result = calculateRoundScore(human.crucible);
+      const result = calculateRoundScoreForDifficulty(human.crucible, state.aiDifficulty, human.kind);
 
-      const updatedHuman = applyRoundReward(human, result, choice);
+      const omenReward = state.currentOmen
+        ? resolveOmen(state.currentOmen, result, human)
+        : { bonusPoints: 0, bonusRubies: 0 };
+      const updatedHuman = applyIntentionRoundReward(
+        applyRoundReward(human, result, choice),
+        result,
+        state,
+        omenReward,
+      );
 
       const nextPhase: GamePhase = choice === "coins" ? "market" : "ruby_spend";
 
@@ -1552,7 +1624,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
           globalThis.setTimeout(() => soundManager.play("retort_bottle_fill"), 180);
         }
       }
-      const results = new Map(stateWithAIs.players.map((player) => [player.id, calculateRoundScore(player.crucible)]));
+      const results = new Map(stateWithAIs.players.map((player) => [
+        player.id,
+        calculateRoundScoreForDifficulty(player.crucible, stateWithAIs.aiDifficulty, player.kind),
+      ]));
       const bestSpace = Math.max(
         ...stateWithAIs.players.map((player) => {
           const result = results.get(player.id)!;
@@ -1649,15 +1724,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
             marketAfterPurple = applyPurpleChoiceStock(marketAfterPurple, purpleChoice, stateWithAIs.currentRound);
           }
         }
+        const omenReward = stateWithAIs.currentOmen
+          ? resolveOmen(stateWithAIs.currentOmen, result, resolved)
+          : { bonusPoints: 0, bonusRubies: 0 };
         resolved = applyOmenScoringEffect(resolved, stateWithAIs.currentOmen, result);
         resolved = {
           ...resolved,
           rubies: resolved.rubies + rubyRewardForResult(stateWithAIs.currentOmen, result),
         };
-        if (result.exploded && !resolved.blueBonusExplosion) {
-          return applyRoundReward(resolved, result, decideExplodedChoice(resolved, result, stateWithAIs));
-        }
-        return applyRoundReward(resolved, result);
+        const rewarded = result.exploded && !resolved.blueBonusExplosion
+          ? applyRoundReward(resolved, result, decideExplodedChoice(resolved, result, stateWithAIs))
+          : applyRoundReward(resolved, result);
+        return applyRoundObjectiveReward(
+          applyIntentionRoundReward(rewarded, result, stateWithAIs, omenReward),
+          result,
+          stateWithAIs.currentRound,
+        );
       });
       const pendingPurpleChoices = legalPurpleChoices(
         marketAfterPurple,
@@ -1667,6 +1749,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const pendingGreenRewards = availableGreenRewards(greenRewards, marketAfterPurple);
       const humanHasGreenChoice = pendingGreenRewards.length > 0;
 
+      const humanOmenReward = stateWithAIs.currentOmen
+        ? resolveOmen(stateWithAIs.currentOmen, humanResult, humanFinal)
+        : { bonusPoints: 0, bonusRubies: 0 };
       humanFinal = applyOmenScoringEffect(humanFinal, stateWithAIs.currentOmen, humanResult);
       humanFinal = {
         ...humanFinal,
@@ -1674,6 +1759,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       };
       if (!humanResult.exploded || humanFinal.blueBonusExplosion) {
         humanFinal = applyRoundReward(humanFinal, humanResult);
+        humanFinal = applyIntentionRoundReward(humanFinal, humanResult, stateWithAIs, humanOmenReward);
+        humanFinal = applyRoundObjectiveReward(humanFinal, humanResult, stateWithAIs.currentRound);
       }
 
       const greenSpendMax = greenSetFourSpendMax(humanFinal, stateWithAIs.recipeBooks);
@@ -1698,6 +1785,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             space: result.space,
             vp: result.vp,
             coins: result.coins,
+            baseCoins: result.baseCoins,
             ruby: result.ruby,
             exploded: result.exploded,
             bonusDie: bonuses.get(player.id) ?? null,
@@ -1712,6 +1800,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             distillationPrestige: player.affliction?.lastPrestige,
             distillationDroplet: player.affliction?.lastDropletSteps,
             distillationHeadStart: player.affliction?.lastHeadStart,
+            causal: analyzeRoundCausality(player, stateWithAIs.currentRound),
           };
         }),
       };
@@ -1719,8 +1808,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ...stateWithAIs,
         market: marketAfterPurple,
         players: stateWithAIs.players.map((p) => {
-          if (p.id === "human") return humanFinal;
-          return resolvedAIById.get(p.id) ?? p;
+          const resolved = p.id === "human" ? humanFinal : resolvedAIById.get(p.id) ?? p;
+          const result = results.get(p.id);
+          return {
+            ...resolved,
+            shatterCount: (resolved.shatterCount ?? 0) + (result?.exploded ? 1 : 0),
+            highPressureSurvivals: (resolved.highPressureSurvivals ?? 0)
+              + (result && !result.exploded && p.crucible.whiteSum >= 6 ? 1 : 0),
+          };
         }),
         phase: humanHasPurpleChoice
           ? "purple_choice" as GamePhase

@@ -3,6 +3,7 @@ import type { Player } from "../game/playerTypes";
 import { useTranslation } from "../i18n/useTranslation";
 import { REMEDY_TRACK_MAX } from "../game/distillation";
 import { MIREWROUGHT_ASSETS } from "../assets/mirewroughtAssets";
+import { getAIRivalDoctrine } from "../game/aiStrategy";
 import { AFFLICTION_EMBLEMS, VEILGLASS_ASSETS } from "../assets/veilglassAssets";
 import { CORE_CHARACTER_PORTRAITS, CORE_ECONOMY_ASSETS } from "../assets/coreAssets";
 
@@ -12,9 +13,10 @@ interface PlayerPanelProps {
   label?: string;
   compact?: boolean;
   status?: "queued" | "brewing" | "stopped" | "complete";
+  onBagClick?: () => void;
 }
 
-export function PlayerPanel({ player, isActive, label, compact = false, status }: PlayerPanelProps) {
+export function PlayerPanel({ player, isActive, label, compact = false, status, onBagClick }: PlayerPanelProps) {
   const t = useTranslation();
   const exploded = player.crucible.exploded;
   const bagCount = player.bag.tokens.length;
@@ -38,6 +40,7 @@ export function PlayerPanel({ player, isActive, label, compact = false, status }
   const afflictionName = player.affliction
     ? t.afflictions.contractNames[player.affliction.contractId]
     : null;
+  const aiDoctrine = player.kind === "ai" ? getAIRivalDoctrine(player) : null;
 
   return (
     <div
@@ -75,7 +78,7 @@ export function PlayerPanel({ player, isActive, label, compact = false, status }
             {visualState === "brewing" ? "◆ " : visualState === "queued" ? "◇ " : "✓ "}{statusLabel}
           </span>
         )}
-        {player.kind === "ai" && <span style={styles.aiTag}>AI</span>}
+        {aiDoctrine && <span style={styles.aiTag} title={aiDoctrine.publicTell}>{aiDoctrine.shortLabel}</span>}
       </div>
 
       {!compact && <div style={styles.divider} />}
@@ -83,7 +86,7 @@ export function PlayerPanel({ player, isActive, label, compact = false, status }
       <div style={compact ? styles.compactStats : styles.fullStats}>
         <Stat kind="prestige" label={t.player.prestige} value={player.score} compact={compact} icon={CORE_ECONOMY_ASSETS.scoreMarker} />
         <Stat kind="rubies" label={t.player.rubies} value={player.rubies} compact={compact} accent="#cc88ff" icon={CORE_ECONOMY_ASSETS.ruby} />
-        <Stat kind="bag" label={t.player.bag} value={compact ? bagCount : `${bagCount} ${t.player.tokens}`} compact={compact} icon={CORE_ECONOMY_ASSETS.brewBag} />
+        <Stat kind="bag" label={t.player.bag} value={compact ? bagCount : `${bagCount} ${t.player.tokens}`} compact={compact} icon={CORE_ECONOMY_ASSETS.brewBag} onClick={onBagClick} />
       </div>
 
       {/* White sum — danger meter */}
@@ -184,15 +187,15 @@ export function PlayerPanel({ player, isActive, label, compact = false, status }
   );
 }
 
-function Stat({ kind, label, value, compact, accent, icon }: { kind: "prestige" | "rubies" | "bag"; label: string; value: React.ReactNode; compact: boolean; accent?: string; icon?: string }) {
-  return (
-    <div data-player-stat={kind} style={compact ? styles.compactStat : styles.row} title={label}>
+function Stat({ kind, label, value, compact, accent, icon, onClick }: { kind: "prestige" | "rubies" | "bag"; label: string; value: React.ReactNode; compact: boolean; accent?: string; icon?: string; onClick?: () => void }) {
+  const content = <>
       <span style={{ ...styles.iconLabel, ...styles.statLabel, ...(compact ? styles.compactStatLabel : {}) }}>{icon && <img src={icon} alt="" style={styles.statIcon} />}{label}</span>
       <span style={{ ...styles.statValue, ...(compact ? styles.compactStatValue : {}), ...(accent ? { color: accent } : {}) }}>
         {value}
       </span>
-    </div>
-  );
+  </>;
+  if (onClick) return <button data-player-stat={kind} style={{ ...(compact ? styles.compactStat : styles.row), ...styles.statButton }} title={label} onClick={onClick}>{content}</button>;
+  return <div data-player-stat={kind} style={compact ? styles.compactStat : styles.row} title={label}>{content}</div>;
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -202,11 +205,11 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundSize: "cover",
     border: "1px solid var(--scene-panel-border, rgba(102, 51, 137, 0.72))",
     borderRadius: 10,
-    padding: "18px 20px",
+    padding: "20px 22px",
     minWidth: 190,
     display: "flex",
     flexDirection: "column",
-    gap: 10,
+    gap: 12,
     boxShadow: "0 12px 34px rgba(0, 0, 0, 0.42), inset 0 1px rgba(220, 180, 255, 0.05)",
     backdropFilter: "blur(5px)",
     transition: "border-color 0.3s, box-shadow 0.3s",
@@ -293,7 +296,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   name: {
     fontFamily: "serif",
-    fontSize: 17,
+    fontSize: 19,
     color: "#e8b84d",
     letterSpacing: 1,
     flex: 1,
@@ -389,17 +392,26 @@ const styles: Record<string, React.CSSProperties> = {
   },
   statLabel: {
     fontFamily: "monospace",
-    fontSize: 13,
+    fontSize: 15,
     color: "#c9a86c",
     letterSpacing: 0.5,
   },
   iconLabel: { display: "inline-flex", alignItems: "center", gap: 5, minWidth: 0 },
-  statIcon: { width: 17, height: 17, flexShrink: 0, objectFit: "contain", filter: "drop-shadow(0 0 4px rgba(224,184,95,.32))" },
+  statIcon: { width: 19, height: 19, flexShrink: 0, objectFit: "contain", filter: "drop-shadow(0 0 4px rgba(224,184,95,.32))" },
   statValue: {
     fontFamily: "serif",
-    fontSize: 17,
+    fontSize: 19,
     color: "#e8d5b5",
     fontWeight: "bold",
+  },
+  statButton: {
+    width: "100%",
+    padding: 0,
+    color: "inherit",
+    background: "transparent",
+    border: 0,
+    cursor: "pointer",
+    font: "inherit",
   },
   dangerRow: {
     display: "flex",
@@ -421,13 +433,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   dangerNum: {
     fontFamily: "monospace",
-    fontSize: 12,
+    fontSize: 14,
     minWidth: 24,
     textAlign: "right",
   },
   flaskStatus: {
     fontFamily: "monospace",
-    fontSize: 13,
+    fontSize: 15,
     letterSpacing: 0.5,
   },
   explodedBadge: {

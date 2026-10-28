@@ -49,6 +49,7 @@ export function useFlask(player: Player): Player {
     bag: returnToken(player.bag, token),
     crucible: revertedCrucible,
     flask: false,
+    flaskUses: (player.flaskUses ?? 0) + 1,
   };
 }
 

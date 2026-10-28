@@ -1,0 +1,560 @@
+.black-market {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: auto;
+  color: #d8c8a6;
+  background: #020908;
+}
+.black-market__video {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.black-market__shade {
+  position: fixed;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(1, 8, 8, 0.83),
+      rgba(2, 10, 10, 0.33) 44%,
+      rgba(1, 7, 7, 0.76)
+    ),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.76));
+  pointer-events: none;
+}
+.black-market__scene {
+  position: relative;
+  width: min(1390px, 72vw);
+  min-height: 100%;
+  margin-left: clamp(24px, 4vw, 76px);
+  margin-right: auto;
+  padding: clamp(24px, 4vh, 55px) 0 34px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+}
+.black-market__header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 25px;
+  padding: 0 12px 16px;
+  border-bottom: 1px solid rgba(167, 128, 67, 0.55);
+  text-shadow: 0 2px 10px #000;
+}
+.black-market__eyebrow,
+.merchant-ledger__kicker {
+  margin: 0 0 5px;
+  color: #70c9c2;
+  font: 700 12px/1.2 monospace;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.black-market__header h1 {
+  margin: 0;
+  color: #dfba68;
+  font:
+    clamp(32px, 3vw, 50px)/1 Georgia,
+    serif;
+  letter-spacing: 2px;
+}
+.black-market__header > div > p:last-child {
+  margin: 8px 0 0;
+  color: #c6b897;
+  font:
+    italic 17px/1.4 Georgia,
+    serif;
+}
+.black-market__coin-purse {
+  display: grid;
+  grid-template-columns: 42px auto auto auto;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 16px;
+  border: 1px solid rgba(164, 130, 68, 0.52);
+  background: linear-gradient(
+    135deg,
+    rgba(19, 20, 13, 0.94),
+    rgba(5, 21, 21, 0.88)
+  );
+  box-shadow:
+    0 12px 35px #0008,
+    inset 0 0 25px rgba(103, 163, 148, 0.07);
+}
+.black-market__coin-purse img {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(224, 181, 83, 0.3));
+}
+.black-market__coin-purse span {
+  color: #a9cfc8;
+  font: 700 12px monospace;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.black-market__coin-purse strong {
+  color: #f0cf7d;
+  font:
+    700 29px Georgia,
+    serif;
+}
+.black-market__coin-purse small {
+  color: #82745e;
+  font: 14px monospace;
+}
+.black-market__counter {
+  display: grid;
+  grid-template-columns: minmax(0, 900px);
+  gap: 18px;
+  align-items: stretch;
+}
+.black-market__scene.has-ledger .black-market__counter {
+  grid-template-columns: minmax(0, 900px) minmax(390px, 1fr);
+}
+.specimen-cabinet,
+.merchant-ledger {
+  border: 1px solid rgba(59, 137, 132, 0.55);
+  box-shadow:
+    0 22px 70px #000b,
+    inset 0 0 45px rgba(35, 105, 101, 0.06);
+}
+.merchant-ledger__close {
+  position: absolute;
+  z-index: 3;
+  top: 13px;
+  right: 13px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: #d7bb78;
+  border: 1px solid rgba(174, 137, 72, 0.55);
+  background: rgba(4, 14, 13, 0.88);
+  font: 22px/1 Georgia, serif;
+}
+.merchant-ledger__close:hover {
+  color: #fff1bf;
+  border-color: #d7bb78;
+}
+.specimen-cabinet {
+  padding: 18px;
+  background: linear-gradient(
+    145deg,
+    rgba(2, 18, 18, 0.94),
+    rgba(4, 11, 10, 0.92)
+  );
+  position: relative;
+}
+.specimen-cabinet:before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border: 1px solid rgba(150, 111, 55, 0.18);
+  pointer-events: none;
+}
+.specimen-cabinet__heading {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 8px 14px;
+}
+.specimen-cabinet__heading span {
+  color: #d6b263;
+  font:
+    700 22px Georgia,
+    serif;
+}
+.specimen-cabinet__heading small {
+  color: #8ca9a3;
+  font: 12px monospace;
+  letter-spacing: 0.5px;
+}
+.specimen-cabinet__grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 11px;
+}
+.market-specimen {
+  position: relative;
+  min-height: 170px;
+  padding: 12px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  outline: none;
+  border: 1px solid rgba(122, 94, 51, 0.36);
+  background:
+    radial-gradient(
+      circle at 50% 35%,
+      color-mix(in srgb, var(--specimen-accent) 13%, transparent),
+      transparent 56%
+    ),
+    linear-gradient(180deg, rgba(12, 30, 28, 0.92), rgba(6, 11, 10, 0.98));
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    filter 0.18s ease,
+    box-shadow 0.18s ease;
+}
+.market-specimen:hover,
+.market-specimen:focus-visible,
+.market-specimen.is-selected {
+  transform: translateY(-3px);
+  border-color: var(--specimen-accent);
+  box-shadow:
+    0 0 24px color-mix(in srgb, var(--specimen-accent) 32%, transparent),
+    inset 0 0 25px color-mix(in srgb, var(--specimen-accent) 7%, transparent);
+}
+.market-specimen.is-locked,
+.market-specimen.is-sold {
+  filter: grayscale(0.76) brightness(0.55);
+}
+.market-specimen.is-purchased {
+  border-color: #65a37c;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 58, 42, 0.85),
+    rgba(5, 19, 15, 0.96)
+  );
+}
+.market-specimen__glass {
+  width: 92px;
+  height: 100px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  border-radius: 48% 48% 43% 43%;
+  background: radial-gradient(
+    circle,
+    rgba(97, 204, 193, 0.14),
+    rgba(1, 11, 11, 0.82) 68%
+  );
+  border: 1px solid color-mix(in srgb, var(--specimen-accent) 46%, #66513a);
+  box-shadow:
+    inset 0 0 25px #000,
+    0 7px 13px #0008;
+}
+.market-specimen__glass:after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(210, 188, 139, 0.12);
+  border-radius: inherit;
+}
+.market-specimen__glass img {
+  max-width: 74px;
+  max-height: 78px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 10px var(--specimen-accent));
+}
+.market-specimen__glass span {
+  font-size: 36px;
+  color: var(--specimen-accent);
+}
+.market-specimen__glass b {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  color: #f0d288;
+  background: #071110;
+  border: 1px solid #9d7b43;
+  font:
+    700 14px Georgia,
+    serif;
+}
+.market-specimen__label {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.market-specimen__label strong {
+  color: #e0c898;
+  font:
+    700 15px/1.15 Georgia,
+    serif;
+}
+.market-specimen__label span {
+  color: #8fbcb5;
+  font: 700 11px/1.15 monospace;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.market-specimen__seal {
+  position: absolute;
+  top: 50%;
+  font: 32px Georgia;
+  color: #9d7541;
+  text-shadow: 0 0 12px #000;
+}
+.merchant-ledger {
+  position: relative;
+  padding: 26px;
+  background: linear-gradient(
+    150deg,
+    rgba(31, 28, 20, 0.97),
+    rgba(13, 24, 22, 0.97)
+  );
+  border-color: rgba(173, 137, 74, 0.7);
+}
+.merchant-ledger:before {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border: 1px solid rgba(214, 178, 106, 0.14);
+  pointer-events: none;
+}
+.merchant-ledger__top {
+  position: relative;
+  display: grid;
+  grid-template-columns: 82px 1fr auto;
+  gap: 15px;
+  align-items: center;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(177, 139, 71, 0.42);
+}
+.merchant-ledger__portrait {
+  height: 82px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #725d39;
+  background: radial-gradient(
+    circle,
+    rgba(76, 179, 165, 0.18),
+    rgba(3, 13, 12, 0.85)
+  );
+  box-shadow: inset 0 0 18px #000;
+}
+.merchant-ledger__portrait img {
+  max-width: 68px;
+  max-height: 68px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 9px #5bbcaf77);
+}
+.merchant-ledger h2 {
+  margin: 3px 0;
+  color: #e6c36f;
+  font:
+    700 clamp(24px, 2.1vw, 35px)/1 Georgia,
+    serif;
+}
+.merchant-ledger__top p {
+  margin: 6px 0 0;
+  color: #aeb9a6;
+  font:
+    14px Georgia,
+    serif;
+}
+.merchant-ledger__price {
+  text-align: right;
+}
+.merchant-ledger__price small {
+  display: block;
+  color: #7fb9af;
+  font: 700 10px monospace;
+  letter-spacing: 1.5px;
+}
+.merchant-ledger__price strong {
+  display: block;
+  color: #efcf7f;
+  font:
+    700 22px Georgia,
+    serif;
+}
+.merchant-ledger__facts {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin: 18px 0;
+}
+.ledger-fact {
+  padding: 10px;
+  border: 1px solid rgba(89, 133, 119, 0.28);
+  background: rgba(2, 12, 11, 0.58);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: center;
+}
+.ledger-fact span,
+.merchant-ledger__entry span {
+  color: #77bcb2;
+  font: 700 10px monospace;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.ledger-fact strong {
+  color: #e6cf9c;
+  font:
+    700 19px Georgia,
+    serif;
+}
+.ledger-fact.is-good strong {
+  color: #79d7bc;
+}
+.ledger-fact.is-danger strong {
+  color: #df8778;
+}
+.merchant-ledger__entry {
+  position: relative;
+  padding: 11px 2px;
+  border-top: 1px solid rgba(139, 111, 62, 0.28);
+}
+.merchant-ledger__entry p {
+  margin: 5px 0 0;
+  color: #d3c5a8;
+  font:
+    15px/1.45 Georgia,
+    serif;
+}
+.merchant-ledger__caveat {
+  position: relative;
+  margin: 7px 0 14px;
+  color: #918979;
+  font:
+    italic 13px/1.4 Georgia,
+    serif;
+}
+.merchant-ledger__action {
+  position: relative;
+  margin-top: auto;
+}
+.merchant-ledger__action button,
+.black-market__leave {
+  cursor: pointer;
+  color: #f0cf7d;
+  font:
+    700 16px Georgia,
+    serif;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  border: 1px solid #9b7b42;
+  background: linear-gradient(
+    180deg,
+    rgba(45, 78, 66, 0.92),
+    rgba(7, 27, 25, 0.96)
+  );
+  box-shadow:
+    inset 0 0 16px rgba(98, 203, 186, 0.1),
+    0 6px 20px #0007;
+  transition:
+    filter 0.15s,
+    transform 0.15s;
+}
+.merchant-ledger__action button {
+  width: 100%;
+  padding: 14px;
+}
+.merchant-ledger__action button:hover:not(:disabled),
+.black-market__leave:hover {
+  filter: brightness(1.2);
+  transform: translateY(-1px);
+}
+.merchant-ledger__action button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.ledger-status {
+  display: block;
+  padding: 14px;
+  text-align: center;
+  color: #9b8564;
+  border: 1px solid #5b4c34;
+  font: 700 13px monospace;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.ledger-status.is-purchased {
+  color: #7fd2a1;
+  border-color: #42795a;
+}
+.black-market__leave {
+  align-self: center;
+  min-width: 300px;
+  padding: 13px 28px;
+  background: linear-gradient(
+    180deg,
+    rgba(18, 35, 31, 0.9),
+    rgba(4, 14, 13, 0.95)
+  );
+}
+@media (max-width: 1100px) {
+  .black-market__scene,
+  .black-market__scene.has-ledger {
+    width: 94vw;
+    margin: auto;
+    justify-content: flex-start;
+  }
+  .black-market__counter,
+  .black-market__scene.has-ledger .black-market__counter {
+    grid-template-columns: 1fr;
+  }
+  .specimen-cabinet__grid {
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+  }
+  .merchant-ledger {
+    padding: 22px;
+  }
+  .merchant-ledger__entry p {
+    font-size: 16px;
+  }
+}
+@media (max-width: 720px) {
+  .black-market__scene {
+    width: 94vw;
+    padding-top: 18px;
+  }
+  .black-market__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .black-market__coin-purse {
+    align-self: stretch;
+  }
+  .specimen-cabinet {
+    padding: 13px;
+  }
+  .specimen-cabinet__heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .specimen-cabinet__grid {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+  .market-specimen {
+    min-height: 155px;
+  }
+  .merchant-ledger__top {
+    grid-template-columns: 68px 1fr;
+  }
+  .merchant-ledger__price {
+    grid-column: 2;
+    text-align: left;
+  }
+  .merchant-ledger__facts {
+    grid-template-columns: 1fr 1fr;
+  }
+  .black-market__leave {
+    min-width: 0;
+    width: 100%;
+  }
+}

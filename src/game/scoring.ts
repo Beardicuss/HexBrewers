@@ -1,11 +1,14 @@
 import type { Crucible } from "./crucibleTypes";
 import type { Player } from "./playerTypes";
+import type { PlayerKind } from "./playerTypes";
+import type { AIDifficulty } from "./aiStrategy";
 import { SPACE_VP, getCoinsForSpace, RUBY_SPACES, getScoringSpace } from "./crucibleTypes";
 
 export interface RoundScoreResult {
   space: number;       // the scoring space (filledUpTo)
   vp: number;          // victory points from that space
   coins: number;       // coins available to spend in buy phase
+  baseCoins?: number;  // printed track value before a human difficulty adjustment
   ruby: boolean;       // whether a ruby is earned (all players, even exploded)
   exploded: boolean;
   overflowValue?: number;
@@ -28,6 +31,35 @@ export function calculateRoundScore(crucible: Crucible): RoundScoreResult {
   const ruby = RUBY_SPACES.has(space);
 
   return { space, vp, coins, ruby, exploded: crucible.exploded, overflowValue, overflowVp };
+}
+
+/**
+ * Difficulty changes the human market economy, not the physical scoring track.
+ * Rivals keep the printed coin value so their purchasing logic and board-game rules
+ * remain stable; the selected difficulty already governs their brewing decisions.
+ */
+export function adjustCoinRewardForDifficulty(coins: number, difficulty: AIDifficulty): number {
+  if (coins <= 0 || difficulty === "apprentice") return Math.max(0, coins);
+  if (difficulty === "skilled") {
+    // Preserve ordinary opening brews, then trim one coin from stronger results.
+    // A percentage tax compounded too aggressively across nine markets.
+    return coins <= 7 ? coins : coins - 1;
+  }
+  // Master demands meaningful sacrifices while always leaving earned purchasing power.
+  return Math.max(1, Math.floor(coins * 0.7));
+}
+
+export function calculateRoundScoreForDifficulty(
+  crucible: Crucible,
+  difficulty: AIDifficulty,
+  playerKind: PlayerKind,
+): RoundScoreResult {
+  const result = calculateRoundScore(crucible);
+  if (playerKind !== "human") return result;
+  const adjustedCoins = adjustCoinRewardForDifficulty(result.coins, difficulty);
+  return adjustedCoins === result.coins
+    ? result
+    : { ...result, baseCoins: result.coins, coins: adjustedCoins };
 }
 
 export type ExplodedChoice = "vp" | "coins";

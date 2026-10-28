@@ -1,9 +1,59 @@
 import type { Player } from "./playerTypes";
 import type { GameState } from "./gameState";
+import type { TokenColor } from "./tokenTypes";
 
 export type AIMode = "reckless" | "calculated" | "conservative";
 export type AIDifficulty = "apprentice" | "skilled" | "master";
-export type AIProfile = "shade" | "wraith" | "seer";
+export type AIProfile = "shade" | "wraith" | "seer" | "hollow";
+
+export interface AIRivalDoctrine {
+  profile: AIProfile;
+  name: string;
+  title: string;
+  shortLabel: string;
+  publicTell: string;
+  riskModifier: number;
+  preferredColors: TokenColor[];
+}
+
+export const AI_RIVAL_DOCTRINES: Record<AIProfile, AIRivalDoctrine> = {
+  shade: {
+    profile: "shade",
+    name: "The Shade",
+    title: "The Relentless Hand",
+    shortLabel: "PRESSURE",
+    publicTell: "Chases long strides and powerful ingredients, then guards a commanding lead.",
+    riskModifier: 0.1,
+    preferredColors: ["red", "yellow"],
+  },
+  wraith: {
+    profile: "wraith",
+    name: "The Wraith",
+    title: "The Patient Choir",
+    shortLabel: "SYNERGY",
+    publicTell: "Builds repeated ingredient families and answers favorable Omens.",
+    riskModifier: 0,
+    preferredColors: ["purple", "green", "black"],
+  },
+  seer: {
+    profile: "seer",
+    name: "The Seer",
+    title: "The Closed Eye",
+    shortLabel: "CONTROL",
+    publicTell: "Protects stable rewards and denies scarce ingredients before rivals can claim them.",
+    riskModifier: -0.1,
+    preferredColors: ["blue", "black", "yellow"],
+  },
+  hollow: {
+    profile: "hollow",
+    name: "The Hollow",
+    title: "The Borrowed Shape",
+    shortLabel: "ADAPTIVE",
+    publicTell: "Changes course when behind and exploits unusual ingredients or exposed weaknesses.",
+    riskModifier: 0.04,
+    preferredColors: ["echo", "purple", "black"],
+  },
+};
 
 export const AI_RISK_TUNING: Record<AIMode, {
   tolerance: number;
@@ -96,11 +146,22 @@ export function selectAIMode(context: AIContext): AIMode {
 export function getAIProfile(player: Player): AIProfile {
   if (player.id === "ai-2") return "wraith";
   if (player.id === "ai-3") return "seer";
+  if (player.id === "ai-4") return "hollow";
   return "shade";
+}
+
+export function getAIRivalDoctrine(player: Player): AIRivalDoctrine {
+  return AI_RIVAL_DOCTRINES[getAIProfile(player)];
+}
+
+export function getAIRivalDoctrineByName(name: string): AIRivalDoctrine {
+  return Object.values(AI_RIVAL_DOCTRINES).find((doctrine) => doctrine.name === name)
+    ?? AI_RIVAL_DOCTRINES.shade;
 }
 
 // Per-mode explosion risk tolerance.
 // If actual explosion probability exceeds this threshold, AI stops drawing.
-export function getRiskTolerance(mode: AIMode): number {
-  return AI_RISK_TUNING[mode].tolerance;
+export function getRiskTolerance(mode: AIMode, profile?: AIProfile): number {
+  const modifier = profile ? AI_RIVAL_DOCTRINES[profile].riskModifier : 0;
+  return Math.max(0.08, Math.min(0.82, AI_RISK_TUNING[mode].tolerance + modifier));
 }

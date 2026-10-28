@@ -1,6 +1,15 @@
 const ASSET_ORIGIN = window.HEXBREWERS_ASSET_ORIGIN
   || "https://pub-7b92547fbe944d259e437d18c1c425d4.r2.dev/releases/b9d0faa";
 
+const RECIPE_SET_ART = {
+  1: "./images/recipe-sets/set-1-the-gentle-chain.webp",
+  2: "./images/recipe-sets/set-2-the-warded-crucible.webp",
+  3: "./images/recipe-sets/set-3-the-crimson-resonance.webp",
+  4: "./images/recipe-sets/set-4-roots-beyond-nine.webp",
+  5: "./images/recipe-sets/set-5-mirewrought-bargains.webp",
+  6: "./images/recipe-sets/set-6-abyssal-overflow.webp",
+};
+
 document.querySelectorAll("[data-asset]").forEach((image) => {
   image.src = `${ASSET_ORIGIN}${image.dataset.asset}`;
 });
@@ -12,6 +21,293 @@ const optionalToggle = document.querySelector("#dlc-toggle");
 const noResults = document.querySelector("#no-results");
 const sidebar = document.querySelector("#chapter-navigation");
 const tocToggle = document.querySelector(".toc-toggle");
+
+/* ── i18n engine ───────────────────────────────────────────────────────
+   Translates every static text node via a CSS-selector → i18n-key map.
+   Dynamic content (ingredients, omens, covenants, afflictions) is
+   translated inline by the render helpers using tData().                */
+
+const I18N_MAP = [
+  /* Header / Sidebar */
+  ['.brand strong','s001'],['.toc-toggle','s002'],['.sidebar-heading','s003'],
+  ['.search-label','s004'],['.ritual-toggle span','s005'],
+  /* Cover */
+  ['.eyebrow','s006'],['.cover-deck','s008'],['.primary-action','s009'],
+  ['.cover-actions a:not(.primary-action)','s010'],
+  ['.facts div:nth-child(1) dd','s011'],['.facts div:nth-child(2) dd','s012'],
+  ['.facts div:nth-child(3) dd','s013'],['.facts div:nth-child(4) dd','s014'],
+  /* Ch 01 – Object */
+  ['#object .chapter-title span','s015'],['#object .chapter-title h2','s016'],
+  ['#object .lead-grid > div > .lead','s017'],['#object .lead-grid > div > p:not(.lead)','s018'],
+  ['#object blockquote','s019'],
+  ['#object .principles article:nth-child(1) b','s020'],['#object .principles article:nth-child(1) span','s021'],
+  ['#object .principles article:nth-child(2) b','s022'],['#object .principles article:nth-child(2) span','s023'],
+  ['#object .principles article:nth-child(3) b','s024'],['#object .principles article:nth-child(3) span','s025'],
+  ['.quick-start .section-kicker','s026'],['#quick-start-title','s027'],
+  ['.quick-start-heading > p','s028'],
+  ['.quick-start-steps li:nth-child(1) strong','s029'],['.quick-start-steps li:nth-child(1) span','s030'],
+  ['.quick-start-steps li:nth-child(2) strong','s031'],['.quick-start-steps li:nth-child(2) span','s032'],
+  ['.quick-start-steps li:nth-child(3) strong','s033'],['.quick-start-steps li:nth-child(3) span','s034'],
+  ['.quick-start-steps li:nth-child(4) strong','s035'],['.quick-start-steps li:nth-child(4) span','s036'],
+  ['.quick-start-steps li:nth-child(5) strong','s037'],['.quick-start-steps li:nth-child(5) span','s038'],
+  ['.quick-start-steps li:nth-child(6) strong','s039'],['.quick-start-steps li:nth-child(6) span','s040'],
+  ['.quick-start-verdict','s041'],
+  /* Ch 02 – Instruments */
+  ['#instruments .chapter-title span','s042'],['#instruments .chapter-title h2','s043'],
+  ['#instruments > .lead','s044'],
+  ['#instruments .instrument-grid article:nth-child(1) h3','s045'],['#instruments .instrument-grid article:nth-child(1) p','s046'],
+  ['#instruments .instrument-grid article:nth-child(2) h3','s047'],['#instruments .instrument-grid article:nth-child(2) p','s048'],
+  ['#instruments .instrument-grid article:nth-child(3) h3','s049'],['#instruments .instrument-grid article:nth-child(3) p','s050'],
+  ['#instruments .instrument-grid article:nth-child(4) h3','s051'],['#instruments .instrument-grid article:nth-child(4) p','s052'],
+  ['#instruments .section-kicker','s053'],['#instruments .starting-bag h3','s054'],
+  ['#instruments .starting-bag > div:first-child p','s055'],
+  ['#instruments .component-register article:nth-child(1) span','s056'],['#instruments .component-register article:nth-child(1) p','s057'],
+  ['#instruments .component-register article:nth-child(2) span','s058'],['#instruments .component-register article:nth-child(2) p','s059'],
+  ['#instruments .component-register article:nth-child(3) span','s060'],['#instruments .component-register article:nth-child(3) p','s061'],
+  ['#instruments .component-register article:nth-child(4) span','s062'],['#instruments .component-register article:nth-child(4) p','s063'],
+  /* Ch 03 – Setup */
+  ['#setup .chapter-title span','s064'],['#setup .chapter-title h2','s065'],
+  ['#setup .ritual-steps li:nth-child(1) h3','s066'],['#setup .ritual-steps li:nth-child(1) p','s067'],
+  ['#setup .ritual-steps li:nth-child(2) h3','s068'],['#setup .ritual-steps li:nth-child(2) p','s069'],
+  ['#setup .ritual-steps li:nth-child(3) h3','s070'],['#setup .ritual-steps li:nth-child(3) p','s071'],
+  ['#setup .ritual-steps li:nth-child(4) h3','s072'],['#setup .ritual-steps li:nth-child(4) p','s073'],
+  ['#setup .ritual-steps li:nth-child(5) h3','s074'],['#setup .ritual-steps li:nth-child(5) p','s075'],
+  /* Ch 04 – Round */
+  ['#round .chapter-title span','s076'],['#round .chapter-title h2','s077'],
+  ['#round > .lead','s078'],
+  ['#round .phase-track > div:nth-child(1) span','s079'],['#round .phase-track > div:nth-child(1) small','s080'],
+  ['#round .phase-track > div:nth-child(2) span','s081'],['#round .phase-track > div:nth-child(2) small','s082'],
+  ['#round .phase-track > div:nth-child(3) span','s083'],['#round .phase-track > div:nth-child(3) small','s084'],
+  ['#round .phase-track > div:nth-child(4) span','s085'],['#round .phase-track > div:nth-child(4) small','s086'],
+  ['#round .phase-track > div:nth-child(5) span','s087'],['#round .phase-track > div:nth-child(5) small','s088'],
+  ['#round .phase-track > div:nth-child(6) span','s089'],['#round .phase-track > div:nth-child(6) small','s090'],
+  /* Ch 05 – Omens */
+  ['#omens .chapter-title span','s091'],['#omens .chapter-title h2','s092'],
+  ['#omens > .lead','s093'],
+  ['#omens .omen-timings article:nth-child(1) span','s094'],['#omens .omen-timings article:nth-child(1) h3','s095'],['#omens .omen-timings article:nth-child(1) p','s096'],
+  ['#omens .omen-timings article:nth-child(2) span','s097'],['#omens .omen-timings article:nth-child(2) h3','s098'],['#omens .omen-timings article:nth-child(2) p','s099'],
+  ['#omens .omen-timings article:nth-child(3) span','s100'],['#omens .omen-timings article:nth-child(3) h3','s101'],['#omens .omen-timings article:nth-child(3) p','s102'],
+  ['#omens .omen-reading .section-kicker','s103'],['#omens .omen-reading h3','s104'],
+  ['#omens .omen-reading li:nth-child(1)','s105'],['#omens .omen-reading li:nth-child(2)','s106'],
+  ['#omens .omen-reading li:nth-child(3)','s107'],['#omens .omen-reading li:nth-child(4)','s108'],
+  ['#omens > .note b','s109'],['#omens > .note p','s110'],
+  ['#omens .archive-subtitle','s111'],['#omens > p:not(.lead)','s112'],
+  /* Ch 06 – Drawing */
+  ['#drawing .chapter-title span','s113'],['#drawing .chapter-title h2','s114'],
+  ['#drawing .lead','s115'],
+  ['#drawing .rule-list li:nth-child(1)','s116'],['#drawing .rule-list li:nth-child(2)','s117'],
+  ['#drawing .rule-list li:nth-child(3)','s118'],['#drawing .rule-list li:nth-child(4)','s119'],
+  ['.example-label','s120'],['.space.start','s121'],
+  ['#drawing .movement-example > p','s122'],['.diagram-button','s123'],
+  /* Ch 07 – Ingredients */
+  ['#ingredients .chapter-title span','s124'],['#ingredients .chapter-title h2','s125'],
+  ['#ingredients .ingredient-intro .lead','s126'],['#ingredients .ingredient-intro p:not(.lead)','s127'],
+  ['.recipe-picker > span','s128'],
+  ['#recipe-set option:nth-child(1)','s129'],['#recipe-set option:nth-child(2)','s130'],
+  ['#recipe-set option:nth-child(3)','s131'],['#recipe-set option:nth-child(4)','s132'],
+  ['#recipe-set option:nth-child(5)','s133'],['#recipe-set option:nth-child(6)','s134'],
+  ['.timing-key > b','s135'],
+  ['.timing-key > span:nth-of-type(1)','s136'],['.timing-key > span:nth-of-type(2)','s137'],['.timing-key > span:nth-of-type(3)','s138'],
+  /* Ch 08 – Pressure */
+  ['#pressure .chapter-title span','s139'],['#pressure .chapter-title h2','s140'],
+  ['#pressure .pressure-dial:not(.shattered) span','s141'],
+  ['#pressure .pressure-copy > p:nth-child(1)','s142'],['#pressure .pressure-copy > p:nth-child(2)','s143'],
+  ['#pressure .pressure-dial.shattered span','s144'],
+  ['#pressure .example-heading span','s145'],['#pressure .example-heading h3','s146'],
+  ['#pressure .vial-sequence > div:nth-of-type(1) small','s147'],
+  ['#pressure .vial-sequence > div:nth-of-type(2) small','s148'],
+  ['#pressure .vial-sequence .restored small','s149'],
+  ['#pressure .vial-example > p','s150'],
+  ['#pressure .choice-card > span','s151'],['#pressure .choice-card > h3','s152'],['#pressure .choice-card > p','s153'],
+  /* Ch 09 – Evaluation */
+  ['#evaluation .chapter-title span','s154'],['#evaluation .chapter-title h2','s155'],
+  ['#evaluation > .lead','s156'],
+  ['.resolution-order > span:nth-of-type(1)','s157'],['.resolution-order > span:nth-of-type(2)','s158'],
+  ['.resolution-order > span:nth-of-type(3)','s159'],['.resolution-order > span:nth-of-type(4)','s160'],
+  ['.resolution-order > span:nth-of-type(5)','s161'],['.resolution-order > span:nth-of-type(6)','s162'],
+  ['.bonus-die-guide .section-kicker','s163'],['.bonus-die-guide h3','s164'],['.bonus-die-guide > div:first-child > p','s165'],
+  ['.die-faces > span:nth-child(1)','s166'],['.die-faces > span:nth-child(2)','s167'],
+  ['.die-faces > span:nth-child(3)','s168'],['.die-faces > span:nth-child(4)','s169'],
+  ['.die-faces > span:nth-child(5)','s170'],['.die-faces > span:nth-child(6)','s171'],
+  ['.scoring-example .example-heading span','s172'],['.scoring-example .example-heading h3','s173'],
+  ['.scoring-example > p','s174'],
+  ['.rat-example .example-heading span','s175'],['.rat-example .example-heading h3','s176'],
+  ['.prestige-track .trailer','s177'],
+  ['.prestige-track > i:nth-of-type(2)','s178'],['.prestige-track > i:nth-of-type(3)','s179'],
+  ['.prestige-track .leader','s180'],
+  ['.rat-example > p','s181'],
+  ['.stable-reward > span','s182'],['.stable-reward > h3','s183'],
+  ['.stable-reward div b:first-of-type','s184'],['.stable-reward div i','s185'],['.stable-reward div b:last-of-type','s186'],
+  ['.stable-reward > p','s187'],
+  ['.shattered-reward > span','s188'],['.shattered-reward > h3','s189'],
+  ['.shattered-reward div b:first-of-type','s190'],['.shattered-reward div i','s191'],['.shattered-reward div b:last-of-type','s192'],
+  ['.shattered-reward > p','s193'],
+  ['.scoring-ledger .section-kicker','s194'],['.scoring-ledger h3','s195'],['.scoring-ledger > div:first-child > p','s196'],
+  ['.scoring-ledger dl > div:nth-child(1) dd','s197'],['.scoring-ledger dl > div:nth-child(2) dd','s198'],
+  ['.scoring-ledger dl > div:nth-child(3) dd','s199'],['.scoring-ledger dl > div:nth-child(4) dd','s200'],
+  ['.scoring-ledger dl > div:nth-child(5) dd','s201'],['.scoring-ledger dl > div:nth-child(6) dd','s202'],
+  ['.scoring-ledger dl > div:nth-child(7) dd','s203'],['.scoring-ledger dl > div:nth-child(8) dd','s204'],
+  ['.scoring-ledger dl > div:nth-child(9) dd','s205'],['.scoring-ledger dl > div:nth-child(10) dd','s206'],
+  ['.scoring-ledger dl > div:nth-child(11) dd','s207'],['.scoring-ledger dl > div:nth-child(12) dd','s208'],
+  ['.scoring-ledger dl > div:nth-child(13) dd','s209'],['.scoring-ledger dl > div:nth-child(14) dd','s210'],
+  ['.scoring-ledger dl > div:nth-child(15) dd','s211'],['.scoring-ledger dl > div:nth-child(16) dd','s212'],
+  ['#evaluation > .note b','s213'],['#evaluation > .note p','s214'],
+  /* Ch 10 – Market */
+  ['#market .chapter-title span','s215'],['#market .chapter-title h2','s216'],
+  ['#market .lead-grid .lead','s217'],
+  ['#market .rule-list li:nth-child(1)','s218'],['#market .rule-list li:nth-child(2)','s219'],
+  ['#market .rule-list li:nth-child(3)','s220'],['#market .rule-list li:nth-child(4)','s221'],
+  ['#market .rule-list li:nth-child(5)','s222'],
+  ['.market-law > b','s223'],['.market-law > span','s224'],['.market-law > em','s225'],
+  ['.valid-purchase > b','s226'],['.valid-purchase > small','s229'],
+  ['.invalid-purchase > b','s230'],['.invalid-purchase > small','s233'],
+  ['.market-calendar article:nth-child(1) b','s234'],['.market-calendar article:nth-child(1) p','s235'],
+  ['.market-calendar article:nth-child(2) b','s236'],['.market-calendar article:nth-child(2) p','s237'],
+  ['.market-calendar article:nth-child(3) b','s238'],['.market-calendar article:nth-child(3) p','s239'],
+  ['.stock-ledger .section-kicker','s240'],['.stock-ledger h3','s241'],['.stock-ledger > div:first-child > p','s242'],
+  ['.stock-ledger dl > div:nth-child(1) dd','s244'],
+  ['.stock-ledger dl > div:nth-child(2) dd','s246'],
+  ['.stock-ledger dl > div:nth-child(8) dt','s252'],['.stock-ledger dl > div:nth-child(8) dd','s253'],
+  ['.stock-ledger dl > div:nth-child(9) dt','s254'],['.stock-ledger dl > div:nth-child(9) dd','s255'],
+  ['#market > .note b','s256'],['#market > .note p','s257'],
+  /* Ch 11 – Victory */
+  ['#victory .chapter-title span','s258'],['#victory .chapter-title h2','s259'],
+  ['#victory > .lead','s260'],
+  ['.final-conversions > div:nth-child(1) span','s261'],['.final-conversions > div:nth-child(1) strong','s262'],
+  ['.final-conversions > div:nth-child(2) span','s263'],['.final-conversions > div:nth-child(2) strong','s264'],
+  ['#victory > p:last-of-type','s265'],
+  /* Stage 1 – Ashenveil rules and trials */
+  ['#ashenveil-ritual','stageAshenveil'],['#named-trials','stageTrials'],
+  /* Optional – Mire Covenants */
+  ['#optional-rituals .chapter-title span','s266'],['#optional-rituals .chapter-title h2','s267'],
+  ['#optional-rituals > .lead','s268'],
+  ['#optional-rituals .bone > span','s269'],['#optional-rituals .bone > h3','s270'],['#optional-rituals .bone > p','s271'],
+  ['#optional-rituals .moon > span','s272'],['#optional-rituals .moon > h3','s273'],['#optional-rituals .moon > p','s274'],
+  ['#optional-rituals .blood > span','s275'],['#optional-rituals .blood > h3','s276'],['#optional-rituals .blood > p','s277'],
+  ['.seal-law > b','s278'],['.seal-law > p','s279'],
+  ['.runoff-guide article:nth-child(1) .section-kicker','s280'],['.runoff-guide article:nth-child(1) h3','s281'],['.runoff-guide article:nth-child(1) p','s282'],
+  ['.runoff-guide article:nth-child(2) .section-kicker','s283'],['.runoff-guide article:nth-child(2) h3','s284'],['.runoff-guide article:nth-child(2) p','s285'],
+  ['.runoff-guide article:nth-child(3) .section-kicker','s286'],['.runoff-guide article:nth-child(3) h3','s287'],['.runoff-guide article:nth-child(3) p','s288'],
+  ['#optional-rituals .archive-subtitle','s289'],
+  /* Optional – Distillation */
+  ['#distillation .chapter-title span','s290'],['#distillation .chapter-title h2','s291'],
+  ['#distillation .affliction-intro .lead','s292'],['#distillation .affliction-intro > div > p:not(.lead)','s293'],
+  ['.distillation-formula > div:nth-of-type(1) strong','s294'],['.distillation-formula > div:nth-of-type(1) b','s295'],['.distillation-formula > div:nth-of-type(1) small','s296'],
+  ['.distillation-formula > div:nth-of-type(2) strong','s297'],['.distillation-formula > div:nth-of-type(2) small','s298'],
+  ['.distillation-formula > div:nth-of-type(3) strong','s299'],['.distillation-formula > div:nth-of-type(3) b','s300'],['.distillation-formula > div:nth-of-type(3) small','s301'],
+  ['.formula-result strong','s302'],['.formula-result b','s303'],['.formula-result small','s304'],
+  ['.distill-example .example-heading span','s305'],['.distill-example .example-heading h3','s306'],
+  ['.distill-count > span:nth-of-type(1)','s307'],['.distill-count > span:nth-of-type(2)','s308'],
+  ['.distill-count > span:nth-of-type(3)','s309'],['.distill-count > strong','s310'],
+  ['.distill-example > p','s311'],
+  ['#distillation .archive-subtitle','s312'],
+  /* Glossary */
+  ['#glossary .chapter-title span','s313'],['#glossary .chapter-title h2','s314'],
+  ['#glossary > .lead','s315'],
+  ['.glossary-grid > div:nth-child(1) dt','s316'],['.glossary-grid > div:nth-child(1) dd','s317'],
+  ['.glossary-grid > div:nth-child(2) dt','s318'],['.glossary-grid > div:nth-child(2) dd','s319'],
+  ['.glossary-grid > div:nth-child(3) dt','s320'],['.glossary-grid > div:nth-child(3) dd','s321'],
+  ['.glossary-grid > div:nth-child(4) dt','s322'],['.glossary-grid > div:nth-child(4) dd','s323'],
+  ['.glossary-grid > div:nth-child(5) dt','s324'],['.glossary-grid > div:nth-child(5) dd','s325'],
+  ['.glossary-grid > div:nth-child(6) dt','s326'],['.glossary-grid > div:nth-child(6) dd','s327'],
+  ['.glossary-grid > div:nth-child(7) dt','s328'],['.glossary-grid > div:nth-child(7) dd','s329'],
+  ['.glossary-grid > div:nth-child(8) dt','s330'],['.glossary-grid > div:nth-child(8) dd','s331'],
+  ['.glossary-grid > div:nth-child(9) dt','s332'],['.glossary-grid > div:nth-child(9) dd','s333'],
+  ['.glossary-grid > div:nth-child(10) dt','s334'],['.glossary-grid > div:nth-child(10) dd','s335'],
+  ['.glossary-grid > div:nth-child(11) dt','s336'],['.glossary-grid > div:nth-child(11) dd','s337'],
+  ['.glossary-grid > div:nth-child(12) dt','s338'],['.glossary-grid > div:nth-child(12) dd','s339'],
+  /* Quick Reference */
+  ['#quick-reference .chapter-title span','s340'],['#quick-reference .chapter-title h2','s341'],
+  ['.reference-grid article:nth-child(1) b','s342'],['.reference-grid article:nth-child(1) p','s343'],
+  ['.reference-grid article:nth-child(2) b','s344'],['.reference-grid article:nth-child(2) p','s345'],
+  ['.reference-grid article:nth-child(3) b','s346'],['.reference-grid article:nth-child(3) p','s347'],
+  ['.reference-grid article:nth-child(4) b','s348'],['.reference-grid article:nth-child(4) p','s349'],
+  ['.common-mistakes h3','s350'],
+  ['.common-mistakes li:nth-child(1)','s351'],['.common-mistakes li:nth-child(2)','s352'],
+  ['.common-mistakes li:nth-child(3)','s353'],['.common-mistakes li:nth-child(4)','s354'],
+  ['.common-mistakes li:nth-child(5)','s355'],
+  /* No-results & Footer */
+  ['#no-results h2','s356'],['#no-results p','s357'],
+  ['footer strong','s358'],['footer p','s359'],
+];
+
+function getLang() {
+  const saved = localStorage.getItem('hb-lang');
+  return ['en', 'ru', 'ka'].includes(saved) ? saved : 'en';
+}
+
+function getUi() { return window.I18N?.[getLang()]?.ui ?? {}; }
+
+function tData(text) {
+  const lang = getLang();
+  if (lang === 'en' || !text) return text;
+  return window.I18N?.[lang]?.data?.[text] ?? text;
+}
+
+function applyLang() {
+  const lang = getLang();
+  document.documentElement.lang = lang;
+
+  const languageSelect = document.querySelector('#language-select');
+  if (languageSelect) languageSelect.value = lang;
+
+  const dict = lang !== 'en' ? window.I18N?.[lang] : null;
+
+  // Translate static HTML via selector map
+  I18N_MAP.forEach(([sel, key]) => {
+    const el = document.querySelector(sel);
+    if (!el) return;
+    if (el._origHTML == null) el._origHTML = el.innerHTML;
+    el.innerHTML = dict?.[key] ?? el._origHTML;
+  });
+
+  // Page title & meta description
+  const titleEl = document.querySelector('title');
+  if (!titleEl._orig) titleEl._orig = titleEl.textContent;
+  document.title = dict?.t_title ?? titleEl._orig;
+
+  const metaDesc = document.querySelector('meta[name="description"]');
+  if (metaDesc) {
+    if (!metaDesc._orig) metaDesc._orig = metaDesc.content;
+    metaDesc.content = dict?.t_desc ?? metaDesc._orig;
+  }
+
+  // Search placeholder
+  if (!search._origPh) search._origPh = search.placeholder;
+  search.placeholder = dict?.a362 ?? search._origPh;
+
+  // Update chapter data-titles from translated headings, then rebuild TOC
+  chapters.forEach(ch => {
+    if (!ch._origTitle) ch._origTitle = ch.dataset.title;
+    const h = ch.querySelector('h2') || ch.querySelector('h1');
+    ch.dataset.title = h ? h.textContent : ch._origTitle;
+  });
+  buildTOC();
+
+  // Re-render JS-driven content
+  renderIngredients();
+  renderExpansionReferences();
+}
+
+/* ── TOC builder (called on every language switch) ──────────────────── */
+
+function buildTOC() {
+  toc.innerHTML = '';
+  chapters.forEach((chapter, index) => {
+    const link = document.createElement("a");
+    link.href = `#${chapter.id}`;
+    link.dataset.target = chapter.id;
+    link.innerHTML = `<small>${String(index).padStart(2, "0")}</small><span>${chapter.dataset.title}</span>`;
+    link.addEventListener("click", () => {
+      sidebar.classList.remove("is-open");
+      tocToggle.setAttribute("aria-expanded", "false");
+    });
+    toc.append(link);
+  });
+  applyFilters();
+}
+
+/* ── Data arrays (unchanged) ────────────────────────────────────────── */
 
 const recipeIngredients = [
   {
@@ -136,21 +432,50 @@ const omenReference = [
   ["V4", "Mercy of the Thin Veil", "Every brewer's Distillation progress is at least 3 this round.", true],
 ];
 
+/* ── Rendering ──────────────────────────────────────────────────────── */
+
 function ingredientCard(ingredient, recipeIndex) {
+  const lang = getLang();
+  const dict = lang !== 'en' ? window.I18N?.[lang] : null;
   const recipe = ingredient.recipes?.[recipeIndex];
-  const effect = recipe?.[0] || ingredient.effect;
-  const cost = recipe?.[1] || ingredient.cost;
+  const effect = tData(recipe?.[0] || ingredient.effect);
+  const rawCost = recipe?.[1] || ingredient.cost;
+  const displayCost = rawCost === 'Not sold' ? (dict?.ui?.notSold || 'Not sold') : rawCost;
+  const valuesLabel = dict?.ui?.values || 'VALUES';
+  const marketLabel = dict?.ui?.marketCost || 'MARKET COST';
+  const timingLabel = dict?.ui?.timing?.[ingredient.timing] || ingredient.timing;
+  const guidance = window.HEXBREWERS_RECIPE_GUIDANCE?.[ingredient.color]?.[String(recipeIndex + 1)];
+  const localizedGuidance = window.HEXBREWERS_RECIPE_GUIDANCE_I18N?.[lang]?.[ingredient.color]?.[String(recipeIndex + 1)];
+  const ruling = localizedGuidance || guidance;
+  const rulingUi = dict?.ui?.ruling ?? {};
   const optional = ingredient.optional ? ' data-optional-ingredient="true"' : "";
   return `<article class="ingredient-card color-${ingredient.color}"${optional}>
     <div class="ingredient-portrait"><img src="${ASSET_ORIGIN}${ingredient.image}" alt="${ingredient.name}"></div>
-    <div class="ingredient-copy"><header><div><h3>${ingredient.name}</h3><small>VALUES · ${ingredient.values}</small></div><span class="timing ${ingredient.timing}">${ingredient.timing}</span></header><p>${effect}</p><div class="ingredient-cost"><b>MARKET COST</b><strong>${cost}</strong></div></div>
+    <div class="ingredient-copy"><header><div><h3>${ingredient.name}</h3><small>${valuesLabel} · ${ingredient.values}</small></div><span class="timing ${ingredient.timing}">${timingLabel}</span></header><p>${effect}</p>
+    ${ruling ? `<details class="codex-ruling" open><summary>${rulingUi.complete || 'COMPLETE RULING'}</summary><div class="codex-ruling-meta"><span><b>${rulingUi.timing || 'TIMING'}</b>${ruling.timing}</span><span><b>${rulingUi.resolution || 'RESOLUTION'}</b>${ruling.choice}</span></div><dl><div><dt>${rulingUi.trigger || 'Trigger'}</dt><dd>${ruling.trigger}</dd></div><div><dt>${rulingUi.resolve || 'Resolve'}</dt><dd>${ruling.resolution}</dd></div><div><dt>${rulingUi.multiple || 'Multiple copies'}</dt><dd>${ruling.multiple}</dd></div><div><dt>${rulingUi.example || 'Example'}</dt><dd>${ruling.example}</dd></div><div><dt>${rulingUi.works || 'Works well with'}</dt><dd>${ruling.worksWellWith}</dd></div><div><dt>${rulingUi.tradeoff || 'Tradeoff'}</dt><dd>${ruling.tradeoff}</dd></div></dl></details>` : ''}
+    <div class="ingredient-cost"><b>${marketLabel}</b><strong>${displayCost}</strong></div></div>
   </article>`;
+}
+
+function renderRecipeStrategies(recipeSet) {
+  const container = document.querySelector('#recipe-strategies');
+  if (!container) return;
+  const lang = getLang();
+  const strategies = window.HEXBREWERS_RECIPE_STRATEGIES_I18N?.[lang]?.[String(recipeSet)] || window.HEXBREWERS_RECIPE_STRATEGIES?.[String(recipeSet)] || [];
+  const ui = window.I18N?.[lang]?.ui?.strategies ?? {};
+  const art = RECIPE_SET_ART[recipeSet];
+  if (!strategies.length) {
+    container.innerHTML = `<figure class="recipe-strategies__art"><img src="${art}" alt="" aria-hidden="true"></figure><div><span>${ui.expansion || 'EXPANSION FORMULA'}</span><h3>${ui.expansionTitle || 'Specialized Mirewrought recipes'}</h3><p>${ui.expansionText || 'Sets V and VI are expansion configurations. Their complete individual rulings appear below.'}</p></div>`;
+    return;
+  }
+  container.innerHTML = `<figure class="recipe-strategies__art"><img src="${art}" alt="" aria-hidden="true"></figure><header><span>${ui.kicker || 'THREE VIABLE STRATEGY PATHS'}</span><h3>${(ui.title || 'Set {set} at a glance').replace('{set}', recipeSet)}</h3><p>${ui.intro || 'These are starting plans, not forced builds. Draw order, Omens, rivals, and market stock should change your decisions.'}</p></header><div>${strategies.map(strategy => `<article><h4>${strategy.name}</h4><p>${strategy.thesis}</p><small><b>${ui.counterweight || 'COUNTERWEIGHT'}</b>${strategy.counterweight}</small></article>`).join('')}</div>`;
 }
 
 function renderIngredients() {
   const grid = document.querySelector("#ingredient-grid");
   if (!grid) return;
   const recipeIndex = Number(document.querySelector("#recipe-set").value) - 1;
+  renderRecipeStrategies(recipeIndex + 1);
   grid.innerHTML = [...fixedIngredients.slice(0, 3), ...recipeIngredients, ...fixedIngredients.slice(3)]
     .map((ingredient) => ingredientCard(ingredient, recipeIndex)).join("");
   grid.querySelectorAll('[data-optional-ingredient="true"]').forEach((card) => {
@@ -159,30 +484,35 @@ function renderIngredients() {
 }
 
 function renderExpansionReferences() {
+  const lang = getLang();
+  const dict = lang !== 'en' ? window.I18N?.[lang] : null;
+
   const omenGrid = document.querySelector("#omen-reference");
-  if (omenGrid) omenGrid.innerHTML = omenReference.map(([number, name, effect, optional]) => `
+  if (omenGrid) omenGrid.innerHTML = omenReference.map(([number, name, effect, optional]) => {
+    const label = optional ? (dict?.ui?.veilglass || 'VEILGLASS') : (dict?.ui?.omen || 'OMEN');
+    return `
     <article class="omen-reference${optional ? " is-optional" : ""}"${optional ? ' data-optional-omen="true"' : ""}>
-      <header><b>${optional ? "VEILGLASS" : "OMEN"} ${number}</b><h4>${name}</h4></header><p>${effect}</p>
-    </article>`).join("");
+      <header><b>${label} ${number}</b><h4>${name}</h4></header><p>${tData(effect)}</p>
+    </article>`;
+  }).join("");
+
   const covenantGrid = document.querySelector("#covenant-reference");
-  if (covenantGrid) covenantGrid.innerHTML = covenantReference.map(([kind, name, slug, effect]) => `
-    <article class="reference-card covenant-${kind}"><img src="${ASSET_ORIGIN}/images/dlc/mirewrought-pacts/covenants/covenant-${kind}-${slug}.webp" alt="${name}"><div><span>${kind.toUpperCase()} COVENANT</span><h4>${name}</h4><p>${effect}</p></div></article>`).join("");
+  if (covenantGrid) covenantGrid.innerHTML = covenantReference.map(([kind, name, slug, effect]) => {
+    const label = dict?.ui?.covenant?.[kind] || `${kind.toUpperCase()} COVENANT`;
+    return `
+    <article class="reference-card covenant-${kind}"><img src="${ASSET_ORIGIN}/images/dlc/mirewrought-pacts/covenants/covenant-${kind}-${slug}.webp" alt="${name}"><div><span>${label}</span><h4>${name}</h4><p>${tData(effect)}</p></div></article>`;
+  }).join("");
+
   const afflictionGrid = document.querySelector("#affliction-reference");
-  if (afflictionGrid) afflictionGrid.innerHTML = afflictionReference.map(([name, slug, symptom, reward]) => `
-    <article class="reference-card"><img src="${ASSET_ORIGIN}/images/dlc/veilglass-afflictions/afflictions/affliction-emblem-${slug}.webp" alt="${name} emblem"><div><span>AFFLICTION CONTRACT</span><h4>${name}</h4><em>${symptom}</em><p>${reward}</p></div></article>`).join("");
+  if (afflictionGrid) afflictionGrid.innerHTML = afflictionReference.map(([name, slug, symptom, reward]) => {
+    const label = dict?.ui?.affliction || 'AFFLICTION CONTRACT';
+    const emblemWord = dict?.ui?.emblem || 'emblem';
+    return `
+    <article class="reference-card"><img src="${ASSET_ORIGIN}/images/dlc/veilglass-afflictions/afflictions/affliction-emblem-${slug}.webp" alt="${name} ${emblemWord}"><div><span>${label}</span><h4>${name}</h4><em>${tData(symptom)}</em><p>${tData(reward)}</p></div></article>`;
+  }).join("");
 }
 
-chapters.forEach((chapter, index) => {
-  const link = document.createElement("a");
-  link.href = `#${chapter.id}`;
-  link.dataset.target = chapter.id;
-  link.innerHTML = `<small>${String(index).padStart(2, "0")}</small><span>${chapter.dataset.title}</span>`;
-  link.addEventListener("click", () => {
-    sidebar.classList.remove("is-open");
-    tocToggle.setAttribute("aria-expanded", "false");
-  });
-  toc.append(link);
-});
+/* ── Intersection Observer ──────────────────────────────────────────── */
 
 const observer = new IntersectionObserver((entries) => {
   entries.forEach((entry) => {
@@ -194,6 +524,8 @@ const observer = new IntersectionObserver((entries) => {
 }, { rootMargin: "-18% 0px -65%", threshold: 0.01 });
 
 chapters.forEach((chapter) => observer.observe(chapter));
+
+/* ── Filters ────────────────────────────────────────────────────────── */
 
 function applyFilters() {
   const term = search.value.trim().toLocaleLowerCase();
@@ -216,8 +548,10 @@ function applyFilters() {
   });
 }
 
+/* ── Event listeners ────────────────────────────────────────────────── */
+
 search.addEventListener("input", applyFilters);
-optionalToggle.addEventListener("change", applyFilters);
+optionalToggle.addEventListener("change", () => { applyFilters(); applyLang(); });
 document.querySelector("#recipe-set")?.addEventListener("change", renderIngredients);
 
 tocToggle.addEventListener("click", () => {
@@ -237,9 +571,16 @@ addEventListener("scroll", () => {
   document.querySelector("#progress-bar").style.transform = `scaleX(${progress})`;
 }, { passive: true });
 
+// Language selector
+document.querySelector('#language-select')?.addEventListener('change', (event) => {
+    localStorage.setItem('hb-lang', event.target.value);
+    applyLang();
+});
+
+/* ── Init ───────────────────────────────────────────────────────────── */
+
 document.querySelector(".moving-token").classList.add("is-moving");
-renderIngredients();
-renderExpansionReferences();
+applyLang(); // renders everything + applies saved language
 
 // Asset-backed chapters gain height while their illustrations decode. Restore the
 // requested deep link after that layout settles so a shared chapter URL opens at

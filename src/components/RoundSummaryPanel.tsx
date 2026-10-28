@@ -5,6 +5,8 @@ import { formatBonusDieResult } from "./bonusDieText";
 import { AFFLICTION_EMBLEMS, REMEDY_SYMBOLS, VEILGLASS_ASSETS } from "../assets/veilglassAssets";
 import { REMEDY_TRACK_MAX } from "../game/distillation";
 import type { AfflictionState } from "../game/distillation";
+import { getLocalizedTokenName } from "../i18n/tokenNames";
+import type { PlayerRoundSummary, RoundCausalDraw } from "../game/gameState";
 
 export function RoundSummaryPanel({ summary, cinematic = false, afflictions = {}, onContinue }: {
   summary: RoundSummary;
@@ -14,6 +16,7 @@ export function RoundSummaryPanel({ summary, cinematic = false, afflictions = {}
 }) {
   const t = useTranslation();
   const hasDistillation = summary.players.some((player) => player.distillationProgress !== undefined);
+  const humanSummary = summary.players.find((player) => player.playerId === "human");
   return (
     <div className={cinematic ? "round-summary-panel is-cinematic" : "round-summary-panel"} style={{ ...styles.panel, ...(cinematic ? styles.panelCinematic : {}) }}>
       <style>{`@keyframes scoring-player-reveal{from{opacity:0;transform:translateY(14px);filter:blur(3px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}@keyframes scoring-title-reveal{from{opacity:0;letter-spacing:.35em}to{opacity:1;letter-spacing:.08em}}@keyframes distill-cell-fill{0%{opacity:.12;transform:scale(.55);filter:brightness(.6)}55%{opacity:1;transform:scale(1.18);filter:brightness(1.7)}100%{opacity:1;transform:scale(1);filter:brightness(1)}}@keyframes distill-marker-rise{from{opacity:0;transform:translateY(10px) scale(.7)}to{opacity:1;transform:translateY(0) scale(1)}}.round-summary-continue{align-self:center;min-width:min(320px,80vw);margin-top:10px;padding:14px 28px;border:1px solid var(--scene-cool-accent,#76d7c4);border-radius:4px;background:linear-gradient(180deg,rgba(35,121,128,.34),rgba(6,33,40,.72));color:#f3dfaa;font:700 15px/1.2 Georgia,serif;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;box-shadow:0 0 24px rgba(77,199,207,.14),inset 0 0 18px rgba(90,204,211,.08);transition:filter .18s ease,transform .18s ease,box-shadow .18s ease}.round-summary-continue:hover,.round-summary-continue:focus-visible{filter:brightness(1.24);transform:translateY(-1px);box-shadow:0 0 34px rgba(77,199,207,.28),inset 0 0 22px rgba(90,204,211,.14);outline:2px solid rgba(232,184,77,.8);outline-offset:3px}@media(max-width:900px){.round-summary-panel.is-cinematic{width:94vw!important;padding:22px!important}.round-summary-players{grid-template-columns:repeat(2,minmax(0,1fr))!important}}@media(max-width:600px){.round-summary-players{grid-template-columns:1fr!important}.round-summary-continue{min-width:80%}}@media(prefers-reduced-motion:reduce){.scoring-player,.scoring-title,.distillation-cell,.distillation-marker{animation:none!important;opacity:1!important}.round-summary-continue{transition:none}}`}</style>
@@ -63,6 +66,9 @@ export function RoundSummaryPanel({ summary, cinematic = false, afflictions = {}
           })}
         </div>
       )}
+      {cinematic && humanSummary?.causal && (
+        <CausalRoundAccount player={humanSummary} />
+      )}
       <div className={cinematic ? "round-summary-players" : undefined} style={cinematic ? styles.playersCinematic : undefined}>
       {summary.players.map((player, index) => (
         <div className="scoring-player" key={player.playerId} style={{ ...styles.playerBlock, ...(cinematic ? styles.playerBlockCinematic : {}), animationDelay: cinematic ? `${180 + index * 150}ms` : undefined }}>
@@ -83,6 +89,11 @@ export function RoundSummaryPanel({ summary, cinematic = false, afflictions = {}
           </div>
           <div style={styles.explanation}>
             <div>• {scoringExplanation(player.scoringRule, player.vp, player.coins, t.roundSummary)}</div>
+            {player.baseCoins !== undefined && player.baseCoins !== player.coins && (
+              <div>• {t.roundSummary.difficultyCoins
+                .replace("{base}", String(player.baseCoins))
+                .replace("{coins}", String(player.coins))}</div>
+            )}
             {player.rubyAwarded > 0 && (
               <div>• {player.doubleRuby ? t.roundSummary.doubleRubyExplanation : t.roundSummary.rubyExplanation}</div>
             )}
@@ -121,6 +132,58 @@ export function RoundSummaryPanel({ summary, cinematic = false, afflictions = {}
       )}
     </div>
   );
+}
+
+function CausalRoundAccount({ player }: { player: PlayerRoundSummary }) {
+  const t = useTranslation();
+  const causal = player.causal!;
+  const entries: Array<{ label: string; text: string; tone?: "danger" | "good" }> = [];
+  if (causal.shatterCause) {
+    entries.push({ label: "Cause", text: formatDrawText(t.roundSummary.shatterCause, causal.shatterCause, t), tone: "danger" });
+  } else if (causal.riskDraw) {
+    entries.push({ label: "Risk", text: formatDrawText(t.roundSummary.riskDraw, causal.riskDraw, t) });
+  }
+  if (causal.valueDraw) {
+    entries.push({ label: "Value", text: formatDrawText(t.roundSummary.valueDraw, causal.valueDraw, t) });
+  }
+  if (causal.stoppedWithTokens > 0) {
+    entries.push({ label: "Decision", text: t.roundSummary.stoppedProtected.replace("{remaining}", String(causal.stoppedWithTokens)), tone: "good" });
+  } else if (causal.emptiedBag) {
+    entries.push({ label: "Decision", text: t.roundSummary.bagEmptied });
+  }
+  if (causal.purchaseContribution) {
+    entries.push({
+      label: "Build",
+      text: formatDrawText(t.roundSummary.purchaseContribution, causal.purchaseContribution, t)
+        .replace("{round}", String(causal.purchaseContribution.acquiredRound)),
+    });
+  }
+  const observation = player.exploded
+    ? t.roundSummary.nextAfterShatter
+    : causal.stoppedWithTokens > 0
+      ? t.roundSummary.nextAfterStop
+      : t.roundSummary.nextAfterEmpty;
+  return (
+    <section className="causal-account" style={styles.causalAccount} aria-label={t.roundSummary.causalTitle}>
+      <div style={styles.causalHeading}>{t.roundSummary.causalTitle}</div>
+      <div style={styles.causalGrid}>
+        {entries.map((entry, index) => (
+          <div key={`${entry.label}-${index}`} style={{ ...styles.causalEntry, ...(entry.tone === "danger" ? styles.causalDanger : {}), ...(entry.tone === "good" ? styles.causalGood : {}) }}>
+            <span style={styles.causalLabel}>{entry.label}</span><p>{entry.text}</p>
+          </div>
+        ))}
+      </div>
+      <p style={styles.causalObservation}>{observation}</p>
+    </section>
+  );
+}
+
+function formatDrawText(template: string, draw: RoundCausalDraw & { pressureBefore?: number; pressureAfter?: number }, t: ReturnType<typeof useTranslation>): string {
+  return template
+    .replace("{name}", getLocalizedTokenName(draw.color, t, draw.value))
+    .replace("{movement}", String(draw.movement))
+    .replace("{before}", String(draw.pressureBefore ?? 0))
+    .replace("{after}", String(draw.pressureAfter ?? 0));
 }
 
 function RemedyReward({ icon, value }: { icon: string; value: string }) {
@@ -187,6 +250,14 @@ const styles: Record<string, React.CSSProperties> = {
   kicker: { color: "var(--scene-cool-accent,#76d7c4)", textAlign: "center", fontFamily: "monospace", fontSize: 13, letterSpacing: 3.4, textTransform: "uppercase" },
   titleCinematic: { fontSize: "clamp(34px,3vw,48px)", animation: "scoring-title-reveal .5s ease-out both" },
   playersCinematic: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(270px,1fr))", gap: 18 },
+  causalAccount: { display: "flex", flexDirection: "column", gap: 10, padding: "16px 18px", border: "1px solid rgba(93,188,190,.34)", borderRadius: 7, background: "linear-gradient(135deg,rgba(3,25,28,.84),rgba(8,14,19,.86))", boxShadow: "inset 0 0 28px rgba(74,184,181,.05)" },
+  causalHeading: { color: "#e4c56f", font: "700 19px/1.2 Georgia,serif", letterSpacing: ".04em" },
+  causalGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 8 },
+  causalEntry: { padding: "9px 11px", borderLeft: "2px solid rgba(113,196,190,.56)", background: "rgba(0,8,11,.5)", color: "#d6cbb7", font: "14px/1.45 Georgia,serif" },
+  causalDanger: { borderLeftColor: "#cf7468", background: "rgba(54,13,15,.28)" },
+  causalGood: { borderLeftColor: "#6dcc9d", background: "rgba(13,50,37,.25)" },
+  causalLabel: { display: "block", marginBottom: 4, color: "#78c7c0", font: "700 10px/1 monospace", letterSpacing: "1.2px", textTransform: "uppercase" },
+  causalObservation: { margin: 0, paddingTop: 8, borderTop: "1px solid rgba(193,153,78,.25)", color: "#b9aa8d", font: "italic 14px/1.45 Georgia,serif" },
   playerBlockCinematic: { padding: 20, gap: 10, border: "1px solid rgba(91,194,199,.28)", borderRadius: 8, background: "rgba(1,9,14,.62)", opacity: 0, animation: "scoring-player-reveal .48s ease-out both" },
   title: {
     color: "#e8b84d",

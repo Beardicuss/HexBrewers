@@ -149,6 +149,24 @@ const grimoireResponsiveCss = `
   .ingredient-inspector { display:grid;grid-template-columns:minmax(300px,38%) minmax(0,62%);gap:42px;align-items:start; }
   .ingredient-hero { display:flex;align-items:flex-start;justify-content:center;position:sticky;top:12px;padding-top:35px; }
   .ingredient-hero img { width:min(100%,360px)!important;height:auto!important;aspect-ratio:1; }
+  .recipe-ruling-card.is-active { background:linear-gradient(100deg,rgba(31,77,82,.22),rgba(5,11,14,.56))!important; }
+  .recipe-ruling { margin-top:12px;padding-top:10px;border-top:1px solid rgba(196,154,85,.2);color:#d7c8b3; }
+  .recipe-ruling summary { width:max-content;color:#72c8ca;font:11px monospace;letter-spacing:1.4px;text-transform:uppercase;cursor:pointer; }
+  .recipe-ruling__meta { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0; }
+  .recipe-ruling__meta span { padding:9px 11px;border:1px solid rgba(99,186,189,.18);background:rgba(2,13,17,.56);font-size:14px;line-height:1.45; }
+  .recipe-ruling__meta b { display:block;margin-bottom:3px;color:#7dc6c8;font:9px monospace;letter-spacing:1.2px; }
+  .recipe-ruling dl { display:grid;gap:7px;margin:0; }
+  .recipe-ruling dl div { display:grid;grid-template-columns:126px 1fr;gap:12px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.055); }
+  .recipe-ruling dt { color:#c59b55;font:10px monospace;letter-spacing:1px;text-transform:uppercase; }
+  .recipe-ruling dd { margin:0;color:#d9cdbd;font-size:15px;line-height:1.52; }
+  .recipe-strategy-guide { margin:0 0 16px;padding:15px;border:1px solid rgba(99,186,189,.22);background:linear-gradient(125deg,rgba(3,25,29,.72),rgba(9,6,15,.7)); }
+  .recipe-strategy-guide__eyebrow { margin-bottom:10px;color:#7dc6c8;font:10px monospace;letter-spacing:1.7px; }
+  .recipe-strategy-guide__grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px; }
+  .recipe-strategy-guide article { padding:11px;border-left:1px solid rgba(196,154,85,.45);background:rgba(0,0,0,.18); }
+  .recipe-strategy-guide h4 { margin:0 0 6px;color:#e1bd76;font-size:17px;font-weight:400; }
+  .recipe-strategy-guide p { margin:0 0 8px;color:#d5c7b4;font-size:14px;line-height:1.45; }
+  .recipe-strategy-guide small { color:#9b8f82;font-size:12px;line-height:1.4; }
+  .recipe-strategy-guide small b { color:#72c8ca;font:9px monospace;letter-spacing:1px; }
   .omen-index button,.rules-index button { transition:color .16s,transform .16s,border-color .16s; }
   .omen-reader { width:min(92vw,1780px);margin-left:50%;transform:translateX(-50%); }
   .omen-index button:hover,.rules-index button:hover { color:#d6a2ef!important;transform:translateX(4px); }
@@ -196,6 +214,8 @@ const grimoireResponsiveCss = `
     .omen-grid { grid-template-columns: minmax(0, 1fr) !important; }
     .ingredient-inspector { grid-template-columns:1fr; }
     .ingredient-hero { position:static; }
+    .recipe-strategy-guide__grid { grid-template-columns:1fr; }
+    .recipe-ruling dl div { grid-template-columns:1fr;gap:3px; }
     .omen-manuscript { grid-template-columns:1fr!important; }
     .omen-card-copy { margin-top:0; }
     .concordance-layout { grid-template-columns:1fr!important; }

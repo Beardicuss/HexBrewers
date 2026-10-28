@@ -9,6 +9,7 @@ import { s } from "./aiOverlayStyles";
 import { useTranslation } from "../i18n/useTranslation";
 import { CORE_CHARACTER_PORTRAITS, CORE_INGREDIENT_ASSETS } from "../assets/coreAssets";
 import { MIREWROUGHT_ASSETS } from "../assets/mirewroughtAssets";
+import { getAIRivalDoctrineByName } from "../game/aiStrategy";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -57,13 +58,16 @@ export function AITurnOverlay({
 
   if (!visible) return null;
   const latestEvent = events[events.length - 1];
-  const latestToken = latestEvent && (latestEvent.type === "draw" || latestEvent.type === "flask") ? latestEvent.token : null;
+  const latestToken = latestEvent && (latestEvent.type === "draw" || latestEvent.type === "flask")
+    ? latestEvent.token
+    : latestEvent?.type === "scry" ? latestEvent.chosen : null;
   const tokenImage = latestToken
     ? latestToken.color === "echo"
       ? MIREWROUGHT_ASSETS.echoReed
       : CORE_INGREDIENT_ASSETS[latestToken.color] ?? CORE_INGREDIENT_ASSETS.white
     : null;
   const draws = events.filter((event) => event.type === "draw").length;
+  const doctrine = getAIRivalDoctrineByName(opponentName);
 
   return (
     <div style={s.overlay}>
@@ -77,6 +81,7 @@ export function AITurnOverlay({
             style={s.portrait}
           />
           <div style={s.shade}>✦ {opponentName} ✦</div>
+          <div style={s.doctrine}>{doctrine.title} · {doctrine.publicTell}</div>
           <div style={s.subtitle}>{t.aiOverlay.brewing}</div>
           <BrewingDots />
         </div>
@@ -129,6 +134,7 @@ const fastForwardStyle: React.CSSProperties = {
 function LogLine({ entry }: { entry: LogEntry }) {
   const styleMap: Record<LogEntry["kind"], React.CSSProperties> = {
     thinking: { color: "#6644aa", fontStyle: "italic" },
+    scry: { color: "#7ed8d4" },
     draw: { color: "#cc99ff" },
     flask: { color: "#44cc88" },
     stop: { color: "#9966cc" },

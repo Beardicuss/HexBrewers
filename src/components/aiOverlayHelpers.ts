@@ -7,7 +7,7 @@ import type { Translations } from "../i18n/types";
 export interface LogEntry {
     id: number;
     message: string;
-    kind: "thinking" | "draw" | "flask" | "stop" | "exploded" | "scored" | "surviving";
+    kind: "thinking" | "scry" | "draw" | "flask" | "stop" | "exploded" | "scored" | "surviving";
     token?: Token;
     points?: number;
     soulstones?: number;
@@ -23,6 +23,9 @@ export function buildEntry(event: AITurnEvent, copy: Translations["aiOverlay"]):
     switch (event.type) {
         case "thinking":
             return { id, kind: "thinking", message: copy.messages[event.messageKey] };
+
+        case "scry":
+            return { id, kind: "scry", message: "Spent 1 ruby to bind a safer next draw.", token: event.chosen };
 
         case "draw":
             return {
@@ -68,6 +71,7 @@ export function buildEntry(event: AITurnEvent, copy: Translations["aiOverlay"]):
 export function getBullet(kind: LogEntry["kind"]): string {
     switch (kind) {
         case "thinking": return "…";
+        case "scry": return "◉";
         case "draw": return "◈";
         case "flask": return "⚗";
         case "stop": return "◼";

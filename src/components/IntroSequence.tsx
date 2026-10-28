@@ -5,7 +5,51 @@ type IntroStage = "entry" | "softcurseReveal" | "softcurse" | "loading" | "trail
 const ENTRY_ART = "/images/loading/entry-ashenveil-portal.webp";
 const INITIAL_LOADING_ART = "/images/loading/loading-ashen-bell.webp";
 const SOFTCURSE_VIDEO = "/videos/intro/softcurse-systems.mp4";
-const OPENING_ASSETS = [
+const GAMEPLAY_LOADING_POSTERS = [
+  "/images/loading/loading-01.webp", "/images/loading/loading-02.webp", "/images/loading/loading-03.webp",
+  "/images/loading/loading-04.webp", "/images/loading/loading-05.webp", "/images/loading/loading-06.webp",
+  ENTRY_ART, INITIAL_LOADING_ART,
+];
+const PRE_GAME_UI_ASSETS = [
+  "/images/core/ui/new-game-silhouettes/difficulty-apprentice.png",
+  "/images/core/ui/new-game-silhouettes/difficulty-skilled.png",
+  "/images/core/ui/new-game-silhouettes/difficulty-master.png",
+  "/images/core/ui/new-game-silhouettes/recipe-bag.png",
+  "/images/core/ui/new-game-silhouettes/recipe-bag-opened.png",
+  "/images/core/ui/new-game-silhouettes/player-count.png",
+  "/images/core/ui/new-game-silhouettes/scrying-orb.png",
+  "/images/core/ui/dlc-reliquary/skull-toggle.png",
+  "/images/ui/softcurse-mark.webp",
+];
+const CHRONICLE_ASSETS = [
+  "/images/core/chronicle/weekly-procession-empty-vials.webp",
+  "/images/core/chronicle/tier-initiation-first-seals.webp",
+  "/images/core/chronicle/tier-craft-crucibles-arts.webp",
+  "/images/core/chronicle/tier-peril-lessons-that-bite.webp",
+  "/images/core/chronicle/tier-mastery-hands-beyond-chance.webp",
+  "/images/core/chronicle/trial-read-the-ashes.webp",
+  "/images/core/chronicle/trial-the-willing-stop.webp",
+  "/images/core/chronicle/trial-three-coins-ahead.webp",
+  "/images/core/chronicle/trial-the-gentle-chain.webp",
+  "/images/core/chronicle/trial-the-crimson-answer.webp",
+  "/images/core/chronicle/trial-roots-beyond-nine.webp",
+  "/images/core/chronicle/trial-the-vial-remembers.webp",
+  "/images/core/chronicle/trial-a-bag-with-teeth.webp",
+  "/images/core/chronicle/trial-under-nine-eyes.webp",
+  "/images/core/chronicle/trial-the-long-conjunction.webp",
+  "/images/core/chronicle/trial-the-changing-hand.webp",
+  "/images/core/chronicle/trial-at-the-seventh-breath.webp",
+  "/images/core/chronicle/honors/honor-first-seal.webp",
+  "/images/core/chronicle/honors/honor-crucible-proven.webp",
+  "/images/core/chronicle/honors/honor-a-name-in-gold.webp",
+  "/images/core/chronicle/honors/honor-omen-listener.webp",
+  "/images/core/chronicle/honors/honor-first-three-seals.webp",
+  "/images/core/chronicle/honors/honor-three-arts-bound.webp",
+  "/images/core/chronicle/honors/honor-the-unbroken-vessel.webp",
+  "/images/core/chronicle/honors/honor-the-twelfth-seal.webp",
+  "/images/core/chronicle/honors/honor-the-turning-seal.webp",
+];
+export const OPENING_ASSETS = [
   "/videos/intro/ashenveil-trailer-original.webm", "/audio/intro/ashenveil-trailer-narration.mp3?v=2",
   "/audio/intro/ashenveil-trailer-choir-tail.ogg?v=2", "/music/music-ashenveil-theme.ogg",
   "/images/intro/ashenveil-poster.webp", "/images/core/rooms/central-laboratory.webp",
@@ -16,6 +60,7 @@ const OPENING_ASSETS = [
   "/videos/menu/settings-astrolabe.webm?v=2", "/images/title/title-en.webp",
   "/images/ui/menu/menu-icon-continue.webp", "/images/ui/menu/menu-icon-new-game.webp",
   "/images/ui/menu/menu-icon-grimoire.webp", "/images/ui/menu/menu-icon-dlcs.webp", "/images/ui/menu/menu-icon-settings.webp",
+  ...GAMEPLAY_LOADING_POSTERS, ...PRE_GAME_UI_ASSETS, ...CHRONICLE_ASSETS,
 ];
 
 export function IntroSequence({ onComplete }: { onComplete: () => void }) {
@@ -71,7 +116,7 @@ export function IntroSequence({ onComplete }: { onComplete: () => void }) {
       video.volume = 0;
       void video.play().catch(() => undefined);
       const fadeAudio = (now: number) => {
-        video.volume = Math.min(0.82, 0.82 * ((now - started) / 900));
+        video.volume = Math.max(0, Math.min(0.82, 0.82 * ((now - started) / 900)));
         if (now - started < 900) frame = requestAnimationFrame(fadeAudio);
       };
       frame = requestAnimationFrame(fadeAudio);

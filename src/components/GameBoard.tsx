@@ -21,6 +21,7 @@ import { AITurnOverlay } from "./AITurnOverlay";
 import { OmenCardDisplay } from "./OmenCardDisplay";
 import { PlayerPanel } from "./PlayerPanel";
 import { BrewingControls } from "./BrewingControls";
+import { BrewersLedger } from "./BrewersLedger";
 import { BlackMarket } from "./BlackMarket";
 import { GameOver } from "./GameOver";
 import { BlueChoicePanel } from "./BlueChoicePanel";
@@ -41,7 +42,7 @@ import { OmenChoicePanel } from "./OmenChoicePanel";
 import { OmenStrongChoicePanel } from "./OmenStrongChoicePanel";
 import { OmenRestartChoicePanel } from "./OmenRestartChoicePanel";
 import { SettingsScreen } from "./settings/SettingsScreen";
-import { calculateRoundScore } from "../game/scoring";
+import { calculateRoundScoreForDifficulty } from "../game/scoring";
 import { useSettingsStore } from "../store/settingsStore";
 import { useFocusTrap } from "./useFocusTrap";
 import { AfflictionSelection } from "./AfflictionSelection";
@@ -56,6 +57,10 @@ import { CORE_ECONOMY_ASSETS, CORE_INGREDIENT_ASSETS, CORE_OMEN_ASSETS } from ".
 import { COVENANT_ACTIVATION_ASSETS, MIREWROUGHT_ASSETS } from "../assets/mirewroughtAssets";
 import type { RitualSession } from "../game/replayability";
 import type { ChroniclePage } from "./ChronicleScreen";
+import { BrewingIntentionPanel } from "./BrewingIntentionPanel";
+import { ScryChoicePanel } from "./ScryChoicePanel";
+import { objectiveForRound } from "../game/roundObjectives";
+import { canBankEmber, hasPreparedEmber } from "../game/preparation";
 
 // GameBoard rendering
 
@@ -108,6 +113,8 @@ export function GameBoard({ onReturnToMenu, onRestart, onOpenChronicle, session 
   const canDraw = useCanHumanDraw();
   const canUseFlask = useCanHumanUseFlask();
   const buyPhaseState = useBuyPhaseState();
+  const [ledgerOpen, setLedgerOpen] = useState(false);
+  const openLedger = useCallback(() => setLedgerOpen(true), []);
 
   const {
     containerRef,
@@ -121,6 +128,7 @@ export function GameBoard({ onReturnToMenu, onRestart, onOpenChronicle, session 
     explosionLabel: t.player.shattered,
     renderScale: quality === "high" ? 1 : quality === "medium" ? 0.75 : 0.5,
     mirewroughtEnabled: store.state.setup.modules.patrons,
+    onBagClick: openLedger,
   });
 
   const { running: aiRunning, events: aiEvents, aiWhiteSum, aiSpiral, runAITurn, fastForward, resetFastForward } = useAITurn();
@@ -166,7 +174,7 @@ export function GameBoard({ onReturnToMenu, onRestart, onOpenChronicle, session 
   const covenantSetupPanelRef = useRef<HTMLDivElement>(null);
   const needsCovenantSetup = phase === "setup" && store.state.setup.modules.patrons && !store.state.selectedCovenants;
   const needsAfflictionSetup = phase === "setup" && store.state.setup.modules.distillation && !needsCovenantSetup;
-  const modalOpen = paused || settingsOpen || tutorialOpen || phase === "setup";
+  const modalOpen = paused || settingsOpen || tutorialOpen || ledgerOpen || phase === "setup";
 
   const launchRewardFlight = useCallback((
     targetKind: "prestige" | "rubies" | "bag" | "pressure" | "vial" | "panel" | "crucible",
@@ -351,6 +359,8 @@ export function GameBoard({ onReturnToMenu, onRestart, onOpenChronicle, session 
     omen_choice: t.game.omenChoice,
     omen_strong_choice: t.game.omenStrongChoice,
     omen_restart_choice: t.game.omenRestartChoice,
+    intention: "INTENTION",
+    scry_choice: "SCRYING",
     brewing: t.game.brewing,
     blue_choice: t.game.blueChoice,
     yellow_choice: t.game.yellowChoice,
@@ -514,7 +524,14 @@ export function GameBoard({ onReturnToMenu, onRestart, onOpenChronicle, session 
     try {
       // Select the result without publishing any game-state changes. The exact
       // token is committed only on the visual impact frame below.
-      const prepared = drawToken(useGameStore.getState().state.players.find((player) => player.id === "human")!.bag);
+      const liveState = useGameStore.getState().state;
+      const liveBag = liveState.players.find((player) => player.id === "human")!.bag;
+      const prepared = liveState.scryPreparedTokenId
+        ? (() => {
+            const token = liveBag.tokens.find((candidate) => candidate.id === liveState.scryPreparedTokenId);
+            return token ? { token, bag: liveBag } : null;
+          })()
+        : drawToken(liveBag);
       if (!prepared) return;
       soundManager.play("token_draw_anticipation");
 
@@ -871,7 +888,7 @@ export function GameBoard({ onReturnToMenu, onRestart, onOpenChronicle, session 
       <div className="game-layout" style={styles.layout}>
         {/* Left — human panel + controls */}
         <div className="game-side" style={styles.leftCol}>
-          <PlayerPanel player={human} isActive={phase === "brewing" && !aiRunning} label={t.game.you} />
+          <PlayerPanel player={human} isActive={phase === "brewing" && !aiRunning} label={t.game.you} onBagClick={openLedger} />
 
           {store.state.setup.modules.patrons && (
             <CovenantPanel
@@ -892,8 +909,31 @@ export function GameBoard({ onReturnToMenu, onRestart, onOpenChronicle, session 
               onUseFlask={() => {
                 if (!drawingToken.current) store.humanUseFlask();
               }}
+              canScry={
+                store.state.ritualRuleset === "ashenveil" &&
+                human.rubies >= 1 &&
+                human.scryUsedRound !== round &&
+                !store.state.scryPreparedTokenId &&
+                human.bag.tokens.length >= 2 &&
+                !drawAnimating
+              }
+              scryPrepared={Boolean(store.state.scryPreparedTokenId)}
+              onScry={store.humanBeginScry}
               whiteSum={human.crucible.whiteSum}
               bagCount={human.bag.tokens.length}
+              roundObjective={store.state.ritualRuleset === "ashenveil" ? objectiveForRound(round) : undefined}
+              canPrepare={canBankEmber(human, store.state)}
+              preparedEmber={hasPreparedEmber(human, store.state)}
+              securedResult={(() => {
+                const result = calculateRoundScoreForDifficulty(human.crucible, store.state.aiDifficulty, human.kind);
+                return {
+                  space: result.space,
+                  prestige: result.vp,
+                  coins: result.coins,
+                  ruby: result.ruby,
+                  keepsBothIfShattered: Boolean(human.blueBonusExplosion),
+                };
+              })()}
             />
           )}
 
@@ -901,8 +941,8 @@ export function GameBoard({ onReturnToMenu, onRestart, onOpenChronicle, session 
           {phase === "scoring" && human.crucible.exploded && (
             <ExplodedChoicePanel
               onChoose={handleExplodedChoice}
-              prestige={calculateRoundScore(human.crucible).vp}
-              coins={calculateRoundScore(human.crucible).coins}
+              prestige={calculateRoundScoreForDifficulty(human.crucible, store.state.aiDifficulty, human.kind).vp}
+              coins={calculateRoundScoreForDifficulty(human.crucible, store.state.aiDifficulty, human.kind).coins}
             />
           )}
 
@@ -1054,12 +1094,22 @@ export function GameBoard({ onReturnToMenu, onRestart, onOpenChronicle, session 
         onPropagate={handleOmenPropagate}
       />
 
+      {phase === "intention" && (
+        <BrewingIntentionPanel round={round} onChoose={store.selectBrewingIntention} />
+      )}
+
+      {phase === "scry_choice" && store.state.pendingScryTokens && (
+        <ScryChoicePanel tokens={store.state.pendingScryTokens} onChoose={store.humanResolveScry} />
+      )}
+
       {phase === "market" && !scoringPresentation && (
         <BlackMarket
           market={market}
           player={human}
           buyPhaseState={buyPhaseState!}
           round={round}
+          recipeBooks={store.state.recipeBooks}
+          currentOmen={omen}
           onBuy={handleBuyItem}
           onDone={handleEndMarket}
         />
@@ -1075,6 +1125,7 @@ export function GameBoard({ onReturnToMenu, onRestart, onOpenChronicle, session 
           session={session}
           setup={store.state.setup}
           difficulty={store.state.aiDifficulty}
+          recipeBooks={store.state.recipeBooks}
         />
       )}
 
@@ -1141,6 +1192,8 @@ export function GameBoard({ onReturnToMenu, onRestart, onOpenChronicle, session 
           backLabel={t.pause.backToPause}
         />
       )}
+
+      <BrewersLedger player={human} recipeBooks={store.state.recipeBooks} open={ledgerOpen} onClose={() => setLedgerOpen(false)} />
 
       {tutorialOpen && (
         <div style={styles.tutorialOverlay} role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
@@ -1397,7 +1450,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: 12,
-    width: "clamp(260px, 17cqw, 306px)",
+    width: "clamp(290px, 19cqw, 350px)",
     flexShrink: 0,
     zIndex: 10,
   },
@@ -1405,7 +1458,7 @@ const styles: Record<string, React.CSSProperties> = {
     position: "absolute",
     inset: 0,
     zIndex: 0,
-    pointerEvents: "none",
+    pointerEvents: "auto",
   },
   canvas: {
     width: "100%",
@@ -1415,7 +1468,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: 10,
-    width: "clamp(270px, 18cqw, 318px)",
+    width: "clamp(290px, 19cqw, 350px)",
     flexShrink: 0,
     zIndex: 10,
   },

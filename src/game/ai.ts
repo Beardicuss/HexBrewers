@@ -232,7 +232,7 @@ export function decideBrewingAction(player: Player, state: GameState): BrewingDe
 
   const context = buildAIContext(state, player);
   const mode = selectAIMode(context);
-  const tolerance = getRiskTolerance(mode);
+  const tolerance = getRiskTolerance(mode, context.profile);
   const utility = evaluateBrewingDecision(player, state);
   if (utility.risk > tolerance) return "stop";
   const improvementRequired = AI_RISK_TUNING[mode].improvementRequired;

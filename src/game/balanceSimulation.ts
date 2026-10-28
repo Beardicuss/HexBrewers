@@ -1,6 +1,6 @@
 import type { GameState } from "./gameState";
 import type { Player } from "./playerTypes";
-import type { Token } from "./tokenTypes";
+import type { Token, TokenColor } from "./tokenTypes";
 import type { RecipeColor, RecipeMode } from "./recipeBooks";
 import type { AIDifficulty } from "./aiStrategy";
 import { getRecipeSetForColor, RECIPE_COLORS } from "./recipeBooks";
@@ -11,7 +11,7 @@ import { decideAIRubyAction, decideBlueKeep, decideBrewingAction, decideExploded
 import { drawToken, refillBag } from "./bag";
 import { addRound6WhiteChip } from "./bagFactory";
 import { getPlacedTokens, placeToken, resetCrucible } from "./crucible";
-import { applyRoundReward, calculateRoundScore } from "./scoring";
+import { applyRoundReward, calculateRoundScore, calculateRoundScoreForDifficulty } from "./scoring";
 import { canUseFlask, useFlask } from "./flask";
 import { createSeededRandom, resetGameplayRandomSource, setGameplayRandomSource } from "./random";
 import { applyBlackMultiplayerBonus, applyBlackSetOneBonus, applyGreenEndEffect, applyPurpleChoice, applyPurpleEndEffect, drawBlueBonus, purpleChoices } from "./chipEffects";
@@ -24,6 +24,7 @@ import { canAdvanceDroplet, canRefillFlask, spendRubiesForDroplet, spendRubiesFo
 import { movementForToken, placeTokenForActiveBooks } from "./brewingRules";
 import { applyOmenScoringEffect, applyOmenStartEffect, rubyRewardForResult } from "./omenResolver";
 import { chooseAIAffliction, createAfflictionState, resolveDistillationRound, type AfflictionId } from "./distillation";
+import { decideStrategyPurchases, getBaseStrategy, BASE_SET_STRATEGIES, type BaseRecipeSet } from "./strategyBalance";
 
 export interface SimulatedMatchResult {
   seed: number;
@@ -39,6 +40,7 @@ export interface SimulatedMatchResult {
   winnerIds: string[];
   recipeEffects: Record<string, Record<RecipeColor, RecipeEffectTelemetry>>;
   distillation: Record<string, DistillationTelemetry>;
+  bagComposition: Record<string, Partial<Record<TokenColor, number>>>;
 }
 
 export interface DistillationTelemetry {
@@ -203,6 +205,7 @@ export function simulateMatch(
   enabledPacks: ContentPackId[] = ["base"],
   selectedCovenants?: CovenantSelection,
   selectedAffliction?: AfflictionId,
+  humanStrategyId?: string,
 ): SimulatedMatchResult {
   setGameplayRandomSource(createSeededRandom(seed));
   try {
@@ -294,7 +297,10 @@ export function simulateMatch(
         }
       }
 
-      const results = new Map(state.players.map((player) => [player.id, calculateRoundScore(player.crucible)]));
+      const results = new Map(state.players.map((player) => [
+        player.id,
+        calculateRoundScoreForDifficulty(player.crucible, state.aiDifficulty, player.kind),
+      ]));
       const bestSafeSpace = Math.max(...state.players.map((player) => {
         const result = results.get(player.id)!;
         return result.exploded ? -1 : result.space;
@@ -371,7 +377,11 @@ export function simulateMatch(
           market,
           aiDifficulty: player.kind === "human" ? "skilled" as const : state.aiDifficulty,
         };
-        for (const itemId of decideMarketTurn(current, market, marketState)) {
+        const validationStrategy = player.id === "human" && humanStrategyId ? getBaseStrategy(humanStrategyId) : undefined;
+        const plannedPurchases = validationStrategy
+          ? decideStrategyPurchases(current, market, buyState, round, validationStrategy, marketState)
+          : decideMarketTurn(current, market, marketState);
+        for (const itemId of plannedPurchases) {
           try {
             const bought = purchaseItem(current, market, buyState, itemId, round);
             current = bought.player;
@@ -446,6 +456,12 @@ export function simulateMatch(
         / Math.max(1, tokens.length);
       return [player.id, quality];
     }));
+    const bagComposition = Object.fromEntries(state.players.map((player) => {
+      const tokens = [...player.bag.tokens, ...getPlacedTokens(player.crucible)];
+      const counts: Partial<Record<TokenColor, number>> = {};
+      for (const token of tokens) counts[token.color] = (counts[token.color] ?? 0) + 1;
+      return [player.id, counts];
+    }));
     return {
       seed,
       scores: Object.fromEntries(state.players.map((player) => [player.id, player.score])),
@@ -460,6 +476,7 @@ export function simulateMatch(
       winnerIds,
       recipeEffects,
       distillation,
+      bagComposition,
     };
   } finally {
     resetGameplayRandomSource();
@@ -475,9 +492,95 @@ export function simulateMatches(
   enabledPacks: ContentPackId[] = ["base"],
   selectedCovenants?: CovenantSelection,
   selectedAffliction?: AfflictionId,
+  humanStrategyId?: string,
 ): SimulatedMatchResult[] {
   return Array.from({ length: count }, (_, index) =>
-    simulateMatch(baseSeed + index, recipeMode, totalPlayers, aiDifficulty, enabledPacks, selectedCovenants, selectedAffliction));
+    simulateMatch(baseSeed + index, recipeMode, totalPlayers, aiDifficulty, enabledPacks, selectedCovenants, selectedAffliction, humanStrategyId));
+}
+
+export interface BuildViabilityBenchmarkRow {
+  recipeSet: BaseRecipeSet;
+  strategyId: string;
+  strategyName: string;
+  matches: number;
+  winRate: number;
+  averageScore: number;
+  averageOpponentScore: number;
+  averageExplosions: number;
+  averagePurchases: number;
+  averagePreferredTokens: number;
+  baselineWinRate: number;
+  baselineAverageScore: number;
+  baselinePreferredTokens: number;
+  preferredTokenLift: number;
+  scoreRetention: number;
+  scoreParity: number;
+  viable: boolean;
+}
+
+export function benchmarkBuildViability(matchesPerStrategy: number, baseSeed = 1_250_000): BuildViabilityBenchmarkRow[] {
+  const rows: BuildViabilityBenchmarkRow[] = [];
+  for (const recipeSet of [1, 2, 3, 4] as const) {
+    for (const [strategyIndex, strategy] of BASE_SET_STRATEGIES[recipeSet].entries()) {
+      const configurationSeed = baseSeed + recipeSet * 100_000 + strategyIndex * 10_000;
+      const baseline = simulateMatches(matchesPerStrategy, configurationSeed, recipeSet, 2, "skilled");
+      const results = simulateMatches(
+        matchesPerStrategy,
+        configurationSeed,
+        recipeSet,
+        2,
+        "skilled",
+        ["base"],
+        undefined,
+        undefined,
+        strategy.id,
+      );
+      const matches = Math.max(1, results.length);
+      const averageScore = results.reduce((sum, result) => sum + result.scores.human, 0) / matches;
+      const averageOpponentScore = results.reduce((sum, result) => {
+        const opponent = Object.keys(result.scores).find((id) => id !== "human")!;
+        return sum + result.scores[opponent];
+      }, 0) / matches;
+      const averagePreferredTokens = results.reduce((sum, result) => {
+        const composition = result.bagComposition.human;
+        return sum + strategy.preferredColors.reduce((total, color) => total + (composition[color] ?? 0), 0);
+      }, 0) / matches;
+      const baselineWinRate = baseline.filter((result) => result.winnerIds.includes("human")).length / matches;
+      const baselineAverageScore = baseline.reduce((sum, result) => sum + result.scores.human, 0) / matches;
+      const baselinePreferredTokens = baseline.reduce((sum, result) => {
+        const composition = result.bagComposition.human;
+        return sum + strategy.preferredColors.reduce((total, color) => total + (composition[color] ?? 0), 0);
+      }, 0) / matches;
+      const winRate = results.filter((result) => result.winnerIds.includes("human")).length / matches;
+      const scoreParity = averageScore / Math.max(1, averageOpponentScore);
+      const scoreRetention = averageScore / Math.max(1, baselineAverageScore);
+      const preferredTokenLift = averagePreferredTokens - baselinePreferredTokens;
+      const averagePurchases = results.reduce((sum, result) => sum + result.purchases.human, 0) / matches;
+      rows.push({
+        recipeSet,
+        strategyId: strategy.id,
+        strategyName: strategy.name,
+        matches: results.length,
+        winRate,
+        averageScore,
+        averageOpponentScore,
+        averageExplosions: results.reduce((sum, result) => sum + result.explosions.human, 0) / matches,
+        averagePurchases,
+        averagePreferredTokens,
+        baselineWinRate,
+        baselineAverageScore,
+        baselinePreferredTokens,
+        preferredTokenLift,
+        scoreRetention,
+        scoreParity,
+        // Skilled difficulty intentionally trims the human economy, so viability
+        // is measured against the same-seat generic planner, not a false 50% bar.
+        viable: scoreRetention >= 0.9 && winRate >= baselineWinRate - 0.15 && averagePurchases >= 3 &&
+          (preferredTokenLift >= 0.5 || baselinePreferredTokens >= 8),
+      });
+    }
+  }
+  return rows;
 }
 
 export interface DifficultyBenchmarkRow {
@@ -492,6 +595,7 @@ export interface DifficultyBenchmarkRow {
   averageAIScore: number;
   averageHumanExplosions: number;
   averageAIExplosions: number;
+  averageHumanPurchases: number;
   averageAIPurchases: number;
   averageAIDraws: number;
   averageAIBagQuality: number;
@@ -520,6 +624,7 @@ export function benchmarkDifficulties(matchesPerConfiguration: number, baseSeed 
           averageAIScore: results.reduce((sum, result) => sum + aiIds.reduce((seatSum, id) => seatSum + result.scores[id], 0) / aiSeats, 0) / matches,
           averageHumanExplosions: results.reduce((sum, result) => sum + result.explosions.human, 0) / matches,
           averageAIExplosions: results.reduce((sum, result) => sum + aiIds.reduce((seatSum, id) => seatSum + result.explosions[id], 0) / aiSeats, 0) / matches,
+          averageHumanPurchases: results.reduce((sum, result) => sum + result.purchases.human, 0) / matches,
           averageAIPurchases: results.reduce((sum, result) => sum + aiIds.reduce((seatSum, id) => seatSum + result.purchases[id], 0) / aiSeats, 0) / matches,
           averageAIDraws: results.reduce((sum, result) => sum + aiIds.reduce((seatSum, id) => seatSum + result.draws[id], 0) / aiSeats, 0) / matches,
           averageAIBagQuality: results.reduce((sum, result) => sum + aiIds.reduce((seatSum, id) => seatSum + result.bagQuality[id], 0) / aiSeats, 0) / matches,

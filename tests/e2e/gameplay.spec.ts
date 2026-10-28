@@ -3,8 +3,11 @@ import { expect, test, type Page } from "@playwright/test";
 const SETTINGS_KEY = "hexbrewers-settings";
 
 async function dismissOpening(page: Page) {
-  const enter = page.getByRole("button", { name: "ENTER ASHENVEIL" });
-  await expect(enter).toBeEnabled({ timeout: 15_000 });
+  // The entry copy changes from PREPARING to ENTER after its two critical
+  // media assets are ready. Locate the stable control, then wait for readiness
+  // so a cold browser cache is not mistaken for a broken entry screen.
+  const enter = page.locator("button").filter({ hasText: /ASHENVEIL/ }).first();
+  await expect(enter).toBeEnabled({ timeout: 60_000 });
   await enter.click();
   const skip = page.getByRole("button", { name: /Skip/i });
   const loading = page.getByText("OPENING THE WAY TO ASHENVEIL", { exact: true });
@@ -108,20 +111,12 @@ async function resolvePostBrewChoiceIfOffered(page: Page) {
   if (await skipSample.isVisible()) await skipSample.click();
 }
 
-async function enableDlc(page: Page, title: "Mirewrought Pacts" | "Veilglass Afflictions") {
-  await page.getByRole("button", { name: "DLCs", exact: true }).click();
-  const toggle = page.getByRole("button", { name: `Enable DLC: ${title}`, exact: true });
-  await expect(toggle).toBeVisible();
-  await toggle.click();
-  await expect(page.getByRole("button", { name: `Disable DLC: ${title}`, exact: true })).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: /Back to Main Menu/ }).click();
-}
-
 async function playSafeMatch(page: Page, recipeSet: number, playerCount: 2 | 3 | 4) {
   await openNewGameSetup(page);
   await chooseRecipeSet(page, recipeSet);
   await page.getByRole("button", { name: `${playerCount} players` }).click();
   await beginConfiguredGame(page);
+  await expect(page.getByRole("button", { name: "Pause game" })).toBeVisible({ timeout: 30_000 });
 
   await completeNineRounds(page);
 }
@@ -142,7 +137,7 @@ async function completeNineRounds(page: Page) {
     if (await continueRitual.isVisible()) {
       await continueRitual.click();
     }
-    await page.getByRole("button", { name: "✦ Leave Market ✦" }).click();
+    await page.getByRole("button", { name: /Leave Market/i }).click();
     await page.getByRole("button", { name: "✦ End Round ✦" }).click();
   }
 
@@ -160,54 +155,15 @@ for (const playerCount of [2, 3, 4] as const) {
   }
 }
 
-test("Mirewrought Pacts exclusively unlocks the fifth seat", async ({ page }) => {
+test("the base release keeps the fifth seat and expansion recipes sealed", async ({ page }) => {
   const browserErrors = await prepareDeterministicGame(page, 0xc0de);
   await openNewGameSetup(page);
   await expect(page.getByRole("button", { name: "5 players requires Mirewrought Pacts" })).toBeDisabled();
-  await page.getByRole("button", { name: /Main Menu/ }).click();
-
-  await enableDlc(page, "Mirewrought Pacts");
-  await openNewGameSetup(page);
-  const fifthSeat = page.getByRole("button", { name: "5 players" });
-  await expect(fifthSeat).toBeVisible();
   await page.getByRole("button", { name: /Recipe Book/ }).click();
-  await expect(page.getByRole("menuitemradio", { name: "Set 5", exact: true })).toBeVisible();
-  await expect(page.getByRole("menuitemradio", { name: "Set 6", exact: true })).toBeVisible();
-  await page.getByRole("menuitemradio", { name: "Set 5", exact: true }).click();
-  await fifthSeat.click();
-  await beginConfiguredGame(page);
-  const covenantDialog = page.getByRole("dialog", { name: "Choose the Mire Covenants" });
-  await expect(covenantDialog).toBeVisible();
-  await covenantDialog.getByRole("button", { name: /Moonstep/ }).click();
-  await covenantDialog.getByRole("button", { name: "Bind These Covenants" }).click();
-  await expect(page.getByText("The Hollow", { exact: true })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Mire Covenants" })).toBeVisible();
-  await resolveOmenChoiceIfOffered(page);
-  await page.getByRole("button", { name: "✦ Begin Brewing ✦" }).click();
-  await resolveOmenChoiceIfOffered(page);
-  const moonstep = page.getByRole("button", { name: /Moonstep/ });
-  await expect(moonstep).toBeEnabled();
-  await moonstep.click();
-  await expect(moonstep).toBeDisabled();
+  await expect(page.getByRole("menuitemradio", { name: "Set 5", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("menuitemradio", { name: "Set 6", exact: true })).toHaveCount(0);
   expect(browserErrors).toEqual([]);
 });
-
-for (const recipeSet of [5, 6] as const) {
-  test(`completes nine Mirewrought rounds with recipe set ${recipeSet}`, async ({ page }) => {
-    const browserErrors = await prepareDeterministicGame(page, 0xb000 + recipeSet);
-    await enableDlc(page, "Mirewrought Pacts");
-    await openNewGameSetup(page);
-    await chooseRecipeSet(page, recipeSet);
-    await page.getByRole("button", { name: "2 players" }).click();
-    await beginConfiguredGame(page);
-
-    const covenantDialog = page.getByRole("dialog", { name: "Choose the Mire Covenants" });
-    await covenantDialog.getByRole("button").first().click();
-    await covenantDialog.getByRole("button", { name: "Bind These Covenants" }).click();
-    await completeNineRounds(page);
-    expect(browserErrors).toEqual([]);
-  });
-}
 
 for (const locale of [
   { language: "en", menu: "DLCs", title: "Forbidden Additions", mire: "Mirewrought Pacts" },
@@ -227,27 +183,10 @@ test("keeps DLC stories and controls reachable on a narrow screen", async ({ pag
   await prepareDeterministicGame(page, 0xd1c5, "ka");
   await page.getByRole("button", { name: "გაფართოებები", exact: true }).click();
   await expect(page.getByRole("button", { name: "ჭაობნაქსოვი პაქტები", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /DLC-ის ჩართვა:/ }).first()).toBeVisible();
+  await expect(page.locator("button.dlc-skull:disabled")).toHaveCount(2);
   await page.getByRole("button", { name: "ფარდამინის სენები", exact: true }).click();
   await expect(page.getByRole("heading", { name: "ფარდამინის სენები", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /რელიკვარიუმში დაბრუნება/ })).toBeVisible();
-});
-
-test("Veilglass Afflictions adds a persistent Affliction Contract", async ({ page }) => {
-  const browserErrors = await prepareDeterministicGame(page, 0xa551);
-  await enableDlc(page, "Veilglass Afflictions");
-  await openNewGameSetup(page);
-  await expect(page.getByRole("button", { name: "Retort Resonance" })).toBeVisible();
-  await page.getByRole("button", { name: "Deep Resonance" }).click();
-  await beginConfiguredGame(page);
-  const contractDialog = page.getByRole("dialog", { name: "Choose an Affliction Contract" });
-  await expect(contractDialog).toBeVisible();
-  await expect(contractDialog.getByRole("button")).toHaveCount(3);
-  await contractDialog.getByRole("button", { name: /Ashen Breath/ }).click();
-  await expect(page.getByText("Ashen Breath", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Distillate 0/).first()).toBeVisible();
-  await expect(page.getByLabel("Veil Retort: 0/8").first()).toBeVisible();
-  expect(browserErrors).toEqual([]);
 });
 
 test("tutorial and pause flow remain keyboard accessible", async ({ page }) => {
@@ -389,23 +328,14 @@ test("formal rules reference is searchable and responsive", async ({ page }) => 
   await expect(page.getByText("The Crucible Spiral")).toHaveCount(0);
 });
 
-test("Grimoire expansion rules follow enabled DLCs", async ({ page }) => {
+test("Grimoire keeps expansion-only rules sealed in the base release", async ({ page }) => {
   await prepareDeterministicGame(page, 0x6a13);
   await page.getByRole("button", { name: "Grimoire" }).click();
   await page.getByRole("button", { name: /Rules/ }).click();
   await expect(page.getByText("Mire Covenants", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Distillation Phase", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: /Back to Menu/ }).click();
-
-  await enableDlc(page, "Mirewrought Pacts");
-  await enableDlc(page, "Veilglass Afflictions");
-  await page.getByRole("button", { name: "Grimoire" }).click();
-  await page.getByRole("button", { name: /Rules/ }).click();
-
-  await expect(page.getByText("Mire Covenants", { exact: true })).toBeVisible();
-  await expect(page.getByText("Abyssal Runoff & Mire Ingredients", { exact: true })).toBeVisible();
-  await expect(page.getByText("Distillation Phase", { exact: true })).toBeVisible();
-  await expect(page.getByText("Afflictions & Remedy Paths", { exact: true })).toBeVisible();
+  await expect(page.getByText("Abyssal Runoff & Mire Ingredients", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Afflictions & Remedy Paths", { exact: true })).toHaveCount(0);
 });
 
 test("all Grimoire tabs remain readable in a narrow layout", async ({ page }) => {

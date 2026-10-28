@@ -1,4 +1,4 @@
-import type { GameState } from "../game/gameState";
+import type { GameState, RitualRuleset } from "../game/gameState";
 import type { Player } from "../game/playerTypes";
 import { createStartingBag } from "../game/bagFactory";
 import { createCrucible } from "../game/crucible";
@@ -54,7 +54,7 @@ export function createInitialState(recipeMode: RecipeMode = 1, aiCount: number =
     );
 }
 
-export function createInitialStateWithSetup(setup: GameSetup, aiDifficulty: AIDifficulty = "skilled"): GameState {
+export function createInitialStateWithSetup(setup: GameSetup, aiDifficulty: AIDifficulty = "skilled", ritualRuleset: RitualRuleset = "standard"): GameState {
     const normalizedSetup = createGameSetup(setup);
     const omenDeck = createShuffledOmenDeck(normalizedSetup.enabledPacks);
     const firstOmen = drawOmen(omenDeck);
@@ -62,6 +62,8 @@ export function createInitialStateWithSetup(setup: GameSetup, aiDifficulty: AIDi
     const aiCount = normalizedSetup.totalPlayers - 1;
 
     return {
+        ritualRuleset,
+        roundIntentions: {},
         setup: normalizedSetup,
         afflictionOffer: normalizedSetup.modules.distillation
           ? createAfflictionOffer(normalizedSetup.recipeMode, normalizedSetup.totalPlayers)

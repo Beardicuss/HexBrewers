@@ -104,7 +104,7 @@ const RECIPE_COSTS: Partial<Record<TokenColor, Record<RecipeSet, Record<number, 
     6: { 1: 6, 2: 10, 4: 16 },
   },
   purple: {
-    1: { 1: 9 },
+    1: { 1: 8 },
     2: { 1: 12 },
     3: { 1: 10 },
     4: { 1: 11 },

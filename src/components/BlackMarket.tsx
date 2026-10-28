@@ -1,350 +1,191 @@
-import React from "react";
-import { CORE_ECONOMY_ASSETS } from "../assets/coreAssets";
+import React, { useMemo, useState } from "react";
+import { CORE_ECONOMY_ASSETS, CORE_INGREDIENT_ASSETS } from "../assets/coreAssets";
 import { useTranslation } from "../i18n/useTranslation";
 import type { MarketItem, BuyPhaseState } from "../game/bazaarTypes";
 import type { Player } from "../game/playerTypes";
 import { canAfford } from "../game/bazaar";
 import { getTokenVisual } from "../pixi/tokenVisuals";
 import { getLocalizedTokenName } from "../i18n/tokenNames";
+import { analyzeMarketPurchase } from "../game/marketInsights";
+import { getRecipeSetForColor, type RecipeBooks } from "../game/recipeBooks";
+import type { OmenCard } from "../game/omenTypes";
+import "./BlackMarket.css";
 
 interface BlackMarketProps {
   market: MarketItem[];
   player: Player;
   buyPhaseState: BuyPhaseState;
   round: number;
+  recipeBooks: RecipeBooks;
+  currentOmen: OmenCard | null;
   onBuy: (itemId: string) => void;
   onDone: () => void;
 }
 
-export function BlackMarket({ market, player, buyPhaseState, round, onBuy, onDone }: BlackMarketProps) {
+export function BlackMarket({ market, player, buyPhaseState, round, recipeBooks, currentOmen, onBuy, onDone }: BlackMarketProps) {
   const t = useTranslation();
-  const coinsRemaining = buyPhaseState ? buyPhaseState.coinsAvailable - buyPhaseState.coinsSpent : 0;
-  const coinRatio = buyPhaseState?.coinsAvailable
-    ? Math.max(0, coinsRemaining / buyPhaseState.coinsAvailable)
-    : 0;
+  const [inspectedId, setInspectedId] = useState<string | undefined>(undefined);
+  const coinsRemaining = buyPhaseState.coinsAvailable - buyPhaseState.coinsSpent;
+  const inspectedItem = market.find((item) => item.id === inspectedId);
+  const insight = useMemo(() => inspectedItem ? analyzeMarketPurchase(player, inspectedItem) : null, [inspectedItem, player]);
+  const recipeKey = inspectedItem ? recipeKeyForColor(inspectedItem.token.color) : null;
+  const recipeSet = inspectedItem ? getRecipeSetForColor(recipeBooks, inspectedItem.token.color) : 1;
+  const recipeEffect = recipeKey ? t.grimoireRecipeSets[recipeKey]?.[recipeSet - 1]?.effect : undefined;
+  const omenContext = inspectedItem && currentOmen
+    ? getOmenContext(inspectedItem, currentOmen, t.marketScreen.context)
+    : t.marketScreen.context.noOmen;
+  const alreadyBoughtColor = buyPhaseState.purchases.length === 1
+    ? market.find((item) => item.id === buyPhaseState.purchases[0])?.token.color
+    : undefined;
+  const inspectedPurchased = Boolean(inspectedItem && buyPhaseState.purchases.includes(inspectedItem.id));
+  const inspectedLocked = Boolean(inspectedItem && round < inspectedItem.unlockRound);
+  const inspectedSoldOut = Boolean(inspectedItem && inspectedItem.stock <= 0);
+  const canBuyInspected = Boolean(inspectedItem && canAfford(inspectedItem, buyPhaseState, round, alreadyBoughtColor));
+
   return (
-    <div style={styles.overlay}>
-      <div style={styles.panel}>
-        {/* Header */}
-        <div style={styles.header}>
-          <div style={styles.title}>{t.marketScreen.title}</div>
-          <div style={styles.subtitle}>{t.marketScreen.subtitle}</div>
+    <div className="black-market">
+      <video className="black-market__video" src="/videos/market/black-market-idle-loop.mp4" poster="/images/black_market_bg.jpg" autoPlay muted loop playsInline aria-hidden="true" />
+      <div className="black-market__shade" />
+      <main className={`black-market__scene ${inspectedItem ? "has-ledger" : ""}`} aria-label={t.marketScreen.title}>
+        <header className="black-market__header">
+          <div>
+            <p className="black-market__eyebrow">Tarnished wares · whispered prices</p>
+            <h1>{removeDecorativeFigures(t.marketScreen.title)}</h1>
+            <p>{t.marketScreen.subtitle}</p>
+          </div>
+          <div className="black-market__coin-purse" aria-label={`${cleanCoinLabel(t.marketScreen.coinsAvailable)} ${coinsRemaining}`}>
+            <img src={CORE_ECONOMY_ASSETS.coin} alt="" aria-hidden="true" />
+            <span>{cleanCoinLabel(t.marketScreen.coinsAvailable)}</span>
+            <strong>{coinsRemaining}</strong>
+            <small>/ {buyPhaseState.coinsAvailable}</small>
+          </div>
+        </header>
+
+        <div className="black-market__counter">
+          <section className="specimen-cabinet" aria-label="Market stock">
+            <div className="specimen-cabinet__heading">
+              <span>Merchant's specimens</span>
+              <small>Select a vessel to inspect its bargain</small>
+            </div>
+            <div className="specimen-cabinet__grid">
+              {market.map((item) => {
+                const visual = getTokenVisual(item.token.color);
+                const accent = `#${visual.border.toString(16).padStart(6, "0")}`;
+                const purchased = buyPhaseState.purchases.includes(item.id);
+                const locked = round < item.unlockRound;
+                const soldOut = item.stock <= 0;
+                const canBuy = canAfford(item, buyPhaseState, round, alreadyBoughtColor);
+                const ingredientAsset = CORE_INGREDIENT_ASSETS[item.token.color as keyof typeof CORE_INGREDIENT_ASSETS];
+                const classNames = ["market-specimen", item.id === inspectedItem?.id ? "is-selected" : "", locked ? "is-locked" : "", soldOut ? "is-sold" : "", purchased ? "is-purchased" : "", canBuy ? "can-buy" : ""].filter(Boolean).join(" ");
+                return (
+                  <div
+                    key={item.id}
+                    data-market-item-id={item.id}
+                    className={classNames}
+                    style={{ ["--specimen-accent" as string]: accent } as React.CSSProperties}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={item.id === inspectedItem?.id}
+                    onClick={() => setInspectedId((current) => current === item.id ? undefined : item.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setInspectedId((current) => current === item.id ? undefined : item.id);
+                      }
+                    }}
+                  >
+                    <div className="market-specimen__glass">
+                      {ingredientAsset ? <img src={ingredientAsset} alt="" /> : <span>{visual.symbol}</span>}
+                      <b>{item.token.color === "echo" ? "?" : item.token.value}</b>
+                    </div>
+                    <div className="market-specimen__label">
+                      <strong>{getLocalizedTokenName(item.token.color, t, item.token.value)}</strong>
+                      <span>{locked ? `${t.marketScreen.lockedUntilRound} ${item.unlockRound}` : soldOut ? t.marketScreen.sold : purchased ? t.marketScreen.purchased : `⬡ ${item.cost}`}</span>
+                    </div>
+                    {(locked || soldOut) && <i className="market-specimen__seal" aria-hidden="true">⌾</i>}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {inspectedItem && insight && (
+            <aside className="merchant-ledger" aria-live="polite">
+              <button type="button" className="merchant-ledger__close" onClick={() => setInspectedId(undefined)} aria-label="Close merchant ledger">×</button>
+              <div className="merchant-ledger__top">
+                <div className="merchant-ledger__portrait">
+                  <img src={CORE_INGREDIENT_ASSETS[inspectedItem.token.color as keyof typeof CORE_INGREDIENT_ASSETS]} alt="" />
+                </div>
+                <div>
+                  <span className="merchant-ledger__kicker">Merchant ledger · lot {String(market.indexOf(inspectedItem) + 1).padStart(2, "0")}</span>
+                  <h2>{getLocalizedTokenName(inspectedItem.token.color, t, inspectedItem.token.value)}</h2>
+                  <p>{t.marketScreen.roles[insight.role]} · {t.marketScreen.value} {inspectedItem.token.color === "echo" ? "?" : inspectedItem.token.value}</p>
+                </div>
+                <div className="merchant-ledger__price"><small>PRICE</small><strong>⬡ {inspectedItem.cost}</strong></div>
+              </div>
+
+              <div className="merchant-ledger__facts">
+                <ImpactFact label={t.marketScreen.bagAfterPurchase} value={`${player.bag.tokens.length} → ${player.bag.tokens.length + 1}`} />
+                <ImpactFact label={t.marketScreen.voidshardDensity} value={`${Math.round(insight.voidshardShareBefore * 100)}% → ${Math.round(insight.voidshardShareAfter * 100)}%`} tone={insight.voidshardShareChange < 0 ? "good" : insight.voidshardShareChange > 0 ? "danger" : undefined} />
+                <ImpactFact label={t.marketScreen.ownedMatching} value={String(insight.ownedMatching)} />
+                <ImpactFact label={t.marketScreen.coinsAfterPurchase} value={String(Math.max(0, coinsRemaining - inspectedItem.cost))} />
+              </div>
+
+              <LedgerEntry label={t.marketScreen.activeRecipe} value={recipeEffect ?? t.marketScreen.context.fixedEffect} />
+              <LedgerEntry label={t.marketScreen.synergy} value={t.marketScreen.synergies[insight.synergy]} />
+              <LedgerEntry label={t.marketScreen.whyNow} value={omenContext} />
+              <p className="merchant-ledger__caveat">{t.marketScreen.impactCaveat}</p>
+
+              <div className="merchant-ledger__action">
+                {inspectedPurchased ? <span className="ledger-status is-purchased">✓ {t.marketScreen.purchased}</span>
+                  : inspectedLocked ? <span className="ledger-status">{t.marketScreen.lockedUntilRound} {inspectedItem.unlockRound}</span>
+                  : inspectedSoldOut ? <span className="ledger-status">{t.marketScreen.sold}</span>
+                  : <button type="button" disabled={!canBuyInspected} onClick={() => onBuy(inspectedItem.id)}>{t.marketScreen.buy} · ⬡ {inspectedItem.cost}</button>}
+              </div>
+            </aside>
+          )}
         </div>
 
-        {/* Coins balance */}
-        <div style={styles.balance}>
-          <span style={styles.balanceLabel}><img src={CORE_ECONOMY_ASSETS.coin} alt="" style={{ width: 22, height: 22, objectFit: "contain", verticalAlign: "middle", marginRight: 7 }} />{t.marketScreen.coinsAvailable}</span>
-          <span style={styles.balanceValue}>{coinsRemaining}</span>
-          <span style={styles.balanceTotal}>/ {buyPhaseState?.coinsAvailable ?? 0}</span>
-        </div>
-        <div style={styles.coinMeter} aria-label={`${coinsRemaining} ${t.marketScreen.coinsAvailable}`}>
-          <div style={{ ...styles.coinMeterFill, width: `${coinRatio * 100}%` }} />
-        </div>
-
-        <div style={styles.divider} />
-
-        {/* Item grid */}
-        <div style={styles.grid}>
-          {market.map((item) => {
-            const alreadyBoughtColor =
-              buyPhaseState?.purchases.length === 1
-                ? market.find((i) => i.id === buyPhaseState.purchases[0])?.token.color
-                : undefined;
-            return (
-              <MarketItemCard
-                key={item.id}
-                item={item}
-                round={round}
-                canBuy={buyPhaseState ? canAfford(item, buyPhaseState, round, alreadyBoughtColor) : false}
-                purchased={Boolean(buyPhaseState?.purchases.includes(item.id))}
-                onBuy={() => onBuy(item.id)}
-              />
-            );
-          })}
-        </div>
-
-        <div style={styles.divider} />
-
-        <button style={styles.doneButton} onClick={onDone}>
-          {t.marketScreen.leaveMarket}
-        </button>
-      </div>
+        <button type="button" className="black-market__leave" onClick={onDone}>{removeDecorativeFigures(t.marketScreen.leaveMarket)}</button>
+      </main>
     </div>
   );
 }
 
-// ── Individual market item card ────────────────────────────────────────────────
-
-interface MarketItemCardProps {
-  item: MarketItem;
-  round: number;
-  canBuy: boolean;
-  purchased: boolean;
-  onBuy: () => void;
+function ImpactFact({ label, value, tone }: { label: string; value: string; tone?: "good" | "danger" }) {
+  return <div className={`ledger-fact ${tone ? `is-${tone}` : ""}`}><span>{label}</span><strong>{value}</strong></div>;
 }
 
-function MarketItemCard({ item, round, canBuy, purchased, onBuy }: MarketItemCardProps) {
-  const t = useTranslation();
-  const visual = getTokenVisual(item.token.color);
-  const colorHex = `#${visual.border.toString(16).padStart(6, "0")}`;
-  const glowHex = `#${visual.glow.toString(16).padStart(6, "0")}`;
-
-  const unavailable = !item.available;
-  const locked = round < item.unlockRound;
-  const soldOut = item.stock <= 0;
-  const disabled = !canBuy || unavailable;
-
-  return (
-    <div
-      data-market-item-id={item.id}
-      style={{
-        ...styles.itemCard,
-        ...(purchased ? styles.itemCardPurchased : {}),
-        opacity: disabled && !purchased ? 0.45 : 1,
-        borderColor: purchased ? "#4d9b70" : unavailable ? "#1a0a2e" : colorHex + "66",
-        boxShadow: canBuy && !unavailable
-          ? `0 0 12px ${glowHex}22`
-          : "none",
-      }}
-    >
-      {/* Token dot */}
-      <div style={{
-        ...styles.tokenDot,
-        background: `#${visual.fill.toString(16).padStart(6, "0")}`,
-        border: `2px solid ${colorHex}`,
-        boxShadow: `0 0 8px ${glowHex}88`,
-      }}>
-        <span style={{ color: colorHex, fontSize: 12, fontWeight: "bold" }}>
-          {visual.symbol}{item.token.color === "echo" ? "?" : item.token.value}
-        </span>
-      </div>
-
-      {/* Info */}
-      <div style={styles.itemInfo}>
-        <div style={{ ...styles.itemName, color: colorHex }}>
-          {getLocalizedTokenName(item.token.color, t, item.token.value)}
-        </div>
-        <div style={styles.itemValue}>
-          {t.marketScreen.value} {item.token.color === "echo" ? "?" : item.token.value}
-        </div>
-      </div>
-
-      {/* Cost + buy */}
-      <div style={styles.itemRight}>
-        <div style={styles.cost}>⬡ {item.cost}</div>
-        {purchased ? (
-          <div style={styles.purchased}>✓ {t.marketScreen.purchased}</div>
-        ) : locked ? (
-          <div style={styles.soldOut}>{t.marketScreen.lockedUntilRound} {item.unlockRound}</div>
-        ) : soldOut ? (
-          <div style={styles.soldOut}>{t.marketScreen.sold}</div>
-        ) : (
-          <button
-            style={{
-              ...styles.buyButton,
-              ...(canBuy ? styles.buyButtonActive : styles.buyButtonDisabled),
-            }}
-            onClick={onBuy}
-            disabled={!canBuy}
-          >
-            {t.marketScreen.buy}
-          </button>
-        )}
-      </div>
-    </div>
-  );
+function LedgerEntry({ label, value }: { label: string; value: string }) {
+  return <div className="merchant-ledger__entry"><span>{label}</span><p>{value}</p></div>;
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    backgroundImage: "url('/images/black_market_bg.jpg')",
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 100,
-  },
-  panel: {
-    background: "rgba(6, 2, 14, 0.75)",
-    backdropFilter: "blur(8px)",
-    borderRadius: 12,
-    padding: "30px 40px",
-    border: "1px solid #3a1a5a",
-    width: "min(900px, 92vw)",
-    maxHeight: "88vh",
-    overflowY: "auto",
-    display: "flex",
-    flexDirection: "column",
-    gap: 18,
-    boxShadow: "0 0 80px rgba(100, 30, 180, 0.25)",
-  },
-  header: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 4,
-  },
-  title: {
-    fontFamily: "serif",
-    fontSize: 24,
-    color: "#e8b84d",
-    letterSpacing: 3,
-    textShadow: "0 0 16px rgba(180, 80, 255, 0.4)",
-  },
-  subtitle: {
-    fontFamily: "monospace",
-    fontSize: 11,
-    color: "#8a7656",
-    letterSpacing: 2,
-  },
-  balance: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 10,
-  },
-  balanceLabel: {
-    fontFamily: "monospace",
-    fontSize: 12,
-    color: "#c9a86c",
-  },
-  balanceValue: {
-    fontFamily: "serif",
-    fontSize: 20,
-    color: "#e8d5b5",
-    fontWeight: "bold",
-  },
-  balanceTotal: {
-    color: "#756681",
-    fontFamily: "monospace",
-    fontSize: 12,
-  },
-  coinMeter: {
-    width: "min(320px, 78%)",
-    height: 6,
-    margin: "-10px auto 0",
-    overflow: "hidden",
-    border: "1px solid rgba(122, 83, 43, 0.65)",
-    borderRadius: 4,
-    background: "rgba(18, 9, 6, 0.82)",
-  },
-  coinMeterFill: {
-    height: "100%",
-    background: "linear-gradient(90deg, #7f4e1d, #e8b84d)",
-    boxShadow: "0 0 10px rgba(232, 184, 77, 0.45)",
-    transition: "width 0.28s ease-out",
-  },
-  divider: {
-    height: 1,
-    background: "linear-gradient(90deg, transparent, #3a1a5a, transparent)",
-  },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-    gap: 10,
-  },
-  itemCard: {
-    display: "flex",
-    alignItems: "center",
-    gap: 14,
-    background: "rgba(20, 8, 36, 0.6)",
-    border: "1px solid",
-    borderRadius: 8,
-    padding: "10px 14px",
-    transition: "opacity 0.2s, box-shadow 0.2s, border-color 0.2s, transform 0.2s",
-  },
-  itemCardPurchased: {
-    background: "linear-gradient(110deg, rgba(20, 72, 48, 0.5), rgba(12, 24, 24, 0.72))",
-    boxShadow: "inset 3px 0 #58b27f, 0 0 18px rgba(55, 148, 98, 0.16)",
-  },
-  tokenDot: {
-    width: 36,
-    height: 36,
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  itemInfo: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    gap: 3,
-  },
-  itemName: {
-    fontFamily: "serif",
-    fontSize: 16,
-    letterSpacing: 0.5,
-  },
-  itemValue: {
-    fontFamily: "monospace",
-    fontSize: 13,
-    color: "#8a7656",
-  },
-  itemRight: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-end",
-    gap: 5,
-  },
-  cost: {
-    fontFamily: "serif",
-    fontSize: 17,
-    color: "#e8d5b5",
-    fontWeight: "bold",
-  },
-  buyButton: {
-    border: "1px solid",
-    borderRadius: 5,
-    padding: "4px 12px",
-    fontFamily: "monospace",
-    fontSize: 13,
-    letterSpacing: 1,
-    cursor: "pointer",
-    transition: "all 0.15s",
-  },
-  buyButtonActive: {
-    background: "rgba(100, 30, 160, 0.4)",
-    borderColor: "#7733bb",
-    color: "#e8d5b5",
-  },
-  buyButtonDisabled: {
-    background: "transparent",
-    borderColor: "#2a1a3a",
-    color: "#443355",
-    cursor: "not-allowed",
-  },
-  soldOut: {
-    fontFamily: "monospace",
-    fontSize: 12,
-    color: "#442233",
-    letterSpacing: 1,
-  },
-  purchased: {
-    color: "#6cdaa0",
-    border: "1px solid #356f55",
-    borderRadius: 4,
-    padding: "3px 7px",
-    background: "rgba(25, 85, 57, 0.25)",
-    fontFamily: "monospace",
-    fontSize: 11,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
-  doneButton: {
-    background: "transparent",
-    border: "1px solid #7733bb",
-    borderRadius: 7,
-    padding: "12px",
-    color: "#e8d5b5",
-    fontFamily: "serif",
-    fontSize: 17,
-    letterSpacing: 2,
-    cursor: "pointer",
-    width: "100%",
-  },
-};
+function recipeKeyForColor(color: MarketItem["token"]["color"]): string | null {
+  switch (color) {
+    case "blue": return "Frostbile";
+    case "red": return "Bloodthorn";
+    case "yellow": return "Plaguedust";
+    case "green": return "Deathweave";
+    case "purple": return "Wraithbloom";
+    default: return null;
+  }
+}
+
+function getOmenContext(item: MarketItem, omen: OmenCard, copy: BlackMarketCopy["context"]): string {
+  const effect = omen.effect;
+  if (effect.type === "bonus_for_color" && effect.color === item.token.color) return copy.matchingColor;
+  if (effect.type === "bonus_for_white_limit" && item.token.color !== "white") return copy.saferBag;
+  if (effect.type === "double_ruby_space" && ["blue", "red", "yellow"].includes(item.token.color)) return copy.rubyPositioning;
+  if (effect.type === "orange_extra_movement" && item.token.color === "orange") return copy.orangeMovement;
+  return copy.neutral;
+}
+
+type BlackMarketCopy = ReturnType<typeof useTranslation>["marketScreen"];
+
+function removeDecorativeFigures(value: string): string {
+  return value.replace(/[✦◆◇❖]/g, "").replace(/\s{2,}/g, " ").trim();
+}
+
+function cleanCoinLabel(value: string): string {
+  return value.replace(/^[\s⬡◇◈◆]+/, "").trim();
+}

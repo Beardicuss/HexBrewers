@@ -12,7 +12,7 @@ import type { MusicSoundId } from "./SoundManager";
 import { IntroSequence } from "./components/IntroSequence";
 import { LoadingScreen, preloadGamePresentation, type GameplayLoadingKind } from "./components/LoadingScreen";
 import { ChronicleScreen, type ChroniclePage } from "./components/ChronicleScreen";
-import { createChallenge, createDailyChallenge, createStandardSession, createWeeklyChallenge, type ChallengeId, type RitualMode, type RitualSession } from "./game/replayability";
+import { createAshenveilSession, createChallenge, createDailyChallenge, createStandardSession, createWeeklyChallenge, type ChallengeId, type RitualMode, type RitualSession } from "./game/replayability";
 import { createSeededRandom, resetGameplayRandomSource, setGameplayRandomSource } from "./game/random";
 import { DLC_ACTIVATION_AVAILABLE } from "./config/features";
 
@@ -188,7 +188,8 @@ export default function App() {
     setAIDifficulty(difficulty);
     setGameSetup(setup);
     setCanContinue(true);
-    void enterGame(setup, () => useGameStore.getState().initGameWithSetup(setup, difficulty), "new");
+    const ruleset = session.mode === "ashenveil" ? "ashenveil" : "standard";
+    void enterGame(setup, () => useGameStore.getState().initGameWithSetup(setup, difficulty, ruleset), "new");
   };
 
   useEffect(() => {
@@ -221,13 +222,14 @@ export default function App() {
             }
             setAIDifficulty(saved.aiDifficulty);
             setGameSetup(saved.setup);
+            setRitualSession(saved.ritualRuleset === "ashenveil" ? createAshenveilSession() : createStandardSession());
             void enterGame(saved.setup, () => useGameStore.getState().restoreGame(saved), "continue");
           }}
           onNewGame={(setup: GameSetup, selectedDifficulty: AIDifficulty = "skilled", mode: RitualMode = "standard") => {
             const daily = mode === "daily" ? createDailyChallenge() : null;
             const resolvedSetup = daily?.setup ?? setup;
             const resolvedDifficulty = daily?.difficulty ?? selectedDifficulty;
-            const session = daily?.session ?? createStandardSession();
+            const session = daily?.session ?? (mode === "ashenveil" ? createAshenveilSession() : createStandardSession());
             beginRitual(resolvedSetup, resolvedDifficulty, session);
           }}
           onChronicle={() => {

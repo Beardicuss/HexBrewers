@@ -56,10 +56,14 @@ const BASE_GAMEPLAY_ASSETS = [
   "/sounds/token_place_white.mp3", "/sounds/voidshard-impact.wav", "/sounds/explosion.mp3",
   "/sounds/brew_stop.mp3", "/sounds/flask_use.mp3", "/sounds/market_buy.mp3", "/sounds/market_open.mp3",
   "/sounds/omen_reveal.mp3", "/sounds/round_start.mp3", "/sounds/game_win.mp3", "/sounds/game_lose.mp3",
+  "/videos/market/black-market-idle-loop.mp4",
+  "/images/core/ui/intentions/intention-temper-the-crucible.webp",
+  "/images/core/ui/intentions/intention-court-the-omen.webp",
+  "/images/core/ui/intentions/intention-brew-for-glory.webp",
   "/music/music-crucible-vigil.ogg", "/music/music-ninth-bell.ogg",
 ];
 
-function assetsForSetup(setup: GameSetup): string[] {
+export function assetsForSetup(setup: GameSetup): string[] {
   const assets = [...BASE_GAMEPLAY_ASSETS];
   if (setup.modules.patrons) {
     assets.push(

@@ -2,6 +2,7 @@ import type { Bag } from "./bagTypes";
 import type { Crucible } from "./crucibleTypes";
 import type { CovenantSeals } from "./covenants";
 import type { AfflictionState } from "./distillation";
+import type { TokenColor } from "./tokenTypes";
 
 export type PlayerKind = "human" | "ai";
 
@@ -32,6 +33,16 @@ export interface Player {
   redReserve?: import("./tokenTypes").Token[];
   omenFirstWhiteReturned?: boolean;
   omenSecondChanceUsed?: boolean;
+  intentionWardUsedRound?: number;
+  scryUsedRound?: number;
+  preparedEmberForRound?: number;
+  preparedEmberUsedRound?: number;
+  shatterCount?: number;
+  flaskUses?: number;
+  marketPurchaseCount?: number;
+  marketPurchaseRounds?: number[];
+  marketPurchasedColors?: TokenColor[];
+  highPressureSurvivals?: number;
   covenantSeals?: CovenantSeals;
   affliction?: AfflictionState;
 }

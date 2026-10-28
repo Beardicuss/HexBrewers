@@ -13,6 +13,7 @@ export interface GameCanvasOptions {
   explosionLabel: string;
   renderScale: number;
   mirewroughtEnabled: boolean;
+  onBagClick: () => void;
 }
 
 // Root Pixi scene — mounts into a React ref
@@ -23,7 +24,7 @@ export class GameCanvas {
   private explosionOverlay: ExplosionOverlay;
   private currentCrucible: Crucible | null = null;
 
-  private constructor(app: PIXI.Application, container: HTMLElement, explosionLabel: string) {
+  private constructor(app: PIXI.Application, container: HTMLElement, explosionLabel: string, onBagClick: () => void) {
     this.app = app;
 
     const { width, height } = app.screen;
@@ -38,7 +39,7 @@ export class GameCanvas {
     app.stage.addChild(this.crucibleScene);
 
     // Bag sits at bottom-left corner
-    this.bagAnimation = new BagAnimation();
+    this.bagAnimation = new BagAnimation(onBagClick);
     this.bagAnimation.x = 160;
     this.bagAnimation.y = height - 120;
     this.bagAnimation.scale.set(1.5);
@@ -85,7 +86,7 @@ export class GameCanvas {
 
     options.container.appendChild(app.canvas);
 
-    return new GameCanvas(app, options.container, options.explosionLabel);
+    return new GameCanvas(app, options.container, options.explosionLabel, options.onBagClick);
   }
 
   // ── Public API called by React components ─────────────────────────────────

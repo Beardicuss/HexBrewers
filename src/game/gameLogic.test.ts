@@ -14,7 +14,7 @@ import { createInitialState } from "../store/gameStoreHelpers";
 import { createRecipeBooks, getRecipeCost, type RecipeColor, type RecipeSet } from "./recipeBooks";
 import { decideAIRubyAction, decideBlueKeep, decideBrewingAction, decideGreenRewardChoice, decidePurpleChoice, evaluateBrewingDecision, evaluateMasterLookahead } from "./ai";
 import { decideMarketPurchases } from "./aiMarket";
-import { buildAIContext, getAIProfile, selectAIMode } from "./aiStrategy";
+import { buildAIContext, getAIRivalDoctrine, getAIProfile, getRiskTolerance, selectAIMode } from "./aiStrategy";
 import { useGameStore } from "../store/gameStore";
 import { buildEntry } from "../components/aiOverlayHelpers";
 import { formatBonusDieResult } from "../components/bonusDieText";
@@ -552,7 +552,7 @@ describe("official renamed rules", () => {
       red: { 1: { 1: 6, 2: 10, 4: 16 }, 2: { 1: 4, 2: 8, 4: 14 }, 3: { 1: 5, 2: 9, 4: 15 }, 4: { 1: 7, 2: 11, 4: 17 }, 5: { 1: 6, 2: 10, 4: 16 }, 6: { 1: 5, 2: 9, 4: 15 } },
       yellow: { 1: { 1: 8, 2: 12, 4: 18 }, 2: { 1: 9, 2: 13, 4: 19 }, 3: { 1: 8, 2: 12, 4: 18 }, 4: { 1: 8, 2: 12, 4: 18 }, 5: { 1: 8, 2: 12, 4: 18 }, 6: { 1: 9, 2: 13, 4: 19 } },
       green: { 1: { 1: 4, 2: 8, 4: 14 }, 2: { 1: 6, 2: 11, 4: 18 }, 3: { 1: 6, 2: 11, 4: 21 }, 4: { 1: 4, 2: 8, 4: 14 }, 5: { 1: 5, 2: 9, 4: 15 }, 6: { 1: 6, 2: 10, 4: 16 } },
-      purple: { 1: { 1: 9 }, 2: { 1: 12 }, 3: { 1: 10 }, 4: { 1: 11 }, 5: { 1: 10 }, 6: { 1: 12 } },
+      purple: { 1: { 1: 8 }, 2: { 1: 12 }, 3: { 1: 10 }, 4: { 1: 11 }, 5: { 1: 10 }, 6: { 1: 12 } },
     };
 
     for (const color of Object.keys(expected) as RecipeColor[]) {
@@ -878,15 +878,17 @@ describe("official renamed rules", () => {
     expect(purchaseCount).toBeGreaterThan(0);
   });
 
-  it.each([1, 2, 3, 4] as const)("keeps recipe-set %s symmetric across a seeded population", (set) => {
-    const results = simulateMatches(500, set * 100_000, set);
+  it.each([1, 2, 3, 4] as const)("keeps recipe-set %s competitive on skilled difficulty", (set) => {
+    const results = simulateMatches(500, set * 100_000, set, 2, "skilled");
     const humanAverage = results.reduce((total, result) => total + result.scores.human, 0) / results.length;
     const aiAverage = results.reduce((total, result) => total + result.scores.ai, 0) / results.length;
     const humanWins = results.filter((result) => result.winnerId === "human").length;
     const aiWins = results.filter((result) => result.winnerId === "ai").length;
 
-    expect(Math.abs(humanAverage - aiAverage)).toBeLessThan(1.5);
-    expect(Math.abs(humanWins - aiWins) / results.length).toBeLessThan(0.2);
+    // Skilled intentionally trims the human's stronger coin rewards, so exact
+    // mirror symmetry is no longer the rule; the match must remain competitive.
+    expect(Math.abs(humanAverage - aiAverage)).toBeLessThan(5);
+    expect(Math.abs(humanWins - aiWins) / results.length).toBeLessThan(0.4);
   });
 
   it.each([1, 2, 3, 4] as const)("keeps recipe-set %s in a tense but controlled risk band", (set) => {
@@ -900,7 +902,7 @@ describe("official renamed rules", () => {
     expect(explosions).toBeLessThan(2);
   });
 
-  it.each([5, 6] as const)("keeps Mirewrought recipe-set %s symmetric and within the core risk band", (set) => {
+  it.each([5, 6] as const)("keeps Mirewrought recipe-set %s competitive and within the core risk band", (set) => {
     const results = simulateMatches(250, set * 400_000, set, 2, "skilled", ["covenants_of_the_mire"]);
     const humanAverage = results.reduce((total, result) => total + result.scores.human, 0) / results.length;
     const aiAverage = results.reduce((total, result) => total + result.scores.ai, 0) / results.length;
@@ -909,7 +911,7 @@ describe("official renamed rules", () => {
       0,
     ) / (results.length * 2);
 
-    expect(Math.abs(humanAverage - aiAverage)).toBeLessThan(1.5);
+    expect(Math.abs(humanAverage - aiAverage)).toBeLessThan(5);
     expect(explosions).toBeGreaterThan(0.4);
     expect(explosions).toBeLessThan(2);
     expect(results.every((result) => result.economyValid && result.tokenFlowValid)).toBe(true);
@@ -924,6 +926,7 @@ describe("official renamed rules", () => {
     expect(rows.every((row) => row.aiWinRate >= 0 && row.aiWinRate <= 1)).toBe(true);
     expect(rows.every((row) => Number.isFinite(row.averageHumanScore) && Number.isFinite(row.averageAIScore))).toBe(true);
     expect(rows.every((row) => Number.isFinite(row.averageAIExplosions) && Number.isFinite(row.averageAIPurchases))).toBe(true);
+    expect(rows.every((row) => Number.isFinite(row.averageHumanPurchases) && row.averageHumanPurchases > 0)).toBe(true);
     expect(rows.every((row) => Number.isFinite(row.averageAIDraws) && Number.isFinite(row.averageAIBagQuality))).toBe(true);
     expect(rows.every((row) => row.aiComebackRate >= 0 && row.aiComebackRate <= 1)).toBe(true);
   });
@@ -1103,9 +1106,23 @@ describe("official renamed rules", () => {
 
     const second = purchaseItem(first.player, first.market, first.state, "m-blue-1", 1);
     expect(second.state.purchases).toHaveLength(2);
+    expect(second.player.marketPurchaseCount).toBe(2);
+    expect(second.player.marketPurchaseRounds).toEqual([1]);
+    expect(second.player.marketPurchasedColors).toEqual(["green", "blue"]);
     expect(() =>
       purchaseItem(second.player, second.market, second.state, "m-orange-1", 1)
     ).toThrow();
+
+    const nextRound = purchaseItem(
+      second.player,
+      second.market,
+      { purchases: [], coinsSpent: 0, coinsAvailable: 99 },
+      "m-orange-1",
+      2,
+    );
+    expect(nextRound.player.marketPurchaseCount).toBe(3);
+    expect(nextRound.player.marketPurchaseRounds).toEqual([1, 2]);
+    expect(nextRound.player.marketPurchasedColors).toEqual(["green", "blue", "orange"]);
   });
 
   it("bonus die only returns supported renamed rewards", () => {
@@ -1589,11 +1606,14 @@ describe("official renamed rules", () => {
     const shade = state.players.find((current) => current.id === "ai")!;
     const wraith = state.players.find((current) => current.id === "ai-2")!;
     const seer = state.players.find((current) => current.id === "ai-3")!;
+    const hollow = { ...seer, id: "ai-4", name: "The Hollow" };
 
-    expect([getAIProfile(shade), getAIProfile(wraith), getAIProfile(seer)]).toEqual(["shade", "wraith", "seer"]);
+    expect([getAIProfile(shade), getAIProfile(wraith), getAIProfile(seer), getAIProfile(hollow)]).toEqual(["shade", "wraith", "seer", "hollow"]);
     expect(selectAIMode(buildAIContext(state, shade))).toBe("reckless");
     expect(selectAIMode(buildAIContext(state, wraith))).toBe("calculated");
     expect(selectAIMode(buildAIContext(state, seer))).toBe("conservative");
+    expect(getAIRivalDoctrine(hollow).shortLabel).toBe("ADAPTIVE");
+    expect(getRiskTolerance("calculated", "shade")).toBeGreaterThan(getRiskTolerance("calculated", "seer"));
   });
 
   it("Master AI compares itself with the actual table leader, not only the human", () => {

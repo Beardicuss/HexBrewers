@@ -45,6 +45,15 @@ export const s: Record<string, React.CSSProperties> = {
         letterSpacing: 3,
         textShadow: "0 0 20px rgba(214,170,77,.28)",
     },
+    doctrine: {
+        maxWidth: 470,
+        color: "#b9aaa0",
+        fontFamily: "Georgia, serif",
+        fontSize: 14,
+        fontStyle: "italic",
+        lineHeight: 1.45,
+        textAlign: "center",
+    },
     subtitle: {
         fontFamily: "monospace",
         fontSize: 11,

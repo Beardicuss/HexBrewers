@@ -204,7 +204,7 @@ describe("Mirewrought Pacts ingredients", () => {
   });
 
   it("gives Echo Reed a minimum movement of one and Embercore movement of six", () => {
-    const state = makeState();
+    const state = { ...makeState(), currentOmen: null };
     const echo = placeTokenForActiveBooks(state.players[0], { id: "echo-min", color: "echo", value: 0 }, state);
     expect(echo.crucible.placements[echo.crucible.placements.length - 1]?.movement).toBe(1);
 

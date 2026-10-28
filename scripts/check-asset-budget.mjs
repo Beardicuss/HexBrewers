@@ -14,7 +14,9 @@ const limits = {
   // The checked-out media library is the lossless local QA source. Production
   // builds serve these files from R2 and omit them from the Worker bundle.
   total: 132 * 1024 * 1024,
-  openingSequence: 30 * 1024 * 1024,
+  // This is the complete blocking post-ident stage: trailer/menu media plus
+  // every visual needed before gameplay's setup-aware loader takes over.
+  openingSequence: 52 * 1024 * 1024,
   gamePresentation: 5 * 1024 * 1024,
   basePixiTextures: 4 * 1024 * 1024,
   menuRooms: 16 * 1024 * 1024,
@@ -23,8 +25,15 @@ const limits = {
 const groups = {
   openingSequence: [
     "videos/intro/",
+    "videos/menu/",
     "images/intro/",
-    "images/loading/loading-initial.webp",
+    "images/loading/",
+    "images/core/rooms/",
+    "images/core/chronicle/",
+    "images/core/ui/new-game-silhouettes/",
+    "images/core/ui/dlc-reliquary/",
+    "images/ui/menu/",
+    "images/ui/softcurse-mark.webp",
     "images/main_menu_bg.jpg",
     "images/title/title-en.webp",
   ],

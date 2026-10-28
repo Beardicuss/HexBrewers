@@ -12,6 +12,13 @@ pure and ensuring that progression rewards remain cosmetic or narrative-only.
 
 - **Chronicle 2.0:** detailed match history, ingredient statistics, rival records, shatter
   rate, recipe performance, and personal bests.
+- **Twelve permanent Named Trials:** expand the initial three-Trial catalogue to twelve
+  authored base-game challenges. Each Trial should have its own title, horror-lore premise,
+  fixed or deterministic seed, recipe configuration, brewer count, rival lineup and AI
+  difficulty, plus a distinctive objective or unusual legal starting condition. Named
+  Trials remain separate from the Daily Omen and the rotating Weekly Ritual, preserve the
+  authoritative base-game rules, record attempts and victories in the Chronicle, and award
+  cosmetic titles or profile ornaments rather than mechanical advantages.
 - **Weekly Rituals:** curated fixed seeds with cosmetic rewards.
 - **Expanded AI personalities:** distinct risk tolerance, market priorities, tactical
   identities, and atmospheric reactions for every rival.

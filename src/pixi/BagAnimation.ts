@@ -14,8 +14,19 @@ export class BagAnimation extends PIXI.Container {
   private particles: ParticleSystem;
   private tokenCount: number = 0;
 
-  constructor() {
+  constructor(onOpen: () => void) {
     super();
+
+    this.eventMode = "static";
+    this.cursor = "pointer";
+    this.hitArea = new PIXI.Rectangle(-44, -44, 88, 108);
+    this.on("pointertap", onOpen);
+    this.on("pointerover", () => {
+      if (this.bagSprite) this.bagSprite.tint = 0xcffcff;
+    });
+    this.on("pointerout", () => {
+      if (this.bagSprite) this.bagSprite.tint = 0xffffff;
+    });
 
     this.particles = new ParticleSystem();
     this.addChild(this.particles);

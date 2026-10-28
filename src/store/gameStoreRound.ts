@@ -60,6 +60,7 @@ export function advanceToNextRound(state: GameState): GameState {
             yellowDoubleNext: false,
             omenFirstWhiteReturned: false,
             omenSecondChanceUsed: false,
+            preparedEmberForRound: player.preparedEmberForRound === nextRound ? nextRound : undefined,
         };
 
         // Round 6: add extra white 1-chip to every bag
@@ -86,6 +87,8 @@ export function advanceToNextRound(state: GameState): GameState {
         marketCompletedPlayerIds: [],
         omenCompletedPlayerIds: [],
         pendingBlueTokens: undefined,
+        pendingScryTokens: undefined,
+        scryPreparedTokenId: undefined,
         pendingYellowPreviousToken: undefined,
         pendingRedTokens: undefined,
         pendingPurpleChoices: undefined,

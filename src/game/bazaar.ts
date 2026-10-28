@@ -51,11 +51,20 @@ export function purchaseItem(
   const purchasedToken: Token = {
     ...item.token,
     id: `${item.token.color}-${item.token.value}-${player.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    acquiredFrom: "market",
+    acquiredRound: currentRound,
   };
 
   const updatedPlayer: Player = {
     ...player,
     bag: { tokens: [...player.bag.tokens, purchasedToken] },
+    marketPurchaseCount: (player.marketPurchaseCount ?? 0) + 1,
+    marketPurchaseRounds: player.marketPurchaseRounds?.includes(currentRound)
+      ? player.marketPurchaseRounds
+      : [...(player.marketPurchaseRounds ?? []), currentRound],
+    marketPurchasedColors: player.marketPurchasedColors?.includes(item.token.color)
+      ? player.marketPurchasedColors
+      : [...(player.marketPurchasedColors ?? []), item.token.color],
   };
 
   const updatedState: BuyPhaseState = {

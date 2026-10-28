@@ -61,7 +61,7 @@ export { canAdvanceDroplet, canRefillFlask, spendRubiesForDroplet, spendRubiesFo
 export { rollBonusDie, describeDieResult } from "./bonusDie";
 
 // AI
-export { buildAIContext, getAIProfile, selectAIMode, getRiskTolerance } from "./aiStrategy";
+export { AI_RIVAL_DOCTRINES, buildAIContext, getAIProfile, getAIRivalDoctrine, getAIRivalDoctrineByName, selectAIMode, getRiskTolerance } from "./aiStrategy";
 export type { AIMode, AIDifficulty, AIContext, AIProfile } from "./aiStrategy";
 export { decideAIRubyAction, decideBlueKeep, decideBrewingAction, decideFlaskUse, decideExplodedChoice, decideMarketTurn, decideGreenRewardChoice, evaluateMasterLookahead } from "./ai";
 export type { BrewingDecision } from "./ai";

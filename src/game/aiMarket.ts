@@ -1,7 +1,7 @@
 import type { Player } from "./playerTypes";
 import type { MarketItem } from "./bazaarTypes";
 import type { BuyPhaseState } from "./bazaarTypes";
-import { getAIProfile, type AIMode } from "./aiStrategy";
+import { getAIRivalDoctrine, getAIProfile, type AIMode } from "./aiStrategy";
 import type { GameState } from "./gameState";
 import type { TokenColor } from "./tokenTypes";
 import { canAfford } from "./bazaar";
@@ -69,9 +69,18 @@ function masterStrategicScore(player: Player, item: MarketItem, state: GameState
   const longevity = remainingRounds / state.totalRounds;
   let score = movementValue * longevity * 1.1;
   const profile = getAIProfile(player);
+  const doctrine = getAIRivalDoctrine(player);
+  if (doctrine.preferredColors.includes(color)) score += 0.65;
   if (profile === "shade" && value >= 4) score += 1.2;
   if (profile === "wraith" && color !== "orange" && color !== "white") score += 0.8 + colorCount(player, color) * 0.2;
   if (profile === "seer" && item.stock <= 3) score += 0.9;
+  if (profile === "hollow") {
+    if (color === "echo") score += 1.8;
+    if (color !== "orange" && colorCount(player, color) === 0) score += 0.55;
+    if (player.score < Math.max(...state.players.filter((candidate) => candidate.id !== player.id).map((candidate) => candidate.score))) {
+      score += movementValue >= 2 ? 0.8 : 0;
+    }
+  }
 
   if (item.stock <= 2) {
     const opponentDemand = Math.max(
@@ -112,7 +121,7 @@ function masterStrategicScore(player: Player, item: MarketItem, state: GameState
   return score;
 }
 
-function scoreItem(player: Player, item: MarketItem, mode: AIMode, state?: GameState): number {
+export function scoreMarketItem(player: Player, item: MarketItem, mode: AIMode, state?: GameState): number {
   const { color, value } = item.token;
   if (color === "white") return mode === "reckless" ? 2 - item.cost * 0.2 : -10;
   const movementValue = color === "echo" && state ? echoMovementValue(player, state) : color === "echo" ? 1 : value;
@@ -153,7 +162,7 @@ export function decideMarketPurchases(
   const bundles: Array<{ ids: string[]; score: number }> = [{ ids: [], score: 0 }];
 
   for (const item of candidates) {
-    bundles.push({ ids: [item.id], score: scoreItem(player, item, mode, gameState) });
+    bundles.push({ ids: [item.id], score: scoreMarketItem(player, item, mode, gameState) });
   }
 
   for (let firstIndex = 0; firstIndex < candidates.length; firstIndex++) {
@@ -165,7 +174,7 @@ export function decideMarketPurchases(
       const diversityBonus = 0.75;
       bundles.push({
         ids: [first.id, second.id],
-        score: scoreItem(player, first, mode, gameState) + scoreItem(player, second, mode, gameState) + diversityBonus,
+        score: scoreMarketItem(player, first, mode, gameState) + scoreMarketItem(player, second, mode, gameState) + diversityBonus,
       });
     }
   }

@@ -10,6 +10,7 @@ export interface Translations {
         subtitle: string;
         newGame: string;
         continueGame: string;
+        chronicle: string;
         grimoire: string;
         dlcs: string;
         settings: string;
@@ -177,6 +178,35 @@ export interface Translations {
         riskLevel: string;
         safeLimit: string;
         shatterAtEight: string;
+        openLedger: string;
+        inspectBag: string;
+        closeLedger: string;
+        ledgerEyebrow: string;
+        ledgerTitle: string;
+        ledgerSubtitle: string;
+        nextDrawRisk: string;
+        dangerousDraws: string;
+        shatterChance: string;
+        movementRange: string;
+        insideBag: string;
+        alreadyDrawn: string;
+        emptyBag: string;
+        noneDrawn: string;
+        orderHidden: string;
+        buildIdentity: string;
+        buildEnvironment: string;
+        buildSupport: string;
+        buildUnformed: string;
+        buildRoles: Record<"control" | "rubyEngine" | "resonance" | "aggression" | "adaptation" | "lateBloom", string>;
+        buildGuidance: Record<"control" | "rubyEngine" | "resonance" | "aggression" | "adaptation" | "lateBloom", string>;
+        riskBands: Record<"safe" | "unsettled" | "grave" | "ruinous", string>;
+        securedResult: string;
+        scoringSpace: string;
+        securedPrestige: string;
+        securedCoins: string;
+        securedRuby: string;
+        shatterSacrifice: string;
+        protectedFromShatterLoss: string;
     };
 
     // ── Ruby Spend Panel ──
@@ -204,6 +234,26 @@ export interface Translations {
         lockedUntilRound: string;
         leaveMarket: string;
         value: string;
+        purchaseImpact: string;
+        bagAfterPurchase: string;
+        voidshardDensity: string;
+        ownedMatching: string;
+        coinsAfterPurchase: string;
+        synergy: string;
+        activeRecipe: string;
+        whyNow: string;
+        impactCaveat: string;
+        roles: Record<"movement" | "control" | "economy" | "ruby" | "combo" | "recovery" | "volatility", string>;
+        synergies: Record<"matching" | "brimstone" | "voidshard" | "wraithbloom" | "neighbor" | "none", string>;
+        context: {
+            matchingColor: string;
+            saferBag: string;
+            rubyPositioning: string;
+            orangeMovement: string;
+            neutral: string;
+            noOmen: string;
+            fixedEffect: string;
+        };
     };
 
     // ── Blue Choice (Frostbile) ──
@@ -280,6 +330,10 @@ export interface Translations {
         bothExplanation: string; choiceExplanation: string; protectedExplanation: string;
         rubyExplanation: string; doubleRubyExplanation: string; dieExplanation: string;
         calculating: string; sealed: string; nextRound: string; continueRitual: string;
+        causalTitle: string; riskDraw: string; valueDraw: string; shatterCause: string;
+        stoppedProtected: string; bagEmptied: string; purchaseContribution: string;
+        nextAfterShatter: string; nextAfterStop: string; nextAfterEmpty: string;
+        difficultyCoins: string;
     };
 
     aiOverlay: {

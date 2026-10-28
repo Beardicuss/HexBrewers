@@ -35,7 +35,7 @@ export const EN_RECIPE_TEXT: IngredientRecipeText = {
     { effect: "Each Deathweave among the last two advances your droplet 1 space.", costs: "Costs: 6 / 10 / 16" },
   ],
   Wraithbloom: [
-    { effect: "One grants 1 prestige; two grant 1 prestige and 1 ruby; three grant 2 prestige and droplet +1.", costs: "Cost: 9" },
+    { effect: "One grants 1 prestige; two grant 1 prestige and 1 ruby; three grant 2 prestige and droplet +1.", costs: "Cost: 8" },
     { effect: "Trade up to three placed Wraithblooms for increasingly powerful chips, prestige, rubies, and droplet movement.", costs: "Cost: 12" },
     { effect: "Each Wraithbloom grants 1–3 prestige based on how far into the crucible it landed.", costs: "Cost: 10" },
     { effect: "Placed Wraithblooms let you upgrade eligible non-white ingredients: 1→2, 2→4, or 1→4.", costs: "Cost: 11" },
@@ -78,7 +78,7 @@ export const RU_RECIPE_TEXT: IngredientRecipeText = {
     { effect: "Каждый Смертоткач среди двух последних продвигает каплю на 1.", costs: "Цена: 6 / 10 / 16" },
   ],
   Wraithbloom: [
-    { effect: "Один даёт 1 славу; два — 1 славу и рубин; три — 2 славы и каплю +1.", costs: "Цена: 9" },
+    { effect: "Один даёт 1 славу; два — 1 славу и рубин; три — 2 славы и каплю +1.", costs: "Цена: 8" },
     { effect: "Обменяйте до трёх помещённых Призракоцветов на усиливающиеся награды.", costs: "Цена: 12" },
     { effect: "Каждый Призракоцвет даёт 1–3 славы в зависимости от места в котле.", costs: "Цена: 10" },
     { effect: "Призракоцветы позволяют улучшать подходящие цветные жетоны: 1→2, 2→4 или 1→4.", costs: "Цена: 11" },
@@ -121,7 +121,7 @@ export const KA_RECIPE_TEXT: IngredientRecipeText = {
     { effect: "ბოლო ორ ჟეტონში თითო სიკვდილის ქსელი წვეთს 1 უჯრით წინ წევს.", costs: "ფასი: 6 / 10 / 16" },
   ],
   Wraithbloom: [
-    { effect: "ერთი იძლევა 1 პრესტიჟს; ორი — 1 პრესტიჟსა და ლალს; სამი — 2 პრესტიჟსა და წვეთს +1.", costs: "ფასი: 9" },
+    { effect: "ერთი იძლევა 1 პრესტიჟს; ორი — 1 პრესტიჟსა და ლალს; სამი — 2 პრესტიჟსა და წვეთს +1.", costs: "ფასი: 8" },
     { effect: "გაცვალეთ სამამდე მოთავსებული აჩრდილის ყვავილი მზარდ ჯილდოებზე.", costs: "ფასი: 12" },
     { effect: "თითო ყვავილი მდებარეობის მიხედვით 1–3 პრესტიჟს იძლევა.", costs: "ფასი: 10" },
     { effect: "ყვავილები ფერადი ჟეტონების გაუმჯობესების საშუალებას იძლევა: 1→2, 2→4 ან 1→4.", costs: "ფასი: 11" },

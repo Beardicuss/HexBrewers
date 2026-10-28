@@ -14,6 +14,8 @@ export interface Token {
   color: TokenColor;
   value: number; // 1, 2, 3, or 4 — spaces advanced on spiral
   resolvedMovement?: number; // dynamic ingredients persist their resolved draw-time movement
+  acquiredFrom?: "market";
+  acquiredRound?: number;
 }
 
 // Which colors unlock at which round

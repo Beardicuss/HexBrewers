@@ -7,6 +7,7 @@ interface UsePixiCanvasOptions {
   explosionLabel: string;
   renderScale: number;
   mirewroughtEnabled: boolean;
+  onBagClick: () => void;
 }
 
 interface UsePixiCanvasReturn {
@@ -19,7 +20,7 @@ interface UsePixiCanvasReturn {
   setPaused: (paused: boolean) => void;
 }
 
-export function usePixiCanvas({ explosionLabel, renderScale, mirewroughtEnabled }: UsePixiCanvasOptions): UsePixiCanvasReturn {
+export function usePixiCanvas({ explosionLabel, renderScale, mirewroughtEnabled, onBagClick }: UsePixiCanvasOptions): UsePixiCanvasReturn {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<GameCanvas | null>(null);
   const pausedRef = useRef(false);
@@ -35,6 +36,7 @@ export function usePixiCanvas({ explosionLabel, renderScale, mirewroughtEnabled 
       explosionLabel,
       renderScale,
       mirewroughtEnabled,
+      onBagClick,
     }).then((canvas) => {
       if (destroyed) {
         canvas.destroy();
@@ -49,7 +51,7 @@ export function usePixiCanvas({ explosionLabel, renderScale, mirewroughtEnabled 
       canvasRef.current?.destroy();
       canvasRef.current = null;
     };
-  }, [explosionLabel, renderScale, mirewroughtEnabled]);
+  }, [explosionLabel, renderScale, mirewroughtEnabled, onBagClick]);
 
   // Handle resize - handled internally by GameCanvas now!
 

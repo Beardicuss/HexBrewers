@@ -12,6 +12,7 @@ import {
   type RitualSession,
 } from "../game/replayability";
 import type { ChroniclePage } from "./ChronicleScreen";
+import type { RecipeBooks } from "../game/recipeBooks";
 
 interface GameOverProps {
   players: Player[];
@@ -22,6 +23,7 @@ interface GameOverProps {
   session: RitualSession;
   setup: GameSetup;
   difficulty: AIDifficulty;
+  recipeBooks: RecipeBooks;
 }
 
 interface SealedResult {
@@ -29,7 +31,7 @@ interface SealedResult {
   progression: MatchProgression;
 }
 
-export function GameOver({ players, winners, onRestart, onReturnToMenu, onOpenChronicle, session, setup, difficulty }: GameOverProps) {
+export function GameOver({ players, winners, onRestart, onReturnToMenu, onOpenChronicle, session, setup, difficulty, recipeBooks }: GameOverProps) {
   const sorted = [...players].sort((a, b) => b.score - a.score);
   const humanWon = winners.some((player) => player.kind === "human");
   const winnerIds = new Set(winners.map((player) => player.id));
@@ -40,9 +42,9 @@ export function GameOver({ players, winners, onRestart, onReturnToMenu, onOpenCh
   React.useEffect(() => {
     if (recorded.current) return;
     recorded.current = true;
-    const record = createMatchRecord(session, setup, difficulty, players, winners.map((player) => player.id));
+    const record = createMatchRecord(session, setup, difficulty, players, winners.map((player) => player.id), new Date(), recipeBooks);
     setSealed({ record, progression: recordCompletedMatchProgression(record) });
-  }, [difficulty, players, session, setup, winners]);
+  }, [difficulty, players, recipeBooks, session, setup, winners]);
 
   React.useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -98,10 +100,12 @@ export function GameOver({ players, winners, onRestart, onReturnToMenu, onOpenCh
                 </div>
                 <div className="ending-inscriptions">
                   {newBest && <span>◆ New Prestige record</span>}
-                  {challenge && <span>◆ Trial completed: {challenge.title}</span>}
+                  {challenge && record.trialSucceeded && <span>◆ Trial sealed: {challenge.title}</span>}
+                  {challenge && record.trialMastered && <span>◆ Mastery achieved: {challenge.mastery}</span>}
+                  {challenge && !record.trialSucceeded && <span>◆ Trial attempted: its objective remains unsealed</span>}
                   {record.mode === "daily" && <span>◆ Daily Omen answered</span>}
                   {record.mode === "weekly" && <span>◆ This week’s Turning Trial answered</span>}
-                  {!newBest && !challenge && record.mode !== "daily" && record.mode !== "weekly" && <span>◆ Ritual entered into the Ashen Record</span>}
+                  {!newBest && !challenge && record.mode !== "daily" && record.mode !== "weekly" && <span>◆ {record.mode === "ashenveil" ? "Ashenveil Ritual" : "Ritual"} entered into the Ashen Record</span>}
                 </div>
                 {newHonors.length > 0 && (
                   <div className="ending-honors">

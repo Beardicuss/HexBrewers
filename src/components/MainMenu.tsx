@@ -113,7 +113,7 @@ export function MainMenu({ onNewGame, onContinue, canContinue, onGrimoire, onDlc
                 <nav className="main-menu-nav main-menu-primary" style={s.nav} aria-label="Main menu">
                     <MenuButton label={t.menu.continueGame} icon="continue" onClick={onContinue} accent="#76d7c4" disabled={!canContinue} />
                     <MenuButton label={t.menu.newGame} icon="new-game" onClick={() => setView("setup")} accent="#e8b84d" />
-                    <MenuButton label="Brewer’s Chronicle" icon="chronicle" onClick={onChronicle} accent="#76d7c4" />
+                    <MenuButton label={t.menu.chronicle} icon="chronicle" onClick={onChronicle} accent="#76d7c4" />
                     <MenuButton label={t.menu.grimoire} icon="grimoire" onClick={onGrimoire} accent="#e8b84d" />
                     <MenuButton label={t.menu.dlcs} icon="dlcs" onClick={onDlcs} accent="#76d7c4" />
                     <MenuButton label={t.menu.settings} icon="settings" onClick={onSettings} accent="#e8b84d" />
@@ -155,7 +155,10 @@ export function MainMenu({ onNewGame, onContinue, canContinue, onGrimoire, onDlc
 
                         <div className="ritual-mode-strip" role="group" aria-label="Ritual mode">
                             <button className={ritualMode === "standard" ? "is-active" : ""} onClick={() => setRitualMode("standard")}>
-                                <b>Standard Ritual</b><small>Your chosen instruments</small>
+                                <b>Standard Ritual</b><small>Pure bag-building rules</small>
+                            </button>
+                            <button className={ritualMode === "ashenveil" ? "is-active" : ""} onClick={() => setRitualMode("ashenveil")}>
+                                <b>Ashenveil Ritual</b><small>Digital strategy · intentions</small>
                             </button>
                             <button className={ritualMode === "daily" ? "is-active" : ""} onClick={() => setRitualMode("daily")}>
                                 <b>The Daily Omen</b><small>{daily.session.dateKey} · Set {daily.setup.recipeMode} · Skilled</small>
@@ -241,7 +244,7 @@ export function MainMenu({ onNewGame, onContinue, canContinue, onGrimoire, onDlc
                         </div>
 
                         <button type="button" autoFocus className="ritual-begin" onClick={() => onNewGame(createGameSetup({ recipeMode, totalPlayers, enabledPacks, echoRecipe }), aiDifficulty, ritualMode)} style={s.ritualBegin}>
-                            <strong>{ritualMode === "daily" ? "Answer the Omen" : "Begin Brewing"}</strong><small>{ritualMode === "daily" ? "One shared ritual · base rules unchanged" : "Seal this configuration"}</small>
+                            <strong>{ritualMode === "daily" ? "Answer the Omen" : "Begin Brewing"}</strong><small>{ritualMode === "daily" ? "One shared ritual · base rules unchanged" : ritualMode === "ashenveil" ? "Enter the active digital ruleset" : "Seal this configuration"}</small>
                         </button>
                     </div>
                 </section>
@@ -973,13 +976,14 @@ const menuAtmosphereCss = `
     position:absolute; left:50%; top:2.2%; z-index:15; transform:translateX(-50%);
     display:flex; gap:7px; padding:6px; border:1px solid rgba(72,157,162,.34); background:rgba(1,9,13,.86); backdrop-filter:blur(10px);
     box-shadow:0 12px 32px rgba(0,0,0,.42),inset 0 0 22px rgba(60,158,164,.05);
+    pointer-events:auto;
   }
   .ritual-mode-strip button { min-width:clamp(190px,13vw,270px); padding:11px 18px 10px; border:1px solid transparent; background:transparent; color:#918570; cursor:pointer; }
   .ritual-mode-strip b,.ritual-mode-strip small { display:block; }
   .ritual-mode-strip b { font:clamp(16px,1.05vw,21px)/1.1 Georgia,serif; font-weight:400; letter-spacing:.7px; }
   .ritual-mode-strip small { margin-top:5px; font:clamp(9px,.56vw,12px)/1.25 monospace; letter-spacing:.8px; }
   .ritual-mode-strip button.is-active { border-color:rgba(211,174,92,.62); color:#ecd08b; background:linear-gradient(90deg,rgba(26,105,111,.16),rgba(96,55,23,.15)); box-shadow:inset 0 0 20px rgba(75,177,182,.11),0 0 14px rgba(211,174,92,.08); }
-  @media(max-width:720px){.ritual-mode-strip{top:1%;gap:3px;padding:4px}.ritual-mode-strip button{min-width:42vw;padding:8px 5px}.ritual-mode-strip b{font-size:14px}.ritual-mode-strip small{font-size:8px;letter-spacing:.3px}}
+  @media(max-width:720px){.ritual-mode-strip{top:1%;width:96vw;gap:3px;padding:4px}.ritual-mode-strip button{min-width:0;flex:1;padding:8px 4px}.ritual-mode-strip b{font-size:13px}.ritual-mode-strip small{font-size:8px;letter-spacing:.2px}}
   @keyframes menuBackdropIn {
     from { opacity: 0; }
     to { opacity: 1; }

@@ -4,6 +4,7 @@ import type { Token } from "./tokenTypes";
 import { applyBlueImmediate, applyYellowImmediate, countPlacedColor, redBonusValue } from "./chipEffects";
 import { getExplosionThreshold, placeToken } from "./crucible";
 import { getRecipeSetForColor } from "./recipeBooks";
+import { hasPreparedEmber } from "./preparation";
 
 export interface PlaceTokenOptions {
   deferYellowChoice?: boolean;
@@ -75,11 +76,14 @@ export function placeTokenForActiveBooks(
   const threshold = state.currentOmen?.effect.type === "round_explosion_threshold"
     ? Math.max(bookThreshold, state.currentOmen.effect.threshold)
     : bookThreshold;
-  const movement = movementForToken(player, token, state, options);
+  const usesPreparedEmber = token.color !== "white" && hasPreparedEmber(player, state);
+  const movement = movementForToken(player, token, state, options) + (usesPreparedEmber ? 1 : 0);
   const placedToken = token.color === "echo" ? { ...token, resolvedMovement: movement } : token;
   let updated: Player = {
     ...player,
     yellowDoubleNext: false,
+    preparedEmberForRound: usesPreparedEmber ? undefined : player.preparedEmberForRound,
+    preparedEmberUsedRound: usesPreparedEmber ? state.currentRound : player.preparedEmberUsedRound,
     crucible: placeToken(player.crucible, placedToken, movement, threshold),
   };
 

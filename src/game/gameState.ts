@@ -9,6 +9,9 @@ import type { AIDifficulty } from "./aiStrategy";
 import type { GameSetup } from "./contentPacks";
 import type { AfflictionId } from "./distillation";
 import type { CovenantOffer, CovenantSelection } from "./covenants";
+import type { BrewingIntentionId } from "./brewingIntentions";
+
+export type RitualRuleset = "standard" | "ashenveil";
 
 export interface PlayerRoundSummary {
   playerId: string;
@@ -16,6 +19,7 @@ export interface PlayerRoundSummary {
   space: number;
   vp: number;
   coins: number;
+  baseCoins?: number;
   ruby: boolean;
   exploded: boolean;
   bonusDie: BonusDieResult | null;
@@ -30,6 +34,22 @@ export interface PlayerRoundSummary {
   distillationPrestige?: number;
   distillationDroplet?: number;
   distillationHeadStart?: number;
+  causal?: RoundCausalInsight;
+}
+
+export interface RoundCausalDraw {
+  color: TokenColor;
+  value: number;
+  movement: number;
+}
+
+export interface RoundCausalInsight {
+  riskDraw?: RoundCausalDraw & { pressureBefore: number; pressureAfter: number };
+  valueDraw?: RoundCausalDraw;
+  shatterCause?: RoundCausalDraw & { pressureBefore: number; pressureAfter: number };
+  stoppedWithTokens: number;
+  emptiedBag: boolean;
+  purchaseContribution?: RoundCausalDraw & { acquiredRound: number };
 }
 
 export interface RoundSummary {
@@ -68,6 +88,8 @@ export type GamePhase =
   | "omen_choice"   // human resolves a choice printed on the current omen
   | "omen_strong_choice" // human may place one of five sampled chips after stopping
   | "omen_restart_choice" // continue or restart after the fifth placed chip
+  | "intention"     // Ashenveil Ritual: choose this round's benefit and obligation
+  | "scry_choice"    // Ashenveil Ritual: choose one of two candidates
   | "brewing"       // drawing tokens
   | "blue_choice"   // human must resolve blue chip draw-2-keep-1
   | "yellow_choice" // human may return the previous white chip after a yellow chip
@@ -85,6 +107,9 @@ export type GamePhase =
   | "game_over";
 
 export interface GameState {
+  ritualRuleset?: RitualRuleset;
+  roundIntentions?: Record<string, BrewingIntentionId>;
+  intentionRound?: number;
   setup: GameSetup;
   afflictionOffer?: AfflictionId[];
   covenantOffer?: CovenantOffer;
@@ -110,6 +135,8 @@ export interface GameState {
   roundSummary: RoundSummary | null;
 
   pendingBlueTokens?: Token[];           // tokens drawn exclusively during blue_choice phase
+  pendingScryTokens?: Token[];
+  scryPreparedTokenId?: string;
   pendingYellowPreviousToken?: Token;     // previous white token that may be returned
   pendingMovementChoice?: { amount: number; source: "red" | "yellow" };
   pendingRedTokens?: Token[];

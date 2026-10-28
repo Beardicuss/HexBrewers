@@ -10,9 +10,12 @@ import { drawBlueBonus } from "./chipEffects";
 import { getRecipeSetForColor } from "./recipeBooks";
 import { placeTokenForActiveBooks } from "./brewingRules";
 import { restartBrew, shouldOfferSecondChance } from "./omenSecondChance";
+import { applyIntentionAfterPlacement } from "./brewingIntentions";
+import { bankEmber, canBankEmber } from "./preparation";
 
 export type AITurnEvent =
   | { type: "thinking"; messageKey: AIMessageKey }
+  | { type: "scry"; chosen: Token }
   | { type: "draw"; token: Token; player: Player }
   | { type: "flask"; token: Token }
   | { type: "stop"; player: Player }
@@ -61,22 +64,39 @@ export class AITurnAnimator {
     await this.wait(TIMING.thinkingBeforeFirstDraw);
 
     let current = aiPlayer;
+    let preparedScryToken: Token | null = null;
+    if (state.ritualRuleset === "ashenveil" && current.rubies > 0 && current.scryUsedRound !== state.currentRound && current.bag.tokens.length >= 2) {
+      const first = drawToken(current.bag);
+      const second = first ? drawToken(first.bag) : null;
+      if (first && second) {
+        const danger = (token: Token) => token.color === "white" ? token.value * 5 : -token.value;
+        const chosen = [first.token, second.token].sort((a, b) => danger(a) - danger(b))[0];
+        preparedScryToken = chosen;
+        current = { ...current, rubies: current.rubies - 1, scryUsedRound: state.currentRound };
+        this.emit({ type: "scry", chosen });
+        await this.wait(TIMING.thinkingPause);
+      }
+    }
     let drawCount = 0;
 
     while (true) {
       const decision = decideBrewingAction(current, state);
       if (decision === "stop") {
+        if (canBankEmber(current, state)) current = bankEmber(current, state);
         this.emit({ type: "thinking", messageKey: pick(MSGS.stopping) });
         await this.wait(TIMING.afterStop);
         this.emit({ type: "stop", player: current });
         break;
       }
 
-      const drawn = drawToken(current.bag);
+      const drawn = preparedScryToken
+        ? { token: preparedScryToken, bag: { tokens: current.bag.tokens.filter((token) => token.id !== preparedScryToken!.id) } }
+        : drawToken(current.bag);
+      preparedScryToken = null;
       if (!drawn) { this.emit({ type: "stop", player: current }); break; }
 
       drawCount++;
-      current = placeTokenForActiveBooks({ ...current, bag: drawn.bag }, drawn.token, state);
+      current = applyIntentionAfterPlacement(placeTokenForActiveBooks({ ...current, bag: drawn.bag }, drawn.token, state), state);
       const updatedCrucible = current.crucible;
 
       // Flask check (must check canUseFlask AFTER placing — official rule)
@@ -106,7 +126,7 @@ export class AITurnAnimator {
 
         if (!kept) break;
 
-        current = placeTokenForActiveBooks(current, kept, state);
+        current = applyIntentionAfterPlacement(placeTokenForActiveBooks(current, kept, state), state);
         this.emit({ type: "draw", token: kept, player: current });
         await this.wait(TIMING.betweenDraws);
 

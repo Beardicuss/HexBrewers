@@ -15,6 +15,14 @@
       <strong>THE HEXBREWER'S CODEX</strong>
     </a>
     <div class="reading-progress" aria-hidden="true"><i id="progress-bar"></i></div>
+    <label class="lang-switcher" for="language-select">
+      <span>LANGUAGE</span>
+      <select id="language-select" aria-label="Choose rulebook language">
+        <option value="en">English</option>
+        <option value="ru">Русский</option>
+        <option value="ka">ქართული</option>
+      </select>
+    </label>
     <button class="toc-toggle" type="button" aria-expanded="false" aria-controls="chapter-navigation">CHAPTERS</button>
   </header>
 
@@ -86,6 +94,7 @@
 
     <section class="chapter" id="instruments" data-title="Your Instruments">
       <header class="chapter-title"><span>CHAPTER 02</span><h2>Your Instruments</h2></header>
+      <figure class="chapter-plate"><img src="./images/chapter-plates/instruments-of-the-ritual.webp" alt="" aria-hidden="true"></figure>
       <p class="lead">The digital crucible performs the bookkeeping, but every instrument still obeys a physical rule.</p>
       <div class="instrument-grid">
         <article><img data-asset="/images/core/economy/brew-bag.webp" alt="Brewing bag"><h3>Brewing Bag</h3><p>Contains every ingredient available to be drawn this round. Its contents remain hidden.</p></article>
@@ -120,6 +129,7 @@
 
     <section class="chapter" id="round" data-title="An Entire Round">
       <header class="chapter-title"><span>CHAPTER 04</span><h2>An Entire Round</h2></header>
+      <figure class="chapter-plate"><img src="./images/chapter-plates/the-nine-round-cycle.webp" alt="" aria-hidden="true"></figure>
       <p class="lead">A round always follows this order. When an effect creates a choice, play pauses until the choice is resolved.</p>
       <div class="phase-track" role="list">
         <div role="listitem"><b>1</b><span>OMEN</span><small>Reveal the round's supernatural condition.</small></div>
@@ -179,12 +189,14 @@
         <div><p class="lead">Color identifies an ingredient family. Value determines movement. The selected recipe set determines its power and market cost.</p><p>Choose the recipe set used by your match. The Codex will reveal the exact inscription for every variable ingredient.</p></div>
         <label class="recipe-picker" for="recipe-set"><span>RECIPE SET</span><select id="recipe-set" aria-label="Choose recipe set"><option value="1">Set I</option><option value="2">Set II</option><option value="3">Set III</option><option value="4">Set IV</option><option value="5">Set V · Mirewrought</option><option value="6">Set VI · Mirewrought</option></select></label>
       </div>
+      <div class="recipe-strategies" id="recipe-strategies" aria-live="polite"></div>
       <div class="ingredient-grid" id="ingredient-grid" aria-live="polite"></div>
       <aside class="timing-key"><b>TIMING KEY</b><span><i class="timing immediate"></i> resolves when placed</span><span><i class="timing end"></i> resolves during evaluation</span><span><i class="timing passive"></i> changes an ongoing rule</span></aside>
     </section>
 
     <section class="chapter danger-chapter" id="pressure" data-title="Pressure and Shattering">
       <header class="chapter-title"><span>CHAPTER 08</span><h2>Voidshard Pressure &amp; Shattering</h2></header>
+      <figure class="chapter-plate"><img src="./images/chapter-plates/pressure-and-shattering.webp" alt="" aria-hidden="true"></figure>
       <div class="pressure-demo">
         <div class="pressure-dial"><strong>7</strong><span>SAFE</span></div>
         <div class="pressure-copy"><p>Only white Voidshards add pressure. Their printed values are added together.</p><p><b>Seven is safe.</b> The instant the total exceeds seven, the crucible shatters and brewing ends. The final Voidshard remains placed.</p></div>
@@ -202,6 +214,7 @@
 
     <section class="chapter" id="evaluation" data-title="Evaluation">
       <header class="chapter-title"><span>CHAPTER 09</span><h2>Evaluation</h2></header>
+      <figure class="chapter-plate"><img src="./images/chapter-plates/evaluation-and-rewards.webp" alt="" aria-hidden="true"></figure>
       <p class="lead">Your scoring space is the first empty space directly after the last placed ingredient—not the space occupied by that ingredient.</p>
       <div class="resolution-order">
         <span>DISTILLATION <small>(IF ACTIVE)</small></span><i>→</i><span>BONUS DIE</span><i>→</i><span>END EFFECTS</span><i>→</i><span>OMEN</span><i>→</i><span>RUBY SPACE</span><i>→</i><span>PRESTIGE &amp; COINS</span>
@@ -232,6 +245,7 @@
 
     <section class="chapter" id="market" data-title="The Black Market">
       <header class="chapter-title"><span>CHAPTER 10</span><h2>The Black Market</h2></header>
+      <figure class="chapter-plate"><img src="./images/chapter-plates/the-black-market.webp" alt="" aria-hidden="true"></figure>
       <div class="lead-grid">
         <div><p class="lead">Spend the coins earned by your scoring space to permanently improve your bag.</p><ul class="rule-list"><li>Buy no more than two ingredients per round.</li><li>If buying two, they must be different colors.</li><li>Stock is shared and never replenished.</li><li>Unspent coins normally vanish at the end of the round.</li><li>Purchased ingredients enter your bag for future rounds.</li></ul></div>
         <div class="market-law"><b>THE MARKET'S LAW</b><span>2 MAXIMUM</span><em>DIFFERENT COLORS</em></div>
@@ -267,6 +281,99 @@
       <p class="lead">After the ninth evaluation, the brewer with the highest Prestige wins.</p>
       <div class="final-conversions"><div><b>5</b><span>UNSPENT COINS</span><i>→</i><strong>1 PRESTIGE</strong></div><div><b>2</b><span>RUBIES</span><i>→</i><strong>1 PRESTIGE</strong></div></div>
       <p>Tied leaders compare their final-round scoring spaces. If those are also tied, they share the victory. At the beginning of round six, every brewer receives one additional value-1 Voidshard.</p>
+    </section>
+
+    <section class="chapter stage-one-chapter" id="ashenveil-ritual" data-title="Ashenveil Ritual">
+      <header class="chapter-title"><span>CHAPTER 12</span><h2>The Ashenveil Ritual</h2></header>
+      <figure class="chapter-plate"><img src="./images/chapter-plates/the-ashenveil-ritual.webp" alt="" aria-hidden="true"></figure>
+      <p class="lead">Standard Ritual preserves the original nine-round laws. Ashenveil Ritual keeps that foundation, then adds visible commitments, calculated foresight, authored round objectives, and a reward for stopping with purpose.</p>
+
+      <div class="mode-comparison">
+        <article><span>STANDARD RITUAL</span><h3>The Unaltered Crucible</h3><p>Use the core sequence, ingredient books, Omens, scoring, and market exactly as described in Chapters 1–11. Brewing Intentions, Scry, round objectives, and Preparation are not used.</p></article>
+        <article><span>ASHENVEIL RITUAL</span><h3>The Strategic Crucible</h3><p>Before brewing, every brewer binds an Intention. During the round, brewers may use Scry, pursue the current objective, and earn Preparation by stopping early.</p></article>
+      </div>
+
+      <div class="stage-rule-block intentions-rules">
+        <span class="section-kicker">BEFORE EACH BREW</span><h3>Bind one Brewing Intention</h3>
+        <p>Each Intention lasts for the current round only. Its promise and price are both mandatory.</p>
+        <div class="intention-grid">
+          <article><b>Temper the Crucible</b><p><strong>Promise:</strong> The first draw that would shatter your crucible is warded once.</p><p><strong>Price:</strong> If you survive and your scoring space grants Prestige, earn 1 less Prestige from that space.</p></article>
+          <article><b>Court the Omen</b><p><strong>Promise:</strong> Repeat once any positive Prestige or ruby reward granted by this round's Omen.</p><p><strong>Price:</strong> If the Omen grants no such scoring reward, lose 1 market coin this round, to a minimum of 0.</p></article>
+          <article><b>Brew for Glory</b><p><strong>Promise:</strong> Survive at scoring space 10 or farther to gain 2 additional Prestige.</p><p><strong>Price:</strong> Exactly 7 Voidshard pressure shatters your crucible instead of remaining safe.</p></article>
+        </div>
+      </div>
+
+      <div class="stage-rule-columns">
+        <article><span class="section-kicker">ONCE PER ROUND</span><h3>Scry</h3><p>During brewing, while at least two ingredients remain in your bag, spend 1 ruby to reveal two candidates. Choose one as your prepared next draw. The other returns to the bag. Scry reveals a choice, never the future order of the bag.</p><p>Rivals pay the same cost, obey the same once-per-round limit, and evaluate only the two legally revealed candidates.</p></article>
+        <article><span class="section-kicker">WHEN YOU STOP EARLY</span><h3>Preparation</h3><p>If you stop without shattering, have at least two ingredients left, finish at no more than 3 pressure and no farther than scoring space 7, bank one Ember for the next round.</p><p>The Ember is consumed by your first non-Voidshard ingredient next round and adds +1 movement. It cannot be banked in round 9 or stacked with another Ember.</p></article>
+      </div>
+
+      <div class="stage-rule-block objective-rules">
+        <span class="section-kicker">ONE AUTHORED TEST EACH ROUND</span><h3>The Nine Round Objectives</h3>
+        <p>You must survive to complete an objective. Rewards are granted during evaluation after the ordinary scoring result.</p>
+        <ol class="objective-ledger">
+          <li><b>The Steady Hand</b><span>Survive with 4–6 pressure.</span><strong>+1 ruby</strong></li>
+          <li><b>Three Voices in the Steam</b><span>Place at least three non-Voidshard families.</span><strong>+1 Prestige</strong></li>
+          <li><b>The Unspent Eye</b><span>Survive with at least 1 ruby unspent.</span><strong>+1 market coin</strong></li>
+          <li><b>At Ruin's Lip</b><span>Survive with exactly 6 or 7 pressure.</span><strong>+1 Prestige</strong></li>
+          <li><b>A Quiet Mixture</b><span>Survive with no more than 3 pressure.</span><strong>+1 ruby</strong></li>
+          <li><b>The Long Measure</b><span>Survive at scoring space 10 or farther.</span><strong>+1 Prestige</strong></li>
+          <li><b>The Motley Brew</b><span>Place at least five non-Voidshard ingredients.</span><strong>+1 market coin</strong></li>
+          <li><b>Coin Beneath the Tongue</b><span>Survive with at least 2 rubies unspent.</span><strong>+1 Prestige</strong></li>
+          <li><b>The Ninth Witness</b><span>Survive at space 12 or farther with pressure below 7.</span><strong>+1 Prestige and +1 ruby</strong></li>
+        </ol>
+      </div>
+
+      <div class="stage-rule-block difficulty-rules">
+        <span class="section-kicker">RIVAL DIFFICULTY</span><h3>Difficulty changes judgment and the human market economy</h3>
+        <div class="difficulty-grid">
+          <article><b>Apprentice</b><p>Rivals brew conservatively. The human receives the printed coin value of the scoring space.</p></article>
+          <article><b>Skilled</b><p>Rivals adapt normally. Human coin rewards of 8 or more are reduced by 1; rewards up to 7 are unchanged.</p></article>
+          <article><b>Master</b><p>Rivals plan more deeply. The human receives 70% of printed coins, rounded down, with at least 1 coin whenever the space awards coins.</p></article>
+        </div>
+        <p class="rules-clarifier">Difficulty never changes the physical scoring track or a rival's printed coin reward. It changes rival decisions and, for the human brewer, the amount of market purchasing power earned.</p>
+      </div>
+    </section>
+
+    <section class="chapter stage-one-chapter" id="named-trials" data-title="Named Trials">
+      <header class="chapter-title"><span>CHAPTER 13</span><h2>The Twelve Named Trials</h2></header>
+      <figure class="chapter-plate"><img src="./images/chapter-plates/named-trials-and-mastery.webp" alt="" aria-hidden="true"></figure>
+      <p class="lead">Named Trials are fixed-seed teaching scenarios. Their player count, recipe set, rivals, and draw sequence remain reproducible. Conquest requires the listed objective; Mastery requires the stricter condition.</p>
+      <div class="trial-tier">
+        <header><span>INITIATION</span><h3>Read the system</h3></header>
+        <article><b>Read the Ashes</b><p>Risk reading · 2 brewers · Apprentice · Set 1</p><span>Conquer: defeat the Shade with 14 Prestige.</span><strong>Master: 18 Prestige and margin 3+.</strong></article>
+        <article><b>The Willing Stop</b><p>Meaningful stopping · 2 brewers · Skilled · Set 3</p><span>Conquer: win with a positive margin.</span><strong>Master: win by 5+ Prestige.</strong></article>
+        <article><b>Three Coins Ahead</b><p>Market planning · 3 brewers · Skilled · Set 2</p><span>Conquer: finish first with 19 Prestige.</span><strong>Master: win with 23 Prestige.</strong></article>
+      </div>
+      <div class="trial-tier">
+        <header><span>CRAFT</span><h3>Build an identity</h3></header>
+        <article><b>The Gentle Chain</b><p>Frostbile–Plaguedust Control · 2 · Skilled · Set 1</p><span>Conquer: win with Control dominant.</span><strong>Master: Control, 20 Prestige, margin 3+.</strong></article>
+        <article><b>The Crimson Answer</b><p>Bloodthorn–Voidshard Resonance · 3 · Skilled · Set 3</p><span>Conquer: win with Resonance dominant.</span><strong>Master: Resonance and 22 Prestige.</strong></article>
+        <article><b>Roots Beyond Nine</b><p>Deathweave–Wraithbloom Late Bloom · 4 · Master · Set 4</p><span>Conquer: win with Late Bloom dominant.</span><strong>Master: Late Bloom, 24 Prestige, margin 4+.</strong></article>
+      </div>
+      <div class="trial-tier">
+        <header><span>PERIL</span><h3>Recover under pressure</h3></header>
+        <article><b>The Vial Remembers</b><p>Recovery · 2 · Master · Set 2</p><span>Conquer: win after at least one shatter and one Vial use.</span><strong>Master: exactly one shatter, two Vial uses, 20 Prestige.</strong></article>
+        <article><b>A Bag With Teeth</b><p>Volatile-bag management · 3 · Master · Set 4</p><span>Conquer: win with 15+ ingredients and Voidshards at no more than half.</span><strong>Master: also at most one shatter and margin 3+.</strong></article>
+        <article><b>Under Nine Eyes</b><p>Omen adaptation · 4 · Master · Set 2</p><span>Conquer: defeat three rivals with Adaptation dominant.</span><strong>Master: Adaptation, 23 Prestige, margin 4+.</strong></article>
+      </div>
+      <div class="trial-tier">
+        <header><span>MASTERY</span><h3>Plan across the match</h3></header>
+        <article><b>The Long Conjunction</b><p>Multi-round investment · 3 · Master · Set 4</p><span>Conquer: win with 5+ purchases across 4 rounds.</span><strong>Master: 7+ purchases across 5 rounds and 25 Prestige.</strong></article>
+        <article><b>The Changing Hand</b><p>Adaptive purchasing · 4 · Master · Random set</p><span>Conquer: win after buying 4+ ingredient colors.</span><strong>Master: buy 5 colors and win by 3+.</strong></article>
+        <article><b>At the Seventh Breath</b><p>Expert risk management · 2 · Master · Set 3</p><span>Conquer: safely end at 6+ pressure in 3 rounds, with at most one shatter.</span><strong>Master: do so in 4 rounds, never shatter, reach 25 Prestige.</strong></article>
+      </div>
+
+      <div class="stage-rule-block rival-rules">
+        <span class="section-kicker">VISIBLE RIVAL DOCTRINES</span><h3>Different rivals pursue different answers</h3>
+        <div class="rival-grid">
+          <article><b>The Shade · Pressure</b><p>Chases long strides and powerful ingredients, then guards a commanding lead.</p></article>
+          <article><b>The Wraith · Synergy</b><p>Builds repeated ingredient families and answers favorable Omens.</p></article>
+          <article><b>The Seer · Control</b><p>Protects stable rewards and denies scarce ingredients before rivals can claim them.</p></article>
+          <article><b>The Hollow · Adaptive</b><p>Changes course when behind and exploits unusual ingredients or exposed weaknesses.</p></article>
+        </div>
+        <p class="rules-clarifier">Rivals never inspect the hidden order of any bag. They know public state and known bag contents, and may see candidates only by paying for a legal Scry. The Brewer's Ledger, purchase-impact preview, and causal round account are explanatory interfaces; they reveal calculations already permitted by the rules and do not change results.</p>
+      </div>
     </section>
 
     <section class="chapter optional-ritual" id="optional-rituals" data-title="Optional Rituals" data-optional="true">
@@ -319,6 +426,7 @@
 
     <section class="chapter" id="quick-reference" data-title="Quick Reference">
       <header class="chapter-title"><span>THE BREWER'S MARGIN</span><h2>Quick Reference</h2></header>
+      <figure class="chapter-plate chapter-plate--wide"><img src="./images/chapter-plates/quick-reference.webp" alt="" aria-hidden="true"></figure>
       <div class="reference-grid">
         <article><b>SAFE PRESSURE</b><strong>7</strong><p>Shatter at 8 or more.</p></article>
         <article><b>MARKET LIMIT</b><strong>2</strong><p>Different colors only.</p></article>
@@ -332,6 +440,11 @@
   </main>
 
   <footer><strong>HEXBREWERS OF ASHENVEIL</strong><p>The Complete Hexbrewer's Codex · Softcurse Systems</p></footer>
-  <script src="./script.js?v=final-cover"></script>
+  <script src="./i18n-ru.js"></script>
+  <script src="./i18n-ka.js"></script>
+  <script src="./i18n-stage-one.js?v=stage-one-rules"></script>
+  <script src="./recipe-guidance.js?v=exact-rulings"></script>
+  <script src="./i18n-recipe-guidance.js?v=multilingual-exact-rulings"></script>
+  <script src="./script.js?v=multilingual-exact-rulings"></script>
 </body>
 </html>
